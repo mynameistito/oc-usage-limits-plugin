@@ -97,9 +97,8 @@ const readZaiAuthPathKey = async (
 /**
  * Converts one raw ZAI limit entry into a normalized usage window.
  *
- * Token limits become the primary `tokens` quota window. Time limits become an
- * `MCP` count-based window and also expose the total prompt quota used to infer
- * the user's ZAI tier.
+ * Token limits become the primary `5h` quota window. Time limits are not shown
+ * but still expose the total prompt quota used to infer the user's ZAI tier.
  *
  * @param limit - Raw limit object from the ZAI quota API.
  * @returns The normalized window plus any prompt total discovered on the entry.
@@ -115,15 +114,13 @@ const zaiWindowFromLimit = (
     typeof limit.nextResetTime === "number"
       ? new Date(limit.nextResetTime)
       : null;
-  const current =
-    typeof limit.currentValue === "number" ? limit.currentValue : undefined;
   const total = typeof limit.usage === "number" ? limit.usage : undefined;
 
   if (limit.type === "TOKENS_LIMIT") {
     return {
       promptTotal: null,
       window: {
-        label: "tokens",
+        label: "5h",
         remainingPercent: usedPercent === null ? null : 100 - usedPercent,
         resetAfterSeconds: resetsAt
           ? Math.max(0, Math.ceil((resetsAt.getTime() - Date.now()) / 1000))
@@ -137,15 +134,7 @@ const zaiWindowFromLimit = (
   if (limit.type === "TIME_LIMIT") {
     return {
       promptTotal: total ?? null,
-      window: {
-        current,
-        label: "MCP",
-        remainingPercent: usedPercent === null ? null : 100 - usedPercent,
-        resetAfterSeconds: null,
-        resetsAt: null,
-        total,
-        usedPercent,
-      },
+      window: null,
     };
   }
 

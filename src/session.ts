@@ -94,7 +94,7 @@ export const usageForProvider = (
 
   if (usageID === "zai") {
     return (
-      data.windows.find((window) => window.label === "tokens") ??
+      data.windows.find((window) => window.label === "5h") ??
       data.windows[0] ??
       null
     );
