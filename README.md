@@ -1,4 +1,4 @@
-# oc-usage-limits
+# oc-usage-limits-plugin
 
 OpenCode TUI plugin that shows Codex and ZAI usage limits in the sidebar and prompt footer.
 
@@ -19,7 +19,7 @@ Add the TUI plugin to `~/.config/opencode/tui.json`:
 {
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
-    "oc-usage-limits"
+    "oc-usage-limits-plugin"
   ]
 }
 ```
@@ -111,7 +111,7 @@ bun install
 bun run typecheck
 ```
 
-The package exposes a TUI entrypoint at `oc-usage-limits/tui` for OpenCode's package plugin loader.
+The package exposes a TUI entrypoint at `oc-usage-limits-plugin/tui` for OpenCode's package plugin loader.
 
 ## Notes
 
