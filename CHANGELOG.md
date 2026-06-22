@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 1.0.3
+
+### Patch Changes
+
+- 4d0fc9c: - no changes, rebuilt as imuutibility was on.
+
 ## 1.0.2
 
 ### Patch Changes
