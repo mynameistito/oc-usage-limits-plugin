@@ -22,9 +22,24 @@ Add the TUI plugin to `~/.config/opencode/tui.json`:
 }
 ```
 
+Or install via the CLI, which writes the config for you:
+
+```powershell
+oc plugin oc-usage-limits-plugin -g
+```
+
+- `-g` / `--global` installs to `~/.config/opencode/tui.json`.
+- Without `-g`, installs locally to `<project>/.opencode/tui.json` (requires a git worktree).
+- `--force` replaces an existing pinned version.
+
 OpenCode TUI plugins are configured in `tui.json`, not `opencode.jsonc`.
 
 Restart OpenCode after changing TUI plugin config.
+
+### Troubleshooting
+
+- **Peer dependency warnings during install** are expected — `@opencode-ai/plugin`, `@opentui/solid`, and `solid-js` are provided by the OpenCode TUI runtime at load time.
+- **`No versions available`** right after a release means a supply-chain cooldown policy (e.g. `min-release-age`) is blocking the fresh version. Wait for the cooldown window to pass, or install a previously vetted version instead.
 
 ## Usage Config
 
