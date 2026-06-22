@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 1.0.1
+
+### Patch Changes
+
+- c8dafe8: Fix OpenCode TUI package peer dependency resolution
+
 ## 1.0.0
 
 ### Major Changes
