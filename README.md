@@ -38,33 +38,9 @@ Restart OpenCode after changing TUI plugin config.
 
 ### Troubleshooting
 
-**Peer dependency warnings during install**
-
-The package declares peers on `@opencode-ai/plugin`, `@opentui/solid`, and `solid-js`. These are provided by the OpenCode TUI runtime at load time, so warnings like `incorrect peer dependency` from `bun add -g` or npm are expected and harmless — the plugin still works.
-
-**`No versions available for oc-usage-limits-plugin`**
-
-A strict supply-chain cooldown policy blocks freshly published versions. This shows up with npm's `min-release-age` (in `~/.npmrc`) or Bun's `minimumReleaseAge` (in `~/bunfig.toml`). Right after a release, temporarily relax the gate, install, then restore it:
-
-```powershell
-# ~/.npmrc: set min-release-age=0
-oc plugin oc-usage-limits-plugin -g --force
-# ~/.npmrc: restore min-release-age
-```
-
-Note npm's `min-release-age` is counted in days; Bun's `minimumReleaseAge` uses a different unit. Don't confuse the two.
-
-**`unable to resolve dependency tree`**
-
-The plugin's `solid-js` peer range must match what `@opentui/solid` ships. Versions `>=1.0.1` are aligned; if you hit this on `1.0.0`, upgrade.
-
-**Duplicate plugin load / id collision**
-
-Don't list both a `file://` spec and the npm name in `plugin[]` — they dedupe separately and both resolve to the same plugin id, so the second load is rejected. Pick one.
-
-**`@latest` suffix**
-
-Not needed. A bare `oc-usage-limits-plugin` spec resolves to `latest` and refreshes when stale. Pin with `oc-usage-limits-plugin@1.0.1` to lock a version.
+- **Peer dependency warnings during install** are expected — `@opencode-ai/plugin`, `@opentui/solid`, and `solid-js` are provided by the OpenCode TUI runtime at load time.
+- **`No versions available`** right after a release means a supply-chain cooldown policy (e.g. `min-release-age`) is blocking the fresh version. Temporarily relax it, install, then restore.
+- **Don't list both a `file://` spec and the npm name** in `plugin[]` — they collide on plugin id. Pick one.
 
 ## Usage Config
 
