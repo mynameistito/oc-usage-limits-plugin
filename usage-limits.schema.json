@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenCode Usage Limits Plugin Config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "enabled": { "type": "boolean" },
+    "refreshIntervalSeconds": { "type": "number", "minimum": 15 },
+    "requestTimeoutMs": { "type": "number", "minimum": 1000 },
+    "showErrors": { "type": "boolean" },
+    "providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codex": { "$ref": "#/$defs/provider" },
+        "zai": { "$ref": "#/$defs/provider" }
+      }
+    }
+  },
+  "$defs": {
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "label": { "type": "string" },
+        "authPath": { "type": "string" },
+        "apiKey": { "type": "string" },
+        "authorizationScheme": { "enum": ["raw", "bearer"] },
+        "baseUrl": { "type": "string" }
+      }
+    }
+  }
+}

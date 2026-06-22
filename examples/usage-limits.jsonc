@@ -1,0 +1,20 @@
+{
+  "$schema": "../usage-limits.schema.json",
+  "enabled": true,
+  "refreshIntervalSeconds": 60,
+  "requestTimeoutMs": 10000,
+  "showErrors": true,
+  "providers": {
+    "codex": {
+      "enabled": true,
+      "label": "codex",
+      "authPath": "~/.codex/auth.json"
+    },
+    "zai": {
+      "enabled": true,
+      "label": "ZAI",
+      "apiKey": "{env:OC_ZAI_API_KEY}",
+      "authorizationScheme": "raw"
+    }
+  }
+}

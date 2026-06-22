@@ -1,0 +1,50 @@
+{
+  "name": "oc-usage-limits",
+  "version": "0.1.0",
+  "description": "OpenCode TUI plugin that shows Codex and ZAI usage limits in the sidebar and prompt footer.",
+  "type": "module",
+  "exports": {
+    "./tui": {
+      "types": "./src/tui.tsx",
+      "import": "./src/tui.tsx"
+    },
+    "./schema": "./usage-limits.schema.json"
+  },
+  "files": [
+    "src",
+    "examples",
+    "usage-limits.schema.json",
+    "README.md"
+  ],
+  "scripts": {
+    "changeset": "changeset",
+    "check": "bun run typecheck",
+    "release": "changeset publish",
+    "typecheck": "tsc --noEmit",
+    "version": "changeset version"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "tui",
+    "codex",
+    "zai",
+    "usage-limits"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.15.5",
+    "@opentui/core": ">=0.2.14",
+    "@opentui/solid": ">=0.2.14",
+    "solid-js": ">=1.9.0"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.0",
+    "@opencode-ai/plugin": "1.15.5",
+    "@opentui/core": "0.2.16",
+    "@opentui/solid": "0.2.16",
+    "@types/node": "^24.0.0",
+    "solid-js": "1.9.12",
+    "typescript": "^5.9.0"
+  }
+}
