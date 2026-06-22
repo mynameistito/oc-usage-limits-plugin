@@ -36,16 +36,16 @@ const duration = (seconds: number | null): string => {
  *
  * @param value - The percentage to render, or `null` when the provider did not
  *   report a percentage.
- * @returns A rounded percentage string, or `?` when usage is unknown.
+ * @returns A rounded usage string, or `? used` when usage is unknown.
  */
 const formatPercent = (value: number | null): string =>
-  value === null ? "?" : `${Math.round(value)}%`;
+  value === null ? "? used" : `${Math.round(value)}% used`;
 
 /**
  * Builds the primary line of text for a usage window in the sidebar panel.
  *
  * @param window - The provider usage window to summarize.
- * @returns A label and percentage pair such as `daily: 42%`.
+ * @returns A label and percentage pair such as `daily: 42% used`.
  */
 export const windowMainText = (window: UsageWindow): string =>
   `${window.label}: ${formatPercent(window.usedPercent)}`;
@@ -58,7 +58,7 @@ export const windowMainText = (window: UsageWindow): string =>
  * internal window label.
  *
  * @param window - The active provider usage window to summarize.
- * @returns A compact percentage label such as `5h: 42%`.
+ * @returns A compact percentage label such as `5h: 42% used`.
  */
 export const bottomWindowMainText = (window: UsageWindow): string =>
   `5h: ${formatPercent(window.usedPercent)}`;

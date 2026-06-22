@@ -19,19 +19,25 @@ const usageWindow = (overrides: Partial<UsageWindow> = {}): UsageWindow => ({
 
 describe("format helpers", () => {
   test("formats usage window main labels", () => {
-    expect(windowMainText(usageWindow())).toBe("5h: 42%");
+    expect(windowMainText(usageWindow())).toBe("5h: 42% used");
     expect(bottomWindowMainText(usageWindow({ label: "daily" }))).toBe(
-      "5h: 42%"
+      "5h: 42% used"
     );
   });
 
   test("uses a placeholder for unknown percentages", () => {
-    expect(windowMainText(usageWindow({ usedPercent: null }))).toBe("5h: ?");
+    expect(windowMainText(usageWindow({ usedPercent: null }))).toBe(
+      "5h: ? used"
+    );
   });
 
   test("rounds percentages to the nearest integer", () => {
-    expect(windowMainText(usageWindow({ usedPercent: 42.49 }))).toBe("5h: 42%");
-    expect(windowMainText(usageWindow({ usedPercent: 42.5 }))).toBe("5h: 43%");
+    expect(windowMainText(usageWindow({ usedPercent: 42.49 }))).toBe(
+      "5h: 42% used"
+    );
+    expect(windowMainText(usageWindow({ usedPercent: 42.5 }))).toBe(
+      "5h: 43% used"
+    );
   });
 
   test("formats reset durations across minute, hour, and day boundaries", () => {

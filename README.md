@@ -84,17 +84,17 @@ Sidebar rows look like:
 ```txt
 Usage Limits
 codex
-  5h: 42% resets 1h 2m
-  weekly: 12% resets 3d 4h
+  5h: 42% used resets 1h 2m
+  weekly: 12% used resets 3d 4h
 ZAI
-  tokens: 18% resets 2h
-  MCP: 6%
+  tokens: 18% used resets 2h
+  MCP: 6% used
 ```
 
 Prompt footer shows compact usage when the current session model belongs to a supported provider:
 
 ```txt
-5h: 42% resets 1h 2m
+5h: 42% used resets 1h 2m
 ```
 
 Provider mapping:
