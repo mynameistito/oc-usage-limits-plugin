@@ -7,15 +7,15 @@
   "providers": {
     "codex": {
       "enabled": true,
-      "label": "codex",
-      "authPath": "~/.codex/auth.json"
+      "label": "Codex",
+      "authPath": "~/.codex/auth.json",
     },
     "zai": {
       "enabled": true,
       "label": "ZAI",
       "authPath": "~/.local/share/opencode/auth.json",
       "apiKey": "{env:OC_ZAI_API_KEY}",
-      "authorizationScheme": "raw"
-    }
-  }
+      "authorizationScheme": "raw",
+    },
+  },
 }

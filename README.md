@@ -18,9 +18,7 @@ Add the TUI plugin to `~/.config/opencode/tui.json`:
 ```jsonc
 {
   "$schema": "https://opencode.ai/tui.json",
-  "plugin": [
-    "oc-usage-limits-plugin"
-  ]
+  "plugin": ["oc-usage-limits-plugin"],
 }
 ```
 
@@ -43,16 +41,16 @@ Create `~/.config/opencode/usage-limits.jsonc`:
     "codex": {
       "enabled": true,
       "label": "codex",
-      "authPath": "~/.codex/auth.json"
+      "authPath": "~/.codex/auth.json",
     },
     "zai": {
       "enabled": true,
       "label": "ZAI",
       "authPath": "~/.local/share/opencode/auth.json",
       "apiKey": "{env:OC_ZAI_API_KEY}",
-      "authorizationScheme": "raw"
-    }
-  }
+      "authorizationScheme": "raw",
+    },
+  },
 }
 ```
 

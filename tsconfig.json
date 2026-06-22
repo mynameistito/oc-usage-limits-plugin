@@ -14,7 +14,10 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "ESNext",
-    "types": ["node"]
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "types": ["node", "bun"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "__tests__/**/*.ts"]
 }

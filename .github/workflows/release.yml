@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Version or stage package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify npm supports OIDC trusted publishing
+        run: |
+          node --input-type=module <<'EOF'
+          import { execFileSync } from "node:child_process";
+
+          const version = execFileSync("npm", ["--version"], { encoding: "utf8" }).trim();
+          const [major = 0, minor = 0, patch = 0] = version.split(".").map(Number);
+          const supportsTrustedPublishing =
+            major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1)));
+
+          if (!supportsTrustedPublishing) {
+            throw new Error(`npm ${version} does not support OIDC trusted publishing. Use npm >= 11.5.1.`);
+          }
+          EOF
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Check
+        run: bun run check
+
+      - name: Create release pull request or prepare publish
+        id: changesets
+        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
+        with:
+          version: bunx changeset version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stage package on npm
+        id: package
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: |
+          package_name=$(node --print "require('./package.json').name")
+          package_version=$(node --print "require('./package.json').version")
+          package_spec="$package_name@$package_version"
+
+          echo "name=$package_name" >> "$GITHUB_OUTPUT"
+          echo "version=$package_version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$package_version" >> "$GITHUB_OUTPUT"
+
+          if npm view "$package_spec" version >/dev/null 2>&1; then
+            echo "$package_spec is already published"
+            exit 0
+          fi
+
+          npm stage publish . --access public
+          echo "staged=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        if: steps.package.outputs.staged == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+        run: |
+          node --input-type=module <<'EOF' > release-notes.md
+          import { readFile } from "node:fs/promises";
+
+          const fallback = `Release ${process.env.PACKAGE_NAME}@${process.env.PACKAGE_VERSION}`;
+
+          try {
+            const changelog = await readFile("CHANGELOG.md", "utf8");
+            const heading = `## ${process.env.PACKAGE_VERSION}`;
+            const start = changelog.indexOf(heading);
+            const bodyStart = start === -1 ? -1 : changelog.indexOf("\n", start) + 1;
+            const nextHeading = bodyStart === -1 ? -1 : changelog.indexOf("\n## ", bodyStart);
+            const notes = bodyStart === -1
+              ? fallback
+              : changelog.slice(bodyStart, nextHeading === -1 ? undefined : nextHeading).trim();
+
+            console.log(notes || fallback);
+          } catch {
+            console.log(fallback);
+          }
+          EOF
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "GitHub release $RELEASE_TAG already exists"
+            exit 0
+          fi
+
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$PACKAGE_NAME@$PACKAGE_VERSION" \
+            --notes-file release-notes.md
