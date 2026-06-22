@@ -40,7 +40,7 @@ Create `~/.config/opencode/usage-limits.jsonc`:
   "providers": {
     "codex": {
       "enabled": true,
-      "label": "codex",
+      "label": "Codex",
       "authPath": "~/.codex/auth.json",
     },
     "zai": {
