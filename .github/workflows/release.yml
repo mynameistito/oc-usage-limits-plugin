@@ -32,21 +32,24 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
+      - name: Upgrade npm
+        run: npm install --global npm@latest
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Verify npm supports OIDC trusted publishing
+      - name: Verify npm supports staged OIDC publishing
         run: |
           node --input-type=module <<'EOF'
           import { execFileSync } from "node:child_process";
 
           const version = execFileSync("npm", ["--version"], { encoding: "utf8" }).trim();
           const [major = 0, minor = 0, patch = 0] = version.split(".").map(Number);
-          const supportsTrustedPublishing =
-            major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1)));
+          const supportsStagedPublishing =
+            major > 11 || (major === 11 && (minor > 15 || (minor === 15 && patch >= 0)));
 
-          if (!supportsTrustedPublishing) {
-            throw new Error(`npm ${version} does not support OIDC trusted publishing. Use npm >= 11.5.1.`);
+          if (!supportsStagedPublishing) {
+            throw new Error(`npm ${version} does not support staged OIDC publishing. Use npm >= 11.15.0.`);
           }
           EOF
 
@@ -81,10 +84,10 @@ jobs:
             exit 0
           fi
 
-          npm publish . --access public --provenance
+          npm stage publish --access public --provenance
           echo "staged=true" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub release
+      - name: Create draft GitHub release
         if: steps.package.outputs.staged == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -121,4 +124,5 @@ jobs:
           gh release create "$RELEASE_TAG" \
             --target "$GITHUB_SHA" \
             --title "$PACKAGE_NAME@$PACKAGE_VERSION" \
+            --draft \
             --notes-file release-notes.md
