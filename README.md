@@ -24,17 +24,6 @@ Add the TUI plugin to `~/.config/opencode/tui.json`:
 }
 ```
 
-Until the package is published to npm, use the GitHub package spec instead:
-
-```jsonc
-{
-  "$schema": "https://opencode.ai/tui.json",
-  "plugin": [
-    "github:mynameistito/oc-usage-limits#feat/usage-limits-plugin"
-  ]
-}
-```
-
 OpenCode TUI plugins are configured in `tui.json`, not `opencode.jsonc`.
 
 Restart OpenCode after changing TUI plugin config.
