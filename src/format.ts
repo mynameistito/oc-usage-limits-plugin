@@ -53,15 +53,11 @@ export const windowMainText = (window: UsageWindow): string =>
 /**
  * Builds the compact prompt-footer text for the active provider's primary window.
  *
- * The prompt footer is intentionally fixed to the familiar `5h` label used by
- * OpenAI/Codex-style limits, even when the selected provider exposes a different
- * internal window label.
- *
  * @param window - The active provider usage window to summarize.
- * @returns A compact percentage label such as `5h: 42% used`.
+ * @returns A compact percentage label such as `daily: 42% used`.
  */
 export const bottomWindowMainText = (window: UsageWindow): string =>
-  `5h: ${formatPercent(window.usedPercent)}`;
+  `${window.label}: ${formatPercent(window.usedPercent)}`;
 
 /**
  * Formats the reset suffix for a usage window.

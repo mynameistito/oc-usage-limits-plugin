@@ -40,6 +40,11 @@ export const tui: TuiPlugin = async (api) => {
       return;
     }
 
+    const effectiveRefreshIntervalSeconds = Math.max(
+      15,
+      refreshIntervalSeconds
+    );
+
     const providers = getProviderConfigs(config);
     const previous = new Map(states().map((state) => [state.id, state]));
     setStates(
@@ -84,7 +89,7 @@ export const tui: TuiPlugin = async (api) => {
       })
     );
 
-    const staleAfterMs = config.refreshIntervalSeconds * 2 * 1000;
+    const staleAfterMs = effectiveRefreshIntervalSeconds * 2 * 1000;
     setStates(
       nextStates.map((state) => {
         if (state.status !== "ready") {
@@ -99,15 +104,26 @@ export const tui: TuiPlugin = async (api) => {
   };
 
   await refresh();
-  const timer = setInterval(
-    () => {
-      void refresh();
-    },
-    Math.max(15, refreshIntervalSeconds) * 1000
-  );
+  let disposed = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const scheduleRefresh = () => {
+    timer = setTimeout(
+      async () => {
+        await refresh();
+        if (!disposed) {
+          scheduleRefresh();
+        }
+      },
+      Math.max(15, refreshIntervalSeconds) * 1000
+    );
+  };
+  scheduleRefresh();
 
   api.lifecycle.onDispose(() => {
-    clearInterval(timer);
+    disposed = true;
+    if (timer) {
+      clearTimeout(timer);
+    }
     lastSuccess = new Map();
   });
 

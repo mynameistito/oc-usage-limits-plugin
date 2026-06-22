@@ -10,20 +10,21 @@
     "usage-limits",
     "zai"
   ],
-  "homepage": "https://github.com/mynameistito/oc-usage-limits#readme",
+  "homepage": "https://github.com/mynameistito/oc-usage-limits-plugin#readme",
   "bugs": {
-    "url": "https://github.com/mynameistito/oc-usage-limits/issues"
+    "url": "https://github.com/mynameistito/oc-usage-limits-plugin/issues"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mynameistito/oc-usage-limits.git"
+    "url": "https://github.com/mynameistito/oc-usage-limits-plugin.git"
   },
   "files": [
     "dist",
     "examples",
     "usage-limits.schema.json",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "type": "module",
   "exports": {
@@ -48,7 +49,7 @@
     "typecheck": "tsgo --noEmit",
     "version": "changeset version",
     "fix": "ultracite fix",
-    "prepare": "bun ./node_modules/lefthook/bin/index.js install"
+    "prepare": "lefthook install"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

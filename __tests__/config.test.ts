@@ -43,6 +43,18 @@ describe("configuration loading", () => {
     });
   });
 
+  test("falls back for invalid numeric config values", async () => {
+    readJsonFile.mockResolvedValueOnce({
+      refreshIntervalSeconds: "fast",
+      requestTimeoutMs: null,
+    });
+
+    await expect(loadConfig()).resolves.toMatchObject({
+      refreshIntervalSeconds: 60,
+      requestTimeoutMs: 10_000,
+    });
+  });
+
   test("loads OpenCode auth", async () => {
     readJsonFile.mockResolvedValueOnce({
       openai: { access: "token", accountId: "account" },

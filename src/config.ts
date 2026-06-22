@@ -20,6 +20,9 @@ const OPENCODE_AUTH_PATH = path.join(
   "auth.json"
 );
 
+const numericConfigValue = (value: unknown, fallback: number): number =>
+  typeof value === "number" && Number.isFinite(value) ? value : fallback;
+
 /**
  * Loads the usage-limits plugin configuration from OpenCode's config directory.
  *
@@ -43,9 +46,14 @@ export const loadConfig = async (): Promise<Required<UsageLimitsConfig>> => {
     return {
       enabled: config.enabled ?? fallback.enabled,
       providers: config.providers ?? fallback.providers,
-      refreshIntervalSeconds:
-        config.refreshIntervalSeconds ?? fallback.refreshIntervalSeconds,
-      requestTimeoutMs: config.requestTimeoutMs ?? fallback.requestTimeoutMs,
+      refreshIntervalSeconds: numericConfigValue(
+        config.refreshIntervalSeconds,
+        fallback.refreshIntervalSeconds
+      ),
+      requestTimeoutMs: numericConfigValue(
+        config.requestTimeoutMs,
+        fallback.requestTimeoutMs
+      ),
       showErrors: config.showErrors ?? fallback.showErrors,
     };
   } catch {

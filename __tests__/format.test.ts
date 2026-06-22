@@ -21,7 +21,7 @@ describe("format helpers", () => {
   test("formats usage window main labels", () => {
     expect(windowMainText(usageWindow())).toBe("5h: 42% used");
     expect(bottomWindowMainText(usageWindow({ label: "daily" }))).toBe(
-      "5h: 42% used"
+      "daily: 42% used"
     );
   });
 

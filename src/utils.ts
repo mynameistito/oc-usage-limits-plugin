@@ -23,6 +23,50 @@ export const clampPercent = (value: number): number =>
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+const stripTrailingCommas = (input: string): string => {
+  let output = "";
+  let inString = false;
+  let quote = "";
+  let escaped = false;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+
+    if (inString) {
+      output += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === quote) {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      inString = true;
+      quote = char;
+      output += char;
+      continue;
+    }
+
+    if (char === ",") {
+      let lookahead = index + 1;
+      while (/\s/u.test(input[lookahead] ?? "")) {
+        lookahead += 1;
+      }
+      if (input[lookahead] === "}" || input[lookahead] === "]") {
+        continue;
+      }
+    }
+
+    output += char;
+  }
+
+  return output;
+};
+
 /**
  * Removes JSONC comments and trailing commas while preserving string contents.
  *
@@ -85,7 +129,7 @@ const stripJsonComments = (input: string): string => {
     output += char;
   }
 
-  return output.replaceAll(/,\s*(?<closing>[}\]])/gu, "$<closing>");
+  return stripTrailingCommas(output);
 };
 
 /**

@@ -59,6 +59,17 @@ describe("provider configuration", () => {
       )
     ).resolves.toMatchObject({ id: "codex" });
   });
+
+  test("rejects unknown provider ids", () => {
+    expect(() =>
+      fetchProvider(
+        "unknown" as never,
+        { apiKey: "key", enabled: true },
+        {},
+        1000
+      )
+    ).toThrow("unknown provider: unknown");
+  });
 });
 
 describe("Codex provider", () => {

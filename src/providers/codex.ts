@@ -29,7 +29,7 @@ const readCodexAuthFile = async (
   const access = auth.tokens.access_token;
   const accountId = auth.tokens.account_id;
   if (typeof access !== "string" || typeof accountId !== "string") {
-    throw new TypeError("missing Codex auth");
+    throw new TypeError("invalid Codex credential types");
   }
 
   return { access, accountId };
@@ -97,7 +97,10 @@ export const fetchCodexUsage = async (
 ): Promise<ProviderUsage> => {
   const { openai } = openCodeAuth;
   const credentials =
-    typeof openai?.access === "string" && typeof openai.accountId === "string"
+    typeof openai?.access === "string" &&
+    openai.access.trim() !== "" &&
+    typeof openai.accountId === "string" &&
+    openai.accountId.trim() !== ""
       ? { access: openai.access, accountId: openai.accountId }
       : await readCodexAuthFile(config?.authPath);
 

@@ -6,6 +6,7 @@ export default defineConfig({
     neverBundle: [
       "@opencode-ai/plugin",
       "@opencode-ai/plugin/tui",
+      "@opentui/core",
       "@opentui/solid",
       "solid-js",
       "solid-js/web",

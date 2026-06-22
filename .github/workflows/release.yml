@@ -81,7 +81,7 @@ jobs:
             exit 0
           fi
 
-          npm stage publish . --access public
+          npm publish . --access public --provenance
           echo "staged=true" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release

@@ -57,6 +57,7 @@ describe("utility helpers", () => {
         String.raw`{
           // provider config
           "url": "https://example.com//kept",
+          "literal": ",}",
           "quoted": "value // kept",
           "nested": {
             "enabled": true,
@@ -69,6 +70,7 @@ describe("utility helpers", () => {
 
       await expect(readJsonFile(filePath)).resolves.toEqual({
         items: [1, 2],
+        literal: ",}",
         nested: { enabled: true },
         quoted: "value // kept",
         url: "https://example.com//kept",

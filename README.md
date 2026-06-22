@@ -32,7 +32,7 @@ Create `~/.config/opencode/usage-limits.jsonc`:
 
 ```jsonc
 {
-  "$schema": "C:/Users/mynameistito/code/oc-usage-limits/usage-limits.schema.json",
+  "$schema": "https://raw.githubusercontent.com/mynameistito/oc-usage-limits-plugin/main/usage-limits.schema.json",
   "enabled": true,
   "refreshIntervalSeconds": 60,
   "requestTimeoutMs": 10000,

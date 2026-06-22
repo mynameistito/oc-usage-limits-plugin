@@ -84,10 +84,42 @@ export const UsageLimitsPanel = (props: {
                 </For>
               </Show>
               <Show when={state.status === "error" && props.showErrors}>
-                <text fg={props.theme.error}>
-                  {" "}
-                  {state.status === "error" ? state.message : "error"}
-                </text>
+                <Show
+                  fallback={
+                    <text fg={props.theme.error}>
+                      {" "}
+                      {state.status === "error" ? state.message : "error"}
+                    </text>
+                  }
+                  when={state.status === "error" ? state.previous : undefined}
+                >
+                  {(previous) => (
+                    <>
+                      <For each={previous().windows}>
+                        {(window) => (
+                          <box flexDirection="row" gap={1}>
+                            <text
+                              flexShrink={0}
+                              fg={dotColor(window.usedPercent, props.theme)}
+                            >
+                              •
+                            </text>
+                            <text fg={props.theme.text}>
+                              {windowMainText(window)}
+                              <span style={{ fg: props.theme.textMuted }}>
+                                {windowResetText(window)}
+                              </span>
+                            </text>
+                          </box>
+                        )}
+                      </For>
+                      <text fg={props.theme.error}>
+                        {" "}
+                        {state.status === "error" ? state.message : "error"}
+                      </text>
+                    </>
+                  )}
+                </Show>
               </Show>
             </box>
           </Show>

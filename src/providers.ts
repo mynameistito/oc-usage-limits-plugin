@@ -29,8 +29,12 @@ export const fetchProvider = (
   if (id === "codex") {
     return fetchCodexUsage(config, openCodeAuth, timeoutMs);
   }
+  if (id === "zai") {
+    return fetchZaiCodingPlanUsage(config, openCodeAuth, timeoutMs);
+  }
 
-  return fetchZaiCodingPlanUsage(config, openCodeAuth, timeoutMs);
+  const exhaustive: never = id;
+  throw new Error(`unknown provider: ${exhaustive}`);
 };
 
 /**
