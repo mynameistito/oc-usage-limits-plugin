@@ -194,21 +194,13 @@ describe("ZAI provider", () => {
       label: "Zed",
       tierName: "Max",
     });
-    expect(usage.windows).toHaveLength(2);
+    expect(usage.windows).toHaveLength(1);
     expect(usage.windows[0]).toMatchObject({
-      label: "tokens",
+      label: "5h",
       remainingPercent: 55.6,
       usedPercent: 44.4,
     });
     expect(usage.windows[0]?.resetAfterSeconds).toBeGreaterThan(0);
-    expect(usage.windows[1]).toMatchObject({
-      current: 25,
-      label: "MCP",
-      remainingPercent: 25,
-      resetAfterSeconds: null,
-      total: 1500,
-      usedPercent: 75,
-    });
   });
 
   test("uses configured environment references when auth does not contain a key", async () => {

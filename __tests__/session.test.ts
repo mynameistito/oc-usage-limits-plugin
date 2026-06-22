@@ -60,13 +60,13 @@ describe("session helpers", () => {
           capturedAt: new Date(),
           id: "zai",
           label: "ZAI",
-          windows: [window("MCP"), window("tokens", 88)],
+          windows: [window("MCP"), window("5h", 88)],
         },
         status: "error",
       },
     ];
 
-    expect(usageForProvider(states, "zai-coding-plan")?.label).toBe("tokens");
+    expect(usageForProvider(states, "zai-coding-plan")?.label).toBe("5h");
     expect(usageForProvider(states, "zai-coding-plan")?.usedPercent).toBe(88);
   });
 
