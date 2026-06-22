@@ -11,7 +11,7 @@ OpenCode TUI plugin that shows Codex and ZAI usage limits in the sidebar and pro
 - Providers are toggled from `~/.config/opencode/usage-limits.jsonc`.
 - Reads OpenCode-connected credentials first, then falls back to explicit config/env credentials.
 
-## Install Locally
+## Install
 
 Add the TUI plugin to `~/.config/opencode/tui.json`:
 
@@ -19,7 +19,18 @@ Add the TUI plugin to `~/.config/opencode/tui.json`:
 {
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
-    "file:///C:/Users/mynameistito/code/oc-usage-limits/src/tui.tsx"
+    "oc-usage-limits"
+  ]
+}
+```
+
+Until the package is published to npm, use the GitHub package spec instead:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/tui.json",
+  "plugin": [
+    "github:mynameistito/oc-usage-limits#feat/usage-limits-plugin"
   ]
 }
 ```
@@ -48,6 +59,7 @@ Create `~/.config/opencode/usage-limits.jsonc`:
     "zai": {
       "enabled": true,
       "label": "ZAI",
+      "authPath": "~/.local/share/opencode/auth.json",
       "apiKey": "{env:OC_ZAI_API_KEY}",
       "authorizationScheme": "raw"
     }
@@ -73,9 +85,10 @@ Codex lookup order:
 
 ZAI lookup order:
 
-1. OpenCode auth at `~/.local/share/opencode/auth.json`, provider `zai-coding-plan`.
-2. OpenCode auth provider `zai`.
-3. Config `apiKey`, including `{env:OC_ZAI_API_KEY}` references.
+1. Config `authPath`, which can point at OpenCode auth JSON or a simple `{ "key": "..." }` / `{ "apiKey": "..." }` JSON file.
+2. OpenCode auth at `~/.local/share/opencode/auth.json`, provider `zai-coding-plan`.
+3. OpenCode auth provider `zai`.
+4. Config `apiKey`, including `{env:OC_ZAI_API_KEY}` references.
 
 ## Display
 
@@ -109,7 +122,7 @@ bun install
 bun run typecheck
 ```
 
-This package is source-first. `exports["./tui"]` points to `src/tui.tsx`, which OpenCode's Bun-based TUI plugin loader can load directly.
+The package exposes a TUI entrypoint at `oc-usage-limits/tui` for OpenCode's package plugin loader.
 
 ## Notes
 
