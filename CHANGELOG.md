@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 1.0.2
+
+### Patch Changes
+
+- 3d152aa: Stop showing ZAI MCP usage in the sidebar and footer and relabel the ZAI token quota window from tokens to 5h to match the rolling-window convention used by the Codex provider. The ZAI TIME_LIMIT entry is no longer surfaced as a usage window, but its prompt total is still used to infer the ZAI tier. Updates the session window lookup to prefer the 5h window and adjusts the provider and session tests accordingly.
+
 ## 1.0.1
 
 ### Patch Changes
