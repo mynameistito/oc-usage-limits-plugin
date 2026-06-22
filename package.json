@@ -17,7 +17,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mynameistito/oc-usage-limits-plugin.git"
+    "url": "git+https://github.com/mynameistito/oc-usage-limits-plugin.git"
   },
   "files": [
     "dist",
