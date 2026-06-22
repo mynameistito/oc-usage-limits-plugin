@@ -40,7 +40,6 @@ Restart OpenCode after changing TUI plugin config.
 
 - **Peer dependency warnings during install** are expected — `@opencode-ai/plugin`, `@opentui/solid`, and `solid-js` are provided by the OpenCode TUI runtime at load time.
 - **`No versions available`** right after a release means a supply-chain cooldown policy (e.g. `min-release-age`) is blocking the fresh version. Wait for the cooldown window to pass, or install a previously vetted version instead.
-- **Don't list both a `file://` spec and the npm name** in `plugin[]` — they collide on plugin id. Pick one.
 
 ## Usage Config
 
