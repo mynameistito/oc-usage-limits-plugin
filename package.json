@@ -1,0 +1,74 @@
+{
+  "name": "oc-usage-limits-plugin",
+  "version": "0.0.0",
+  "description": "OpenCode TUI plugin that shows Codex and ZAI usage limits in the sidebar and prompt footer.",
+  "keywords": [
+    "codex",
+    "opencode",
+    "opencode-plugin",
+    "tui",
+    "usage-limits",
+    "zai"
+  ],
+  "homepage": "https://github.com/mynameistito/oc-usage-limits-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/mynameistito/oc-usage-limits-plugin/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mynameistito/oc-usage-limits-plugin.git"
+  },
+  "files": [
+    "dist",
+    "examples",
+    "usage-limits.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "exports": {
+    "./tui": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./schema": "./usage-limits.schema.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "changeset": "changeset",
+    "changeset-add": "bun ./scripts/changeset-add.ts",
+    "build": "tsdown",
+    "check": "ultracite check",
+    "knip": "bunx knip@latest",
+    "prepack": "bun run build",
+    "release": "changeset publish",
+    "test": "bun test",
+    "typecheck": "tsgo --noEmit",
+    "version": "changeset version",
+    "fix": "ultracite fix",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.0",
+    "@opencode-ai/plugin": "1.17.9",
+    "@opentui/core": "0.4.1",
+    "@opentui/solid": "0.4.1",
+    "@types/bun": "^1.3.14",
+    "@types/node": "^26.0.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260622.1",
+    "lefthook": "^2.1.9",
+    "oxfmt": "^0.56.0",
+    "oxlint": "^1.71.0",
+    "solid-js": "1.9.13",
+    "tsdown": "^0.22.3",
+    "ultracite": "7.8.3"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.17.9",
+    "@opentui/solid": ">=0.4.1",
+    "solid-js": ">=1.9.13"
+  }
+}

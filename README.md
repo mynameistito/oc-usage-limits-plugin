@@ -18,9 +18,7 @@ Add the TUI plugin to `~/.config/opencode/tui.json`:
 ```jsonc
 {
   "$schema": "https://opencode.ai/tui.json",
-  "plugin": [
-    "oc-usage-limits-plugin"
-  ]
+  "plugin": ["oc-usage-limits-plugin"],
 }
 ```
 
@@ -34,7 +32,7 @@ Create `~/.config/opencode/usage-limits.jsonc`:
 
 ```jsonc
 {
-  "$schema": "C:/Users/mynameistito/code/oc-usage-limits/usage-limits.schema.json",
+  "$schema": "https://raw.githubusercontent.com/mynameistito/oc-usage-limits-plugin/main/usage-limits.schema.json",
   "enabled": true,
   "refreshIntervalSeconds": 60,
   "requestTimeoutMs": 10000,
@@ -42,17 +40,17 @@ Create `~/.config/opencode/usage-limits.jsonc`:
   "providers": {
     "codex": {
       "enabled": true,
-      "label": "codex",
-      "authPath": "~/.codex/auth.json"
+      "label": "Codex",
+      "authPath": "~/.codex/auth.json",
     },
     "zai": {
       "enabled": true,
       "label": "ZAI",
       "authPath": "~/.local/share/opencode/auth.json",
       "apiKey": "{env:OC_ZAI_API_KEY}",
-      "authorizationScheme": "raw"
-    }
-  }
+      "authorizationScheme": "raw",
+    },
+  },
 }
 ```
 
@@ -86,17 +84,17 @@ Sidebar rows look like:
 ```txt
 Usage Limits
 codex
-  5h: 42% resets 1h 2m
-  weekly: 12% resets 3d 4h
+  5h: 42% used resets 1h 2m
+  weekly: 12% used resets 3d 4h
 ZAI
-  tokens: 18% resets 2h
-  MCP: 6%
+  tokens: 18% used resets 2h
+  MCP: 6% used
 ```
 
 Prompt footer shows compact usage when the current session model belongs to a supported provider:
 
 ```txt
-5h: 42% resets 1h 2m
+5h: 42% used resets 1h 2m
 ```
 
 Provider mapping:
