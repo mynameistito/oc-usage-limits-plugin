@@ -138,7 +138,7 @@ export const fetchCodexUsage = async (
   return {
     capturedAt: new Date(),
     id: "codex",
-    label: config?.label ?? "codex",
+    label: config?.label ?? "Codex",
     metadata: { resetCredits },
     tierName:
       typeof payload.plan_type === "string" ? payload.plan_type : undefined,

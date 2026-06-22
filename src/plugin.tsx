@@ -49,7 +49,7 @@ export const tui: TuiPlugin = async (api) => {
     const previous = new Map(states().map((state) => [state.id, state]));
     setStates(
       providers.map(([id, provider]) => {
-        const label = provider.label ?? (id === "codex" ? "codex" : "ZAI");
+        const label = provider.label ?? (id === "codex" ? "Codex" : "ZAI");
         const current = previous.get(id);
         if (current?.status === "ready" || current?.status === "error") {
           return current;
@@ -61,7 +61,7 @@ export const tui: TuiPlugin = async (api) => {
     const openCodeAuth = await loadOpenCodeAuth();
     const nextStates = await Promise.all(
       providers.map(async ([id, provider]): Promise<ProviderState> => {
-        const label = provider.label ?? (id === "codex" ? "codex" : "ZAI");
+        const label = provider.label ?? (id === "codex" ? "Codex" : "ZAI");
         try {
           const data = await fetchProvider(
             id,

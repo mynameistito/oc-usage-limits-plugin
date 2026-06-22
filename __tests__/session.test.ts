@@ -37,11 +37,11 @@ describe("session helpers", () => {
         data: {
           capturedAt: new Date(),
           id: "codex",
-          label: "codex",
+          label: "Codex",
           windows: [window("daily"), window("5h", 75)],
         },
         id: "codex",
-        label: "codex",
+        label: "Codex",
         stale: false,
         status: "ready",
       },
@@ -74,7 +74,7 @@ describe("session helpers", () => {
     expect(usageForProvider([], "anthropic")).toBeNull();
     expect(
       usageForProvider(
-        [{ id: "codex", label: "codex", status: "loading" }],
+        [{ id: "codex", label: "Codex", status: "loading" }],
         "openai"
       )
     ).toBeNull();
