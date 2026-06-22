@@ -334,13 +334,50 @@ const inferZaiTier = (total: number | null): string | undefined => {
   return undefined
 }
 
+const keyFromZaiAuth = (value: unknown): string | undefined => {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  if (typeof value.key === "string") {
+    return value.key
+  }
+
+  if (typeof value.apiKey === "string") {
+    return value.apiKey
+  }
+
+  const zaiCodingPlan = value["zai-coding-plan"]
+  if (isRecord(zaiCodingPlan) && typeof zaiCodingPlan.key === "string") {
+    return zaiCodingPlan.key
+  }
+
+  if (isRecord(value.zai) && typeof value.zai.key === "string") {
+    return value.zai.key
+  }
+
+  return undefined
+}
+
+const readZaiAuthPathKey = async (authPath: string | undefined): Promise<string | undefined> => {
+  if (!authPath) {
+    return undefined
+  }
+
+  try {
+    return keyFromZaiAuth(await readJsonFile<unknown>(authPath))
+  } catch {
+    return undefined
+  }
+}
+
 const fetchZaiUsage = async (
   config: ProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
 ): Promise<ProviderUsage> => {
   const configuredKey = resolveEnvReference(config?.apiKey)
-  const apiKey = openCodeAuth["zai-coding-plan"]?.key ?? openCodeAuth.zai?.key ?? configuredKey
+  const apiKey = (await readZaiAuthPathKey(config?.authPath)) ?? keyFromZaiAuth(openCodeAuth) ?? configuredKey
   if (!apiKey) {
     throw new Error("missing ZAI key")
   }

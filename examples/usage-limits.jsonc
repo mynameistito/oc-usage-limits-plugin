@@ -13,6 +13,7 @@
     "zai": {
       "enabled": true,
       "label": "ZAI",
+      "authPath": "~/.local/share/opencode/auth.json",
       "apiKey": "{env:OC_ZAI_API_KEY}",
       "authorizationScheme": "raw"
     }

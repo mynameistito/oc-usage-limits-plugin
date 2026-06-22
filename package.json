@@ -3,6 +3,17 @@
   "version": "0.1.0",
   "description": "OpenCode TUI plugin that shows Codex and ZAI usage limits in the sidebar and prompt footer.",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mynameistito/oc-usage-limits.git"
+  },
+  "homepage": "https://github.com/mynameistito/oc-usage-limits#readme",
+  "bugs": {
+    "url": "https://github.com/mynameistito/oc-usage-limits/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     "./tui": {
       "types": "./src/tui.tsx",
