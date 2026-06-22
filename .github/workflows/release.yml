@@ -87,7 +87,7 @@ jobs:
           npm stage publish --access public --provenance
           echo "staged=true" >> "$GITHUB_OUTPUT"
 
-      - name: Create draft GitHub release
+      - name: Create GitHub release
         if: steps.package.outputs.staged == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -124,5 +124,4 @@ jobs:
           gh release create "$RELEASE_TAG" \
             --target "$GITHUB_SHA" \
             --title "$PACKAGE_NAME@$PACKAGE_VERSION" \
-            --draft \
             --notes-file release-notes.md
