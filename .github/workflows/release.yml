@@ -84,11 +84,29 @@ jobs:
             exit 0
           fi
 
-          npm stage publish --access public --provenance
-          echo "staged=true" >> "$GITHUB_OUTPUT"
+          set +e
+          stage_output=$(npm stage publish --access public --provenance 2>&1)
+          stage_status=$?
+          set -e
+
+          printf '%s\n' "$stage_output"
+
+          if [ "$stage_status" -ne 0 ]; then
+            case "$stage_output" in
+              *"Cannot stage previously published version"*|*"already staged"*)
+                echo "$package_spec is already published or staged"
+                exit 0
+                ;;
+              *)
+                exit "$stage_status"
+                ;;
+            esac
+          fi
+
+          echo "release=true" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
-        if: steps.package.outputs.staged == 'true'
+        if: steps.package.outputs.release == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PACKAGE_NAME: ${{ steps.package.outputs.name }}
