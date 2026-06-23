@@ -46,7 +46,7 @@
     "knip": "bunx knip@latest",
     "prepack": "bun run build",
     "release": "changeset publish",
-    "test": "bun test --preload @opentui/solid/preload",
+    "test": "bun test",
     "typecheck": "tsgo --noEmit",
     "version": "changeset version",
     "fix": "ultracite fix",
