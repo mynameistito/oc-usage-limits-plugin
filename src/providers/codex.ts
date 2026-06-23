@@ -16,13 +16,22 @@ const DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api";
  * Loopback hosts are the only case where plain `http` is permitted, so local
  * test servers do not require a TLS certificate.
  *
- * @param hostname - Hostname from a parsed URL, without port or brackets.
+ * @param hostname - Hostname from a parsed URL (no port; IPv6 literals keep
+ *   their surrounding brackets per the WHATWG URL standard).
  * @returns `true` when the host is a loopback address.
  */
-const isLoopbackHost = (hostname: string): boolean =>
-  hostname === "localhost" ||
-  hostname === "::1" ||
-  /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/u.test(hostname);
+const isLoopbackHost = (hostname: string): boolean => {
+  const host =
+    hostname.startsWith("[") && hostname.endsWith("]")
+      ? hostname.slice(1, -1)
+      : hostname;
+
+  return (
+    host === "localhost" ||
+    host === "::1" ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/u.test(host)
+  );
+};
 
 /**
  * Resolves and validates the Codex base URL before it reaches a request.

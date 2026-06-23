@@ -150,6 +150,7 @@ describe("Codex provider", () => {
   test.each([
     ["http://localhost:3000/", "http://localhost:3000/wham/usage"],
     ["http://127.0.0.1:4321", "http://127.0.0.1:4321/wham/usage"],
+    ["http://[::1]:3000", "http://[::1]:3000/wham/usage"],
     [
       "https://chatgpt.com/backend-api/",
       "https://chatgpt.com/backend-api/wham/usage",
