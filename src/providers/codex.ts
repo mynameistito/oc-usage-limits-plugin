@@ -11,6 +11,47 @@ import { clampPercent, fetchJson, isRecord, readJsonFile } from "@/utils.ts";
 const DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api";
 
 /**
+ * Determines whether a hostname refers to the local machine.
+ *
+ * Loopback hosts are the only case where plain `http` is permitted, so local
+ * test servers do not require a TLS certificate.
+ *
+ * @param hostname - Hostname from a parsed URL, without port or brackets.
+ * @returns `true` when the host is a loopback address.
+ */
+const isLoopbackHost = (hostname: string): boolean =>
+  hostname === "localhost" ||
+  hostname === "::1" ||
+  /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/u.test(hostname);
+
+/**
+ * Resolves and validates the Codex base URL before it reaches a request.
+ *
+ * Only `https` URLs are allowed; `http` is permitted solely for loopback hosts.
+ * Anything that fails to parse, or uses another scheme, falls back to the
+ * default backend so the access token is never sent to an unexpected host. This
+ * also keeps file-derived configuration from flowing unchecked into the request
+ * URL.
+ *
+ * @param baseUrl - Configured base URL, or `undefined` for the default.
+ * @returns A safe, absolute URL string with no trailing slash.
+ */
+const resolveCodexBaseUrl = (baseUrl: string | undefined): string => {
+  const fallback = DEFAULT_CODEX_BASE_URL.replace(/\/$/u, "");
+  let parsed: URL;
+  try {
+    parsed = new URL((baseUrl ?? DEFAULT_CODEX_BASE_URL).trim());
+  } catch {
+    return fallback;
+  }
+
+  const allowed =
+    parsed.protocol === "https:" ||
+    (isLoopbackHost(parsed.hostname) && parsed.protocol === "http:");
+  return allowed ? parsed.toString().replace(/\/$/u, "") : fallback;
+};
+
+/**
  * Reads Codex credentials from the Codex CLI auth file.
  *
  * @param authPath - Optional path override. Defaults to `~/.codex/auth.json`.
@@ -104,9 +145,9 @@ export const fetchCodexUsage = async (
       ? { access: openai.access, accountId: openai.accountId }
       : await readCodexAuthFile(config?.authPath);
 
-  const baseUrl = config?.baseUrl ?? DEFAULT_CODEX_BASE_URL;
+  const baseUrl = resolveCodexBaseUrl(config?.baseUrl);
   const payload = await fetchJson(
-    `${baseUrl.replace(/\/$/u, "")}/wham/usage`,
+    `${baseUrl}/wham/usage`,
     {
       headers: {
         Authorization: `Bearer ${credentials.access}`,

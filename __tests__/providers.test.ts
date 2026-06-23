@@ -146,6 +146,44 @@ describe("Codex provider", () => {
       )
     ).rejects.toThrow("invalid Codex usage");
   });
+
+  test.each([
+    ["http://localhost:3000/", "http://localhost:3000/wham/usage"],
+    ["http://127.0.0.1:4321", "http://127.0.0.1:4321/wham/usage"],
+    [
+      "https://chatgpt.com/backend-api/",
+      "https://chatgpt.com/backend-api/wham/usage",
+    ],
+  ] as const)("allows safe base URL %s", async (baseUrl, expectedUrl) => {
+    const fetchMock = installFetchMock(Response.json({ rate_limit: {} }));
+
+    await fetchCodexUsage(
+      { baseUrl },
+      { openai: { access: "token", accountId: "account" } },
+      1000
+    );
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(expectedUrl);
+  });
+
+  test.each([
+    ["http://evil.example", "https://chatgpt.com/backend-api/wham/usage"],
+    ["ftp://example.com", "https://chatgpt.com/backend-api/wham/usage"],
+    ["not a url", "https://chatgpt.com/backend-api/wham/usage"],
+  ] as const)(
+    "falls back from unsafe base URL %s",
+    async (baseUrl, expectedUrl) => {
+      const fetchMock = installFetchMock(Response.json({ rate_limit: {} }));
+
+      await fetchCodexUsage(
+        { baseUrl },
+        { openai: { access: "token", accountId: "account" } },
+        1000
+      );
+
+      expect(fetchMock.mock.calls[0]?.[0]).toBe(expectedUrl);
+    }
+  );
 });
 
 describe("ZAI provider", () => {
