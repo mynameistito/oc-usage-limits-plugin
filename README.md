@@ -119,7 +119,7 @@ Provider mapping:
 
 ## Development
 
-```powershell
+```bash
 bun install
 bun run typecheck
 ```
