@@ -74,6 +74,6 @@
   "overrides": {
     "@babel/core": "7.29.7",
     "js-yaml": "4.2.0",
-    "read-yaml-file": "3.0.0"
+    "read-yaml-file": "2.1.0"
   }
 }
