@@ -10,12 +10,16 @@ body:
       description: What happened?
     validations:
       required: true
-  - type: input
+  - type: dropdown
     id: providers
     attributes:
       label: Providers
       description: Which providers are affected?
-      placeholder: Codex, ZAI
+      options:
+        - Codex
+        - ZAI
+        - Both
+        - N/A
     validations:
       required: true
   - type: input
@@ -68,7 +72,7 @@ body:
     id: config
     attributes:
       label: Config
-      description: Redact tokens, secrets, and personal data.
+      description: Relevant `usage-limits.jsonc`; redact tokens, secrets, and personal data.
       render: yaml
     validations:
       required: false

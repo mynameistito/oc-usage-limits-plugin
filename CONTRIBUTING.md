@@ -2,6 +2,8 @@
 
 Thanks for helping with `oc-usage-limits-plugin`.
 
+AI-assisted contributions are welcome. Keep generated issue and PR text concise, accurate, and human-readable.
+
 ## Report Bugs Or Features
 
 - Search existing issues first.

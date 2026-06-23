@@ -2,16 +2,18 @@
 
 ## Reporting
 
-Please report security issues privately via GitHub vulnerability reporting, or email `mynameistito@users.noreply.github.com`.
+Please report security issues privately through GitHub vulnerability reporting, or email `mynameistito@users.noreply.github.com`.
+
+Include a short description, reproduction steps, affected versions, and impact. Do not open a public issue for vulnerabilities.
 
 We aim to respond within 72 hours.
 
 ## Supported Versions
 
 | Version | Supported |
-| --- | --- |
-| Latest release | Yes |
-| Older releases | No |
+| ------- | --------- |
+| 1.x     | Yes       |
+| < 1.0   | No        |
 
 ## Scope
 
