@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 1.0.6
+
+### Patch Changes
+
+- b9c1707: Validate the Codex base URL so credentials are only sent to https (or loopback http) endpoints, falling back to the default backend for anything else.
+
 ## 1.0.5
 
 ### Patch Changes
