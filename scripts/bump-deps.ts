@@ -19,6 +19,7 @@ const OPENCODE_ROOT_PACKAGE_URL =
   "https://raw.githubusercontent.com/anomalyco/opencode/dev/package.json";
 const OPENCODE_PLUGIN_PACKAGE_URL =
   "https://raw.githubusercontent.com/anomalyco/opencode/dev/packages/plugin/package.json";
+const FETCH_TIMEOUT_MS = 10_000;
 
 const dependencyBlocks = [
   "dependencies",
@@ -103,7 +104,22 @@ const writePackageJson = (
  * @returns Parsed package metadata.
  */
 const fetchPackageJson = async (url: string) => {
-  const response = await fetch(url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(url, { signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`Timed out fetching ${url}`, { cause: error });
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to fetch ${url}: ${response.status}`);
@@ -270,8 +286,14 @@ if (!opencodePluginPackageJson.version) {
   throw new Error("OpenCode plugin package is missing a version");
 }
 
+const opencodeCatalog = opencodeRootPackageJson.workspaces?.catalog;
+
+if (!opencodeCatalog) {
+  throw new Error("OpenCode root package is missing workspaces.catalog");
+}
+
 const opencodeVersions = {
-  ...opencodeRootPackageJson.workspaces?.catalog,
+  ...opencodeCatalog,
   "@opencode-ai/plugin": opencodePluginPackageJson.version,
 };
 
