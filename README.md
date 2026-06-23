@@ -24,7 +24,7 @@ Add the TUI plugin to `~/.config/opencode/tui.json`:
 
 Or install via the CLI, which writes the config for you:
 
-```powershell
+```bash
 oc plugin oc-usage-limits-plugin -g
 ```
 
@@ -119,7 +119,7 @@ Provider mapping:
 
 ## Development
 
-```powershell
+```bash
 bun install
 bun run typecheck
 ```

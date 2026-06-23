@@ -14,14 +14,14 @@ AI-assisted contributions are welcome. Keep generated issue and PR text concise,
 
 ## Setup
 
-```powershell
+```bash
 bun install
 bun run typecheck
 ```
 
 Useful commands:
 
-```powershell
+```bash
 bun run check
 bun run fix
 bun test
@@ -48,7 +48,7 @@ bun run knip
 
 Use a changeset for user-facing changes:
 
-```powershell
+```bash
 bun run changeset-add patch "short summary"
 ```
 
