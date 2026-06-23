@@ -1,5 +1,13 @@
 # oc-usage-limits-plugin
 
+## 1.0.4
+
+### Patch Changes
+
+- e6b40a7: Enforce usage config minimum values at runtime
+- ea4b2cb: Add dependency overrides so Bun audit resolves transitive vulnerabilities.
+- 65fbcfd: Keep cached usage visible when provider refresh errors are hidden
+
 ## 1.0.3
 
 ### Patch Changes
