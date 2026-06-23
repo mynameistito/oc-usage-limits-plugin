@@ -1,0 +1,74 @@
+name: Bug report
+description: Report a problem in the plugin.
+labels: [bug]
+title: "[Bug]: "
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened?
+    validations:
+      required: true
+  - type: input
+    id: providers
+    attributes:
+      label: Providers
+      description: Which providers are affected?
+      placeholder: Codex, ZAI
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: Required.
+      placeholder: 1.0.3
+    validations:
+      required: true
+  - type: input
+    id: opencode-version
+    attributes:
+      label: OpenCode version
+      description: Which OpenCode build are you using?
+      placeholder: 1.x.x
+    validations:
+      required: false
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      description: Your operating system.
+      placeholder: Windows 11
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Required.
+      placeholder: 1. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Config
+      description: Redact tokens, secrets, and personal data.
+      render: yaml
+    validations:
+      required: false

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub issues
+    url: https://github.com/mynameistito/oc-usage-limits-plugin/issues
+    about: Use this page to report bugs or request features.
