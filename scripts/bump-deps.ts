@@ -4,13 +4,12 @@
  *
  * This script intentionally uses two dependency lanes:
  *
- * 1. General dependencies are bumped with `bun update --latest`.
+ * 1. General dependencies are bumped with `bun update --latest <package...>`.
  * 2. Dependencies also managed by `anomalyco/opencode` are then pinned back to
  *    the exact versions from OpenCode's `dev` branch catalog/package manifests.
  *
- * Peer dependencies for OpenCode-aligned packages are written as compatible
- * semver ranges, such as `^1.17.9`, so consumers do not get misleading
- * open-ended `>=` peer ranges.
+ * Peer dependencies for OpenCode-aligned packages are written as exact versions
+ * so consumers see the same host/runtime contract this package was tested with.
  */
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -28,6 +27,13 @@ const dependencyBlocks = [
 ] as const;
 
 const peerDependencyBlocks = ["peerDependencies"] as const;
+
+const opencodeAlignedPackages = new Set([
+  "@opencode-ai/plugin",
+  "@opentui/core",
+  "@opentui/solid",
+  "solid-js",
+]);
 
 type DependencyBlock = (typeof dependencyBlocks)[number];
 type PeerDependencyBlock = (typeof peerDependencyBlocks)[number];
@@ -128,27 +134,45 @@ const run = async (command: string[], cwd: string) => {
   }
 };
 
-const exactVersionPattern = /^\d+\.\d+\.\d+(?:[-+].*)?$/u;
+/**
+ * Lists direct dependencies that are safe to update from the public registry.
+ *
+ * OpenCode-aligned packages are skipped because their versions come from the
+ * OpenCode source manifests, not from latest npm resolution.
+ *
+ * @param packageJson - Local package metadata to inspect.
+ * @returns Direct dependency names that can be passed to `bun update --latest`.
+ */
+const getPackagesToUpdate = (packageJson: PackageJson) => {
+  const packages = new Set<string>();
+
+  for (const block of dependencyBlocks) {
+    const dependencies = packageJson[block];
+
+    if (!dependencies) {
+      continue;
+    }
+
+    for (const name of Object.keys(dependencies)) {
+      if (!opencodeAlignedPackages.has(name)) {
+        packages.add(name);
+      }
+    }
+  }
+
+  return [...packages].toSorted();
+};
 
 /**
- * Converts an exact dependency version into an appropriate peer range.
+ * Converts an OpenCode-managed package version into a peer dependency version.
  *
- * Non-registry protocols are preserved because they are not valid semver input.
+ * This intentionally preserves exact versions rather than broadening them to
+ * ranges, because these packages are supplied by the OpenCode host/runtime.
  *
  * @param version - Dependency version from the OpenCode source manifests.
- * @returns A compatible peer range when possible, otherwise the original value.
+ * @returns The exact version to write into peer dependencies.
  */
-const toPeerRange = (version: string) => {
-  if (version.startsWith("workspace:") || version.startsWith("catalog:")) {
-    return version;
-  }
-
-  if (exactVersionPattern.test(version)) {
-    return `^${version}`;
-  }
-
-  return version;
-};
+const toPeerVersion = (version: string) => version;
 
 /**
  * Synchronizes a regular dependency block with OpenCode-managed versions.
@@ -174,6 +198,10 @@ const syncBlock = (
   const changed: string[] = [];
 
   for (const [name, version] of Object.entries(opencodeVersions)) {
+    if (!opencodeAlignedPackages.has(name)) {
+      continue;
+    }
+
     if (dependencies[name] && dependencies[name] !== version) {
       dependencies[name] = version;
       changed.push(`${block}.${name}=${version}`);
@@ -207,11 +235,15 @@ const syncPeerBlock = (
   const changed: string[] = [];
 
   for (const [name, version] of Object.entries(opencodeVersions)) {
-    const peerRange = toPeerRange(version);
+    if (!opencodeAlignedPackages.has(name)) {
+      continue;
+    }
 
-    if (dependencies[name] && dependencies[name] !== peerRange) {
-      dependencies[name] = peerRange;
-      changed.push(`${block}.${name}=${peerRange}`);
+    const peerVersion = toPeerVersion(version);
+
+    if (dependencies[name] && dependencies[name] !== peerVersion) {
+      dependencies[name] = peerVersion;
+      changed.push(`${block}.${name}=${peerVersion}`);
     }
   }
 
@@ -220,8 +252,14 @@ const syncPeerBlock = (
 
 const projectRoot = findProjectRoot(import.meta.dirname);
 const packageJsonPath = path.join(projectRoot, "package.json");
+const initialPackageJson = readPackageJson(packageJsonPath);
+const packagesToUpdate = getPackagesToUpdate(initialPackageJson);
 
-await run(["bun", "update", "--latest"], projectRoot);
+if (packagesToUpdate.length > 0) {
+  await run(["bun", "update", "--latest", ...packagesToUpdate], projectRoot);
+} else {
+  console.log("No non-OpenCode dependencies to update.");
+}
 
 const [opencodeRootPackageJson, opencodePluginPackageJson] = await Promise.all([
   fetchPackageJson(OPENCODE_ROOT_PACKAGE_URL),
