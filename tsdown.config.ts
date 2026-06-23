@@ -8,6 +8,7 @@ export default defineConfig({
       "@opencode-ai/plugin/tui",
       "@opentui/core",
       "@opentui/solid",
+      "@opentui/solid/jsx-runtime",
       "solid-js",
       "solid-js/web",
     ],
