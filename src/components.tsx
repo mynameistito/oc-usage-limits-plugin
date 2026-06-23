@@ -30,6 +30,31 @@ const dotColor = (usedPercent: number | null, theme: TuiThemeCurrent): RGBA => {
   return theme.success;
 };
 
+const UsageWindowRows = (props: {
+  theme: TuiThemeCurrent;
+  windows: UsageWindow[];
+}) => (
+  <For each={props.windows}>
+    {(window) => (
+      <box
+        flexDirection="row"
+        gap={1}
+        children={[
+          <text flexShrink={0} fg={dotColor(window.usedPercent, props.theme)}>
+            •
+          </text>,
+          <text fg={props.theme.text}>
+            {windowMainText(window)}
+            <span style={{ fg: props.theme.textMuted }}>
+              {windowResetText(window)}
+            </span>
+          </text>,
+        ]}
+      />
+    )}
+  </For>
+);
+
 /**
  * Renders the sidebar usage-limits panel.
  *
@@ -43,91 +68,70 @@ export const UsageLimitsPanel = (props: {
   states: ProviderState[];
   showErrors: boolean;
   theme: TuiThemeCurrent;
-}) => (
-  <Show when={props.states.some((state) => state.status !== "disabled")}>
-    <box>
-      <text fg={props.theme.text}>
-        <b>Usage Limits</b>
-      </text>
-      <For each={props.states}>
-        {(state) => (
-          <Show when={state.status !== "disabled"}>
-            <box>
+}) => {
+  if (!props.states.some((state) => state.status !== "disabled")) {
+    return null;
+  }
+
+  return (
+    <box
+      children={[
+        <text fg={props.theme.text}>
+          <b>Usage Limits</b>
+        </text>,
+        <For each={props.states}>
+          {(state) => {
+            if (state.status === "disabled") {
+              return null;
+            }
+
+            const isStale =
+              (state.status === "ready" && state.stale) ||
+              (state.status === "error" && state.previous !== undefined);
+            const children = [
               <text fg={props.theme.text}>
                 {state.label}
-                <Show when={state.status === "ready" && state.stale}>
-                  {" "}
-                  stale
-                </Show>
-              </text>
-              <Show when={state.status === "loading"}>
+                {isStale ? " stale" : ""}
+              </text>,
+            ];
+
+            if (state.status === "loading") {
+              children.push(
                 <text fg={props.theme.textMuted}> loading...</text>
-              </Show>
-              <Show when={state.status === "ready"}>
-                <For each={state.status === "ready" ? state.data.windows : []}>
-                  {(window) => (
-                    <box flexDirection="row" gap={1}>
-                      <text
-                        flexShrink={0}
-                        fg={dotColor(window.usedPercent, props.theme)}
-                      >
-                        •
-                      </text>
-                      <text fg={props.theme.text}>
-                        {windowMainText(window)}
-                        <span style={{ fg: props.theme.textMuted }}>
-                          {windowResetText(window)}
-                        </span>
-                      </text>
-                    </box>
-                  )}
-                </For>
-              </Show>
-              <Show when={state.status === "error" && props.showErrors}>
-                <Show
-                  fallback={
-                    <text fg={props.theme.error}>
-                      {" "}
-                      {state.status === "error" ? state.message : "error"}
-                    </text>
-                  }
-                  when={state.status === "error" ? state.previous : undefined}
-                >
-                  {(previous) => (
-                    <>
-                      <For each={previous().windows}>
-                        {(window) => (
-                          <box flexDirection="row" gap={1}>
-                            <text
-                              flexShrink={0}
-                              fg={dotColor(window.usedPercent, props.theme)}
-                            >
-                              •
-                            </text>
-                            <text fg={props.theme.text}>
-                              {windowMainText(window)}
-                              <span style={{ fg: props.theme.textMuted }}>
-                                {windowResetText(window)}
-                              </span>
-                            </text>
-                          </box>
-                        )}
-                      </For>
-                      <text fg={props.theme.error}>
-                        {" "}
-                        {state.status === "error" ? state.message : "error"}
-                      </text>
-                    </>
-                  )}
-                </Show>
-              </Show>
-            </box>
-          </Show>
-        )}
-      </For>
-    </box>
-  </Show>
-);
+              );
+            }
+
+            if (state.status === "ready") {
+              children.push(
+                <UsageWindowRows
+                  theme={props.theme}
+                  windows={state.data.windows}
+                />
+              );
+            }
+
+            if (state.status === "error" && state.previous) {
+              children.push(
+                <UsageWindowRows
+                  theme={props.theme}
+                  windows={state.previous.windows}
+                />
+              );
+            }
+
+            if (state.status === "error" && props.showErrors) {
+              children.push(
+                <text fg={props.theme.error}> {state.message}</text>
+              );
+            }
+
+            return <box children={children} />;
+          }}
+        </For>,
+      ]}
+    />
+  );
+};
 
 /**
  * Renders the compact active-provider usage indicator in the prompt footer.
