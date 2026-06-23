@@ -55,6 +55,30 @@ describe("configuration loading", () => {
     });
   });
 
+  test("falls back for below-minimum numeric config values", async () => {
+    readJsonFile.mockResolvedValueOnce({
+      refreshIntervalSeconds: 14,
+      requestTimeoutMs: 999,
+    });
+
+    await expect(loadConfig()).resolves.toMatchObject({
+      refreshIntervalSeconds: 60,
+      requestTimeoutMs: 10_000,
+    });
+  });
+
+  test("accepts minimum numeric config values", async () => {
+    readJsonFile.mockResolvedValueOnce({
+      refreshIntervalSeconds: 15,
+      requestTimeoutMs: 1000,
+    });
+
+    await expect(loadConfig()).resolves.toMatchObject({
+      refreshIntervalSeconds: 15,
+      requestTimeoutMs: 1000,
+    });
+  });
+
   test("loads OpenCode auth", async () => {
     readJsonFile.mockResolvedValueOnce({
       openai: { access: "token", accountId: "account" },
