@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 1.0.5
+
+### Patch Changes
+
+- 626e0e3: Add OpenCode-aligned dependency bump script and aligned packages with opencode.
+
 ## 1.0.4
 
 ### Patch Changes
