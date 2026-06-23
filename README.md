@@ -25,7 +25,7 @@ Add the TUI plugin to `~/.config/opencode/tui.json`:
 Or install via the CLI, which writes the config for you:
 
 ```bash
-oc plugin oc-usage-limits-plugin -g
+opencode plugin oc-usage-limits-plugin -g
 ```
 
 - `-g` / `--global` installs to `~/.config/opencode/tui.json`.
