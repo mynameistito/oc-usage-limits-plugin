@@ -19,5 +19,10 @@
     },
     "types": ["node", "bun"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "__tests__/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "__tests__/**/*.ts",
+    "__tests__/**/*.tsx"
+  ]
 }
