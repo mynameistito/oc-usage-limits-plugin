@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 1.0.8
+
+### Patch Changes
+
+- 6df9a1a: Declare @opentui/core, @opentui/solid, and solid-js as required peer dependencies so OpenCode installs them alongside the plugin at runtime.
+
 ## 1.0.7
 
 ### Patch Changes
