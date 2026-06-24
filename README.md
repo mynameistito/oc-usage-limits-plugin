@@ -9,7 +9,7 @@ OpenCode TUI plugin that shows Codex, ZAI, Synthetic, and MiniMax Token Plan usa
 - Shows current ZAI quota windows from ZAI Coding Plan auth.
 - Shows current Synthetic rolling 5-hour and weekly windows.
 - Shows current MiniMax Token Plan rolling 5-hour and weekly windows.
-- Adds compact prompt-footer usage when the current session uses an OpenAI or ZAI Coding Plan model.
+- Adds compact prompt-footer usage when the current session uses an OpenAI, ZAI Coding Plan, or MiniMax Token Plan model.
 - Providers are toggled from `~/.config/opencode/usage-limits.jsonc`.
 - Reads OpenCode-connected credentials first, then falls back to explicit config/env credentials.
 
@@ -144,6 +144,11 @@ codex
 ZAI
   tokens: 18% used resets 2h
   MCP: 6% used
+Synthetic
+  5h: 0% used resets 11m
+  weekly: 11% used resets 7m
+MiniMax
+  5h: 10% used resets 2h 56m
 ```
 
 Prompt footer shows compact usage when the current session model belongs to a supported provider:
@@ -163,6 +168,9 @@ Provider mapping:
 ```bash
 bun install
 bun run typecheck
+bun run test
+bun run check
+bun run build
 ```
 
 The package exposes a TUI entrypoint at `oc-usage-limits-plugin/tui` for OpenCode's package plugin loader.
