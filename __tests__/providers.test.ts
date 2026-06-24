@@ -356,6 +356,24 @@ describe("Synthetic provider", () => {
     expect(usage.windows[1]?.resetsAt?.toISOString()).toBe(nextRegenAt);
   });
 
+  test("accepts apiKey under the synthetic block in OpenCode auth", async () => {
+    const fetchMock = installFetchMock(
+      Response.json({ subscription: { limit: 1, requests: 0 } })
+    );
+
+    const usage = await fetchSyntheticUsage(
+      {},
+      { synthetic: { apiKey: "syn-apikey-test" } },
+      1000
+    );
+
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      headers: { Authorization: "Bearer syn-apikey-test" },
+    });
+    expect(usage.id).toBe("synthetic");
+    expect(usage.windows).toHaveLength(1);
+  });
+
   test("falls back to the legacy subscription bucket when v3 fields are missing", async () => {
     const renewsAt = new Date(Date.now() + 45 * 60 * 1000).toISOString();
     installFetchMock(

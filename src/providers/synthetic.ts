@@ -86,8 +86,13 @@ const keyFromSyntheticAuth = (value: unknown): string | undefined => {
     return value.apiKey;
   }
 
-  if (isRecord(value.synthetic) && typeof value.synthetic.key === "string") {
-    return value.synthetic.key;
+  if (isRecord(value.synthetic)) {
+    if (typeof value.synthetic.key === "string") {
+      return value.synthetic.key;
+    }
+    if (typeof value.synthetic.apiKey === "string") {
+      return value.synthetic.apiKey;
+    }
   }
 
   return undefined;
