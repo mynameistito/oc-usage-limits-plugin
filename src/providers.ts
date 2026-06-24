@@ -1,4 +1,6 @@
 import { fetchCodexUsage } from "@/providers/codex.ts";
+import { fetchMiniMaxTokenPlanUsage } from "@/providers/minimax.ts";
+import { fetchSyntheticUsage } from "@/providers/synthetic.ts";
 import { fetchZaiCodingPlanUsage } from "@/providers/zai-coding-plan.ts";
 import type {
   OpenCodeAuth,
@@ -32,6 +34,12 @@ export const fetchProvider = (
   if (id === "zai") {
     return fetchZaiCodingPlanUsage(config, openCodeAuth, timeoutMs);
   }
+  if (id === "synthetic") {
+    return fetchSyntheticUsage(config, openCodeAuth, timeoutMs);
+  }
+  if (id === "minimax") {
+    return fetchMiniMaxTokenPlanUsage(config, openCodeAuth, timeoutMs);
+  }
 
   const exhaustive: never = id;
   throw new Error(`unknown provider: ${exhaustive}`);
@@ -49,7 +57,7 @@ export const fetchProvider = (
 export const getProviderConfigs = (
   config: Required<UsageLimitsConfig>
 ): [ProviderID, ProviderConfig][] =>
-  (["codex", "zai"] as const).flatMap((id) => {
+  (["codex", "zai", "synthetic", "minimax"] as const).flatMap((id) => {
     const provider = config.providers[id];
     if (provider?.enabled !== true) {
       return [];

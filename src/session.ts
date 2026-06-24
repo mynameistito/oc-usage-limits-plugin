@@ -76,6 +76,12 @@ export const usageForProvider = (
   if (providerID === "zai-coding-plan") {
     usageID = "zai";
   }
+  if (providerID === "minimax-coding-plan") {
+    usageID = "minimax";
+  }
+  if (providerID === "minimax") {
+    usageID = "minimax";
+  }
   if (!usageID) {
     return null;
   }

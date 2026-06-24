@@ -1,4 +1,4 @@
-import type { UsageWindow } from "@/types.ts";
+import type { ProviderID, UsageWindow } from "@/types.ts";
 
 /**
  * Formats a positive duration in seconds into the compact label used by the TUI.
@@ -105,4 +105,34 @@ export const limitLabelForWindow = (
     return "monthly";
   }
   return fallback;
+};
+
+/**
+ * Returns the default display label for a provider ID.
+ *
+ * Providers may override the label through user configuration; this helper is
+ * the fallback used when no override is supplied.
+ *
+ * @param id - Plugin provider identifier.
+ * @returns The canonical display label for the provider.
+ */
+export const defaultLabelFor = (id: ProviderID): string => {
+  switch (id) {
+    case "codex": {
+      return "Codex";
+    }
+    case "zai": {
+      return "ZAI";
+    }
+    case "synthetic": {
+      return "Synthetic";
+    }
+    case "minimax": {
+      return "MiniMax";
+    }
+    default: {
+      const exhaustive: never = id;
+      throw new Error(`unknown provider: ${exhaustive}`);
+    }
+  }
 };

@@ -4,6 +4,7 @@ import { createSignal } from "solid-js";
 
 import { BottomUsage, UsageLimitsPanel } from "@/components.tsx";
 import { loadConfig, loadOpenCodeAuth } from "@/config.ts";
+import { defaultLabelFor } from "@/format.ts";
 import { fetchProvider, getProviderConfigs } from "@/providers.ts";
 import { currentProviderID, usageForProvider } from "@/session.ts";
 import type { ProviderID, ProviderState, ProviderUsage } from "@/types.ts";
@@ -49,7 +50,7 @@ export const tui: TuiPlugin = async (api) => {
     const previous = new Map(states().map((state) => [state.id, state]));
     setStates(
       providers.map(([id, provider]) => {
-        const label = provider.label ?? (id === "codex" ? "Codex" : "ZAI");
+        const label = provider.label ?? defaultLabelFor(id);
         const current = previous.get(id);
         if (current?.status === "ready" || current?.status === "error") {
           return current;
@@ -61,7 +62,7 @@ export const tui: TuiPlugin = async (api) => {
     const openCodeAuth = await loadOpenCodeAuth();
     const nextStates = await Promise.all(
       providers.map(async ([id, provider]): Promise<ProviderState> => {
-        const label = provider.label ?? (id === "codex" ? "Codex" : "ZAI");
+        const label = provider.label ?? defaultLabelFor(id);
         try {
           const data = await fetchProvider(
             id,

@@ -17,5 +17,15 @@
       "apiKey": "{env:OC_ZAI_API_KEY}",
       "authorizationScheme": "raw",
     },
+    // "synthetic": {
+    //   "enabled": true,
+    //   "label": "Synthetic",
+    //   "apiKey": "{env:OC_SYNTHETIC_API_KEY}"
+    // },
+    // "minimax": {
+    //   "enabled": true,
+    //   "label": "MiniMax",
+    //   "apiKey": "{env:OC_MINIMAX_TOKEN_PLAN_KEY}"
+    // },
   },
 }
