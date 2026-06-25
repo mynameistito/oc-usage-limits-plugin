@@ -2,12 +2,7 @@ import {
   pluginProviderForOpenCode,
   PROVIDER_REGISTRY,
 } from "@/providers/index.ts";
-import type {
-  ProviderID,
-  ProviderState,
-  ProviderUsage,
-  UsageWindow,
-} from "@/types.ts";
+import type { ProviderState, ProviderUsage, UsageWindow } from "@/types.ts";
 import { isRecord } from "@/utils.ts";
 
 /**
@@ -58,16 +53,26 @@ export const currentProviderID = (
 };
 
 /**
- * Extracts a usage window from a single provider's state.
+ * Selects the usage window that should be shown in the prompt footer.
+ *
+ * OpenCode provider IDs are mapped to this plugin's provider IDs, then the most
+ * useful window is selected from the current provider state. If the latest fetch
+ * failed, the last successful data attached to the error state is used.
  *
  * @param states - Current provider states maintained by the plugin.
- * @param usageID - Plugin provider identifier to look up.
- * @returns The best usage window for the provider, or `null` if unavailable.
+ * @param providerID - OpenCode provider identifier for the active session.
+ * @returns The best usage window for the active provider, or `null` if none can
+ *   be shown.
  */
-const windowFromState = (
+export const usageForProvider = (
   states: readonly ProviderState[],
-  usageID: ProviderID
+  providerID: string | undefined
 ): UsageWindow | null => {
+  const usageID = providerID ? pluginProviderForOpenCode(providerID) : null;
+  if (!usageID) {
+    return null;
+  }
+
   const state = states.find((item) => item.id === usageID);
   let data: ProviderUsage | undefined;
   if (state?.status === "ready") {
@@ -86,47 +91,4 @@ const windowFromState = (
     data.windows[0] ??
     null
   );
-};
-
-/**
- * Selects the usage window that should be shown in the prompt footer.
- *
- * OpenCode provider IDs are mapped to this plugin's provider IDs, then the most
- * useful window is selected from the current provider state. If the latest fetch
- * failed, the last successful data attached to the error state is used.
- *
- * When the active session's provider is disabled or not found, the first enabled
- * provider with data is used as a fallback so the footer always shows something.
- *
- * @param states - Current provider states maintained by the plugin.
- * @param providerID - OpenCode provider identifier for the active session.
- * @returns The best usage window for the active provider, or `null` if none can
- *   be shown.
- */
-export const usageForProvider = (
-  states: readonly ProviderState[],
-  providerID: string | undefined
-): UsageWindow | null => {
-  const usageID = providerID ? pluginProviderForOpenCode(providerID) : null;
-
-  // Try the active session's provider first.
-  if (usageID) {
-    const window = windowFromState(states, usageID);
-    if (window) {
-      return window;
-    }
-  }
-
-  // Fallback: show the first enabled provider that has data.
-  for (const state of states) {
-    if (state.status === "disabled") {
-      continue;
-    }
-    const window = windowFromState(states, state.id);
-    if (window) {
-      return window;
-    }
-  }
-
-  return null;
 };
