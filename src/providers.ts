@@ -1,4 +1,4 @@
-import { PROVIDER_ORDER, PROVIDER_REGISTRY } from "@/providers/registry.ts";
+import { PROVIDER_ORDER, PROVIDER_REGISTRY } from "@/providers/index.ts";
 import type {
   OpenCodeAuth,
   ProviderConfig,

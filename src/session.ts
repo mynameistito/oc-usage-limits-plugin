@@ -1,7 +1,7 @@
 import {
   pluginProviderForOpenCode,
   PROVIDER_REGISTRY,
-} from "@/providers/registry.ts";
+} from "@/providers/index.ts";
 import type { ProviderState, ProviderUsage, UsageWindow } from "@/types.ts";
 import { isRecord } from "@/utils.ts";
 

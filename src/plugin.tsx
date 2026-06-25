@@ -5,7 +5,7 @@ import { createSignal } from "solid-js";
 import { BottomUsage, UsageLimitsPanel } from "@/components.tsx";
 import { loadConfig, loadOpenCodeAuth } from "@/config.ts";
 import { fetchProvider, getProviderConfigs } from "@/providers.ts";
-import { defaultLabelFor } from "@/providers/registry.ts";
+import { defaultLabelFor } from "@/providers/index.ts";
 import { currentProviderID, usageForProvider } from "@/session.ts";
 import type { ProviderID, ProviderState, ProviderUsage } from "@/types.ts";
 

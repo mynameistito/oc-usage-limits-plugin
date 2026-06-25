@@ -1,4 +1,5 @@
 import { limitLabelForWindow } from "@/format.ts";
+import type { ProviderDefinition } from "@/providers/definition.ts";
 import type {
   OpenCodeAuth,
   ProviderConfig,
@@ -146,3 +147,12 @@ export const fetchCodexUsage = async (
     windows,
   };
 };
+
+/** Plugin registration for the Codex provider adapter. */
+export const codexProvider = {
+  defaultLabel: "Codex",
+  fetch: fetchCodexUsage,
+  footerWindowLabel: "5h",
+  id: "codex",
+  openCodeProviderIDs: ["openai"],
+} as const satisfies ProviderDefinition<"codex">;
