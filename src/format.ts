@@ -44,7 +44,7 @@ const duration = (seconds: number | null): string => {
  *   report a percentage.
  * @returns A rounded usage string, or `? used` when usage is unknown.
  */
-const formatPercent = (value: number | null): string =>
+export const formatPercent = (value: number | null): string =>
   value === null ? "?" : `${Math.round(value)}%`;
 
 /**

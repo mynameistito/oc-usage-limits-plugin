@@ -5,6 +5,7 @@ import { For, Show } from "solid-js";
 
 import {
   bottomWindowMainText,
+  formatPercent,
   formatTimestamp,
   percentBar,
   tokenCountText,
@@ -37,38 +38,37 @@ const UsageWindowRows = (props: {
   windows: UsageWindow[];
 }) => (
   <For each={props.windows}>
-    {(window) => (
-      <box
-        children={[
-          <text>
-            <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
-            <span style={{ fg: props.theme.text }}>
-              <b>{window.label}</b>
-            </span>
-            <span style={{ fg: props.theme.textMuted }}>
-              {windowResetText(window)}
-            </span>
-          </text>,
-          <text>
-            <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
-            <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
-              {percentBar(window.usedPercent, 12)}
-            </span>
-            <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
-              {" "}
-              {window.usedPercent === null
-                ? "?"
-                : `${Math.round(window.usedPercent)}% used`}
-            </span>
-            {tokenCountText(window) ? (
-              <span style={{ fg: props.theme.textMuted }}>
-                {tokenCountText(window)}
+    {(window) => {
+      const tokenText = tokenCountText(window);
+      return (
+        <box
+          children={[
+            <text>
+              <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
+              <span style={{ fg: props.theme.text }}>
+                <b>{window.label}</b>
               </span>
-            ) : null}
-          </text>,
-        ]}
-      />
-    )}
+              <span style={{ fg: props.theme.textMuted }}>
+                {windowResetText(window)}
+              </span>
+            </text>,
+            <text>
+              <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
+              <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
+                {percentBar(window.usedPercent, 12)}
+              </span>
+              <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
+                {" "}
+                {formatPercent(window.usedPercent)} used
+              </span>
+              {tokenText ? (
+                <span style={{ fg: props.theme.textMuted }}>{tokenText}</span>
+              ) : null}
+            </text>,
+          ]}
+        />
+      );
+    }}
   </For>
 );
 
