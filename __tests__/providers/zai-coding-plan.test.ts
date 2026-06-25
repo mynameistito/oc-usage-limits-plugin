@@ -12,6 +12,7 @@ describe("ZAI provider", () => {
         data: {
           limits: [
             {
+              currentValue: 4440,
               nextResetTime,
               percentage: 44.4,
               type: "TOKENS_LIMIT",
@@ -52,8 +53,10 @@ describe("ZAI provider", () => {
     });
     expect(usage.windows).toHaveLength(1);
     expect(usage.windows[0]).toMatchObject({
+      current: 4440,
       label: "5h",
       remainingPercent: 55.6,
+      total: 10_000,
       usedPercent: 44.4,
     });
     expect(usage.windows[0]?.resetAfterSeconds).toBeGreaterThan(0);

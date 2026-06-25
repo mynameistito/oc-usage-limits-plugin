@@ -9,6 +9,7 @@ import {
   tokenCountText,
   windowMainText,
   windowResetText,
+  windowResetTime,
 } from "@/format.ts";
 import type { UsageWindow } from "@/types.ts";
 
@@ -110,5 +111,19 @@ describe("format helpers", () => {
     expect(
       tokenCountText(usageWindow({ current: 1500, total: undefined }))
     ).toBe("");
+  });
+
+  test("formats absolute reset time when window has resetsAt", () => {
+    expect(
+      windowResetTime(
+        usageWindow({ resetsAt: new Date("2026-06-23T12:00:00.000Z") })
+      )
+    ).toBe(" 12:00");
+    expect(
+      windowResetTime(
+        usageWindow({ resetsAt: new Date("2026-06-23T23:59:00.000Z") })
+      )
+    ).toBe(" 23:59");
+    expect(windowResetTime(usageWindow({ resetsAt: null }))).toBe("");
   });
 });

@@ -5,7 +5,7 @@ import type { TuiThemeCurrent } from "@opencode-ai/plugin/tui";
 import { RGBA } from "@opentui/core";
 import { testRender } from "@opentui/solid";
 
-import { UsageLimitsPanel } from "@/components.tsx";
+import { CompactStatusLine, UsageLimitsPanel } from "@/components.tsx";
 import type { ProviderState, ProviderUsage, UsageWindow } from "@/types.ts";
 
 const color = RGBA.fromValues(1, 2, 3, 255);
@@ -221,5 +221,116 @@ describe("UsageLimitsPanel", () => {
     );
 
     expect(text).toContain("Updated 14:32");
+  });
+});
+
+describe("CompactStatusLine", () => {
+  const renderStatusLine = async (states: ProviderState[]): Promise<string> => {
+    const setup = await testRender(
+      () => <CompactStatusLine states={states} theme={theme} />,
+      { height: 1, width: 80 }
+    );
+
+    try {
+      await setup.flush();
+      return setup.captureCharFrame();
+    } finally {
+      setup.renderer.destroy();
+    }
+  };
+
+  test("renders single provider with percentage", async () => {
+    const text = await renderStatusLine([
+      {
+        data: usage(),
+        id: "codex",
+        label: "Codex",
+        stale: false,
+        status: "ready",
+      },
+    ]);
+
+    expect(text).toContain("Codex 42%");
+  });
+
+  test("renders multiple providers separated by pipe", async () => {
+    const text = await renderStatusLine([
+      {
+        data: usage({ id: "codex", label: "Codex" }),
+        id: "codex",
+        label: "Codex",
+        stale: false,
+        status: "ready",
+      },
+      {
+        data: usage({
+          id: "zai",
+          label: "ZAI",
+          windows: [usageWindow({ usedPercent: 75 })],
+        }),
+        id: "zai",
+        label: "ZAI",
+        stale: false,
+        status: "ready",
+      },
+    ]);
+
+    expect(text).toContain("Codex 42%");
+    expect(text).toContain("ZAI 75%");
+    expect(text).toContain("|");
+  });
+
+  test("renders cached provider with previous data", async () => {
+    const text = await renderStatusLine([
+      {
+        id: "codex",
+        label: "Codex",
+        message: "provider unavailable",
+        previous: usage(),
+        status: "error",
+      },
+    ]);
+
+    expect(text).toContain("Codex 42%");
+  });
+
+  test("renders unknown percentage as question mark", async () => {
+    const text = await renderStatusLine([
+      {
+        data: usage({ windows: [usageWindow({ usedPercent: null })] }),
+        id: "codex",
+        label: "Codex",
+        stale: false,
+        status: "ready",
+      },
+    ]);
+
+    expect(text).toContain("Codex ?");
+  });
+
+  test("returns null when no active providers", async () => {
+    const text = await renderStatusLine([
+      {
+        id: "codex",
+        label: "Codex",
+        status: "disabled",
+      },
+    ]);
+
+    expect(text).not.toContain("Codex");
+  });
+
+  test("returns null when providers have no windows", async () => {
+    const text = await renderStatusLine([
+      {
+        data: usage({ windows: [] }),
+        id: "codex",
+        label: "Codex",
+        stale: false,
+        status: "ready",
+      },
+    ]);
+
+    expect(text).not.toContain("Codex");
   });
 });

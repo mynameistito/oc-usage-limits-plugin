@@ -2,7 +2,11 @@
 import type { TuiPlugin } from "@opencode-ai/plugin/tui";
 import { createSignal } from "solid-js";
 
-import { BottomUsage, UsageLimitsPanel } from "@/components.tsx";
+import {
+  BottomUsage,
+  CompactStatusLine,
+  UsageLimitsPanel,
+} from "@/components.tsx";
 import { loadConfig, loadOpenCodeAuth } from "@/config.ts";
 import { fetchProvider, getProviderConfigs } from "@/providers.ts";
 import { defaultLabelFor } from "@/providers/index.ts";
@@ -133,6 +137,11 @@ export const tui: TuiPlugin = async (api) => {
   api.slots.register({
     order: 101,
     slots: {
+      home_bottom(ctx) {
+        return (
+          <CompactStatusLine states={states()} theme={ctx.theme.current} />
+        );
+      },
       session_prompt_right(ctx, props) {
         const providerID = currentProviderID(
           api.state.session.messages(props.session_id)

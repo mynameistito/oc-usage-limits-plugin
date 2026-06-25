@@ -130,6 +130,16 @@ export const formatTimestamp = (date: Date): string => {
 };
 
 /**
+ * Formats the absolute reset time for a usage window.
+ *
+ * @param window - The usage window whose reset time should be rendered.
+ * @returns A leading-space suffix such as ` 23:15`, or an empty string when
+ *   the provider did not report a reset time.
+ */
+export const windowResetTime = (window: UsageWindow): string =>
+  window.resetsAt === null ? "" : ` ${formatTimestamp(window.resetsAt)}`;
+
+/**
  * Builds a count-based suffix string when the window has both current and total.
  *
  * @param window - The usage window whose counts should be rendered.
