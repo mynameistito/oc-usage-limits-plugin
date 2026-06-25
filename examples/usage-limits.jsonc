@@ -17,5 +17,10 @@
       "apiKey": "{env:OC_ZAI_API_KEY}",
       "authorizationScheme": "raw",
     },
+    // "synthetic": {
+    //   "enabled": true,
+    //   "label": "Synthetic",
+    //   "apiKey": "{env:OC_SYNTHETIC_API_KEY}"
+    // },
   },
 }

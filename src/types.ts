@@ -1,5 +1,5 @@
 /** Provider adapters supported by the usage-limits plugin. */
-export type ProviderID = "codex" | "zai";
+export type ProviderID = "codex" | "zai" | "synthetic";
 
 /**
  * Normalized usage information for one provider quota window.
@@ -118,5 +118,12 @@ export interface OpenCodeAuth {
   zai?: {
     /** ZAI API key. */
     key?: string;
+  };
+  /** Synthetic credentials stored under OpenCode's provider ID. */
+  synthetic?: {
+    /** Synthetic API key. */
+    key?: string;
+    /** Synthetic API key (alternate field name). */
+    apiKey?: string;
   };
 }

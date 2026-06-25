@@ -1,12 +1,13 @@
 # oc-usage-limits-plugin
 
-OpenCode TUI plugin that shows Codex and ZAI usage limits in the sidebar and prompt footer.
+OpenCode TUI plugin that shows Codex, ZAI, and Synthetic usage limits in the sidebar and prompt footer.
 
 ## Features
 
 - Adds a `Usage Limits` block under the sidebar `Context` section.
 - Shows current Codex usage windows from OpenAI/Codex auth.
 - Shows current ZAI quota windows from ZAI Coding Plan auth.
+- Shows current Synthetic rolling 5-hour and weekly windows.
 - Adds compact prompt-footer usage when the current session uses an OpenAI or ZAI Coding Plan model.
 - Providers are toggled from `~/.config/opencode/usage-limits.jsonc`.
 - Reads OpenCode-connected credentials first, then falls back to explicit config/env credentials.
@@ -78,6 +79,26 @@ Disabled providers are hidden:
 }
 ```
 
+## Providers
+
+| Provider ID | Service          | Env var                | Auth header  | Default base URL                  |
+| ----------- | ---------------- | ---------------------- | ------------ | --------------------------------- |
+| `codex`     | ChatGPT Codex    | —                      | Bearer       | `https://chatgpt.com/backend-api` |
+| `zai`       | Z.AI Coding Plan | `OC_ZAI_API_KEY`       | raw / Bearer | `https://api.z.ai`                |
+| `synthetic` | Synthetic quotas | `OC_SYNTHETIC_API_KEY` | Bearer       | `https://api.synthetic.new`       |
+
+Example Synthetic entry:
+
+```jsonc
+"synthetic": {
+  "enabled": true,
+  "label": "Synthetic",
+  "apiKey": "{env:OC_SYNTHETIC_API_KEY}"
+}
+```
+
+Synthetic always uses `Bearer` auth and ignores `authorizationScheme`.
+
 ## Credential Lookup
 
 Codex lookup order:
@@ -92,6 +113,12 @@ ZAI lookup order:
 3. OpenCode auth provider `zai`.
 4. Config `apiKey`, including `{env:OC_ZAI_API_KEY}` references.
 
+Synthetic lookup order:
+
+1. Config `authPath` JSON file (`{ "key": "..." }` / `{ "apiKey": "..." }` / `{ "synthetic": { "key": "..." } }`).
+2. OpenCode auth at `~/.local/share/opencode/auth.json`, provider `synthetic`.
+3. Config `apiKey`, including `{env:OC_SYNTHETIC_API_KEY}` references.
+
 ## Display
 
 Sidebar rows look like:
@@ -104,6 +131,9 @@ codex
 ZAI
   tokens: 18% used resets 2h
   MCP: 6% used
+Synthetic
+  5h: 0% used resets 11m
+  weekly: 11% used resets 7m
 ```
 
 Prompt footer shows compact usage when the current session model belongs to a supported provider:

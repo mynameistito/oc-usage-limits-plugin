@@ -33,13 +33,17 @@ describe("provider manifest", () => {
         enabled: true,
         providers: {
           codex: { enabled: true, label: "Codex" },
+          synthetic: { enabled: true, label: "Synthetic" },
           zai: { enabled: false, label: "ZAI" },
         },
         refreshIntervalSeconds: 60,
         requestTimeoutMs: 1000,
         showErrors: true,
       })
-    ).toEqual([["codex", { enabled: true, label: "Codex" }]]);
+    ).toEqual([
+      ["codex", { enabled: true, label: "Codex" }],
+      ["synthetic", { enabled: true, label: "Synthetic" }],
+    ]);
   });
 
   test("dispatches provider fetches by id", async () => {
