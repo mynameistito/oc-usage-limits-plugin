@@ -1,3 +1,4 @@
+import type { ProviderDefinition } from "@/providers/definition.ts";
 import type {
   OpenCodeAuth,
   ProviderConfig,
@@ -214,3 +215,12 @@ export const fetchZaiCodingPlanUsage = async (
     windows,
   };
 };
+
+/** Plugin registration for the ZAI Coding Plan provider adapter. */
+export const zaiProvider = {
+  defaultLabel: "ZAI",
+  fetch: fetchZaiCodingPlanUsage,
+  footerWindowLabel: "5h",
+  id: "zai",
+  openCodeProviderIDs: ["zai-coding-plan"],
+} as const satisfies ProviderDefinition<"zai">;

@@ -1,13 +1,15 @@
 # oc-usage-limits-plugin
 
-OpenCode TUI plugin that shows Codex and ZAI usage limits in the sidebar and prompt footer.
+OpenCode TUI plugin that shows Codex, ZAI, Synthetic, and MiniMax Token Plan usage limits in the sidebar and prompt footer.
 
 ## Features
 
 - Adds a `Usage Limits` block under the sidebar `Context` section.
 - Shows current Codex usage windows from OpenAI/Codex auth.
 - Shows current ZAI quota windows from ZAI Coding Plan auth.
-- Adds compact prompt-footer usage when the current session uses an OpenAI or ZAI Coding Plan model.
+- Shows current Synthetic rolling 5-hour and weekly windows.
+- Shows current MiniMax Token Plan rolling 5-hour and weekly windows.
+- Adds compact prompt-footer usage when the current session uses an OpenAI, ZAI Coding Plan, Synthetic, or MiniMax Token Plan model.
 - Providers are toggled from `~/.config/opencode/usage-limits.jsonc`.
 - Reads OpenCode-connected credentials first, then falls back to explicit config/env credentials.
 
@@ -78,6 +80,39 @@ Disabled providers are hidden:
 }
 ```
 
+## Providers
+
+| Provider ID | Service                | Env var                     | Auth header  | Default base URL                  |
+| ----------- | ---------------------- | --------------------------- | ------------ | --------------------------------- |
+| `codex`     | ChatGPT Codex usage    | —                           | Bearer       | `https://chatgpt.com/backend-api` |
+| `zai`       | Z.AI Coding Plan quota | `OC_ZAI_API_KEY`            | raw / Bearer | `https://api.z.ai`                |
+| `synthetic` | Synthetic quotas       | `OC_SYNTHETIC_API_KEY`      | Bearer       | `https://api.synthetic.new`       |
+| `minimax`   | MiniMax Token Plan     | `OC_MINIMAX_TOKEN_PLAN_KEY` | Bearer       | `https://www.minimax.io`          |
+
+Example Synthetic entry:
+
+```jsonc
+"synthetic": {
+  "enabled": true,
+  "label": "Synthetic",
+  "apiKey": "{env:OC_SYNTHETIC_API_KEY}"
+}
+```
+
+Synthetic always uses `Bearer` auth and ignores `authorizationScheme`.
+
+Example MiniMax entry:
+
+```jsonc
+"minimax": {
+  "enabled": true,
+  "label": "MiniMax",
+  "apiKey": "{env:OC_MINIMAX_TOKEN_PLAN_KEY}"
+}
+```
+
+Set `baseUrl` on `minimax` to `https://api.minimaxi.com` when using the mainland-China region. MiniMax always uses `Bearer` auth and ignores `authorizationScheme`.
+
 ## Credential Lookup
 
 Codex lookup order:
@@ -92,6 +127,18 @@ ZAI lookup order:
 3. OpenCode auth provider `zai`.
 4. Config `apiKey`, including `{env:OC_ZAI_API_KEY}` references.
 
+Synthetic lookup order:
+
+1. Config `authPath` JSON file (`{ "key": "..." }` / `{ "apiKey": "..." }` / `{ "synthetic": { "key": "..." } }`).
+2. OpenCode auth at `~/.local/share/opencode/auth.json`, provider `synthetic`.
+3. Config `apiKey`, including `{env:OC_SYNTHETIC_API_KEY}` references.
+
+MiniMax Token Plan lookup order:
+
+1. Config `authPath` JSON file (`{ "key": "..." }` / `{ "apiKey": "..." }` / `{ "minimax-coding-plan": { "key": "..." } }`).
+2. OpenCode auth at `~/.local/share/opencode/auth.json`, provider `minimax-coding-plan`, `minimax`, or `minimax-token-plan`.
+3. Config `apiKey`, including `{env:OC_MINIMAX_TOKEN_PLAN_KEY}` references.
+
 ## Display
 
 Sidebar rows look like:
@@ -104,6 +151,11 @@ codex
 ZAI
   tokens: 18% used resets 2h
   MCP: 6% used
+Synthetic
+  5h: 0% used resets 11m
+  weekly: 11% used resets 7m
+MiniMax
+  5h: 10% used resets 2h 56m
 ```
 
 Prompt footer shows compact usage when the current session model belongs to a supported provider:
@@ -116,12 +168,17 @@ Provider mapping:
 
 - OpenCode provider `openai` -> Codex usage.
 - OpenCode provider `zai-coding-plan` -> ZAI token usage.
+- OpenCode provider `synthetic` -> Synthetic usage.
+- OpenCode provider `minimax-coding-plan` -> MiniMax Token Plan usage (prompt footer); `minimax` is also accepted as an alias.
 
 ## Development
 
 ```bash
 bun install
 bun run typecheck
+bun run test
+bun run check
+bun run build
 ```
 
 The package exposes a TUI entrypoint at `oc-usage-limits-plugin/tui` for OpenCode's package plugin loader.
@@ -131,3 +188,4 @@ The package exposes a TUI entrypoint at `oc-usage-limits-plugin/tui` for OpenCod
 - The refresh interval defaults to 60 seconds.
 - The effective minimum refresh interval is 15 seconds.
 - Errors are intentionally short and do not include auth tokens or response bodies.
+- MiniMax Token Plan returns `{ model_remains, base_resp }`; the per-model `current_interval_status` and `current_weekly_status` are treated as `1` = in plan and `3` = not in plan, and a window is hidden when its status is `3` (the API otherwise reports a meaningless `100%` remaining for a non-existent bucket).

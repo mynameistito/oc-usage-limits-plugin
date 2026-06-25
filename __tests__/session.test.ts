@@ -70,6 +70,28 @@ describe("session helpers", () => {
     expect(usageForProvider(states, "zai-coding-plan")?.usedPercent).toBe(88);
   });
 
+  test("selects MiniMax usage for minimax-coding-plan sessions", () => {
+    const states: ProviderState[] = [
+      {
+        data: {
+          capturedAt: new Date(),
+          id: "minimax",
+          label: "MiniMax",
+          windows: [window("5h", 88)],
+        },
+        id: "minimax",
+        label: "MiniMax",
+        stale: false,
+        status: "ready",
+      },
+    ];
+
+    expect(usageForProvider(states, "minimax-coding-plan")?.label).toBe("5h");
+    expect(usageForProvider(states, "minimax-coding-plan")?.usedPercent).toBe(
+      88
+    );
+  });
+
   test("returns null for unknown providers or unavailable data", () => {
     expect(usageForProvider([], "anthropic")).toBeNull();
     expect(

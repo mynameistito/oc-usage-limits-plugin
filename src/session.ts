@@ -1,9 +1,8 @@
-import type {
-  ProviderID,
-  ProviderState,
-  ProviderUsage,
-  UsageWindow,
-} from "@/types.ts";
+import {
+  pluginProviderForOpenCode,
+  PROVIDER_REGISTRY,
+} from "@/providers/index.ts";
+import type { ProviderState, ProviderUsage, UsageWindow } from "@/types.ts";
 import { isRecord } from "@/utils.ts";
 
 /**
@@ -69,13 +68,7 @@ export const usageForProvider = (
   states: readonly ProviderState[],
   providerID: string | undefined
 ): UsageWindow | null => {
-  let usageID: ProviderID | null = null;
-  if (providerID === "openai") {
-    usageID = "codex";
-  }
-  if (providerID === "zai-coding-plan") {
-    usageID = "zai";
-  }
+  const usageID = providerID ? pluginProviderForOpenCode(providerID) : null;
   if (!usageID) {
     return null;
   }
@@ -92,16 +85,9 @@ export const usageForProvider = (
     return null;
   }
 
-  if (usageID === "zai") {
-    return (
-      data.windows.find((window) => window.label === "5h") ??
-      data.windows[0] ??
-      null
-    );
-  }
-
+  const { footerWindowLabel } = PROVIDER_REGISTRY[usageID];
   return (
-    data.windows.find((window) => window.label === "5h") ??
+    data.windows.find((window) => window.label === footerWindowLabel) ??
     data.windows[0] ??
     null
   );
