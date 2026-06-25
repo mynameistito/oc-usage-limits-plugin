@@ -1,13 +1,12 @@
 /* @jsxImportSource @opentui/solid */
 import type { TuiThemeCurrent } from "@opencode-ai/plugin/tui";
 import type { RGBA } from "@opentui/core";
-import { For, Show, createSignal } from "solid-js";
+import { For, Show } from "solid-js";
 
 import {
   bottomWindowMainText,
   formatTimestamp,
   percentBar,
-  tokenCountText,
   windowResetText,
   windowResetTime,
 } from "@/format.ts";
@@ -39,37 +38,30 @@ const UsageWindowRows = (props: {
 }) => (
   <For each={props.windows}>
     {(window) => (
-      <box
-        children={[
-          <text>
-            <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
-            <span style={{ fg: props.theme.text }}>
-              <b>{window.label}</b>
-            </span>
-            <span style={{ fg: props.theme.textMuted }}>
-              {windowResetText(window)}
-              {windowResetTime(window)}
-            </span>
-          </text>,
-          <text>
-            <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
-            <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
-              {percentBar(window.usedPercent, 12)}
-            </span>
-            <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
-              {" "}
-              {window.usedPercent === null
-                ? "?"
-                : `${Math.round(window.usedPercent)}% used`}
-            </span>
-            {tokenCountText(window) ? (
-              <span style={{ fg: props.theme.textMuted }}>
-                {tokenCountText(window)}
-              </span>
-            ) : null}
-          </text>,
-        ]}
-      />
+      <box flexDirection="column">
+        <text>
+          <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
+          <span style={{ fg: props.theme.text }}>
+            <b>{window.label}</b>
+          </span>
+          <span style={{ fg: props.theme.textMuted }}>
+            {windowResetText(window)}
+            {windowResetTime(window)}
+          </span>
+        </text>
+        <text>
+          <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
+          <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
+            {percentBar(window.usedPercent, 12)}
+          </span>
+          <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
+            {" "}
+            {window.usedPercent === null
+              ? "?"
+              : `${Math.round(window.usedPercent)}% used`}
+          </span>
+        </text>
+      </box>
     )}
   </For>
 );
@@ -89,104 +81,77 @@ export const UsageLimitsPanel = (props: {
   theme: TuiThemeCurrent;
   lastRefreshAt: Date | null;
 }) => {
-  const [collapsed, setCollapsed] = createSignal(false);
-
   if (!props.states.some((state) => state.status !== "disabled")) {
     return null;
   }
 
   return (
-    <box
-      children={[
-        <text fg={props.theme.text} onMouseDown={() => setCollapsed((v) => !v)}>
-          <span style={{ fg: props.theme.text }}>
-            {collapsed() ? "▶" : "▼"}
-          </span>{" "}
-          <b>Usage Limits</b>
-          {collapsed() ? (
-            <span style={{ fg: props.theme.textMuted }}>
-              {" ("}
-              {props.states.filter((s) => s.status !== "disabled").length}
-              {")"}
-            </span>
-          ) : null}
-        </text>,
-        <Show when={!collapsed()}>
-          <For each={props.states}>
-            {(state) => {
-              if (state.status === "disabled") {
-                return null;
-              }
+    <box flexDirection="column">
+      <text fg={props.theme.text}>
+        <b>Usage Limits</b>
+      </text>
+      <For each={props.states}>
+        {(state) => {
+          if (state.status === "disabled") {
+            return null;
+          }
 
-              let tierName: string | undefined;
-              if (state.status === "ready") {
-                ({ tierName } = state.data);
-              } else if (state.status === "error" && state.previous) {
-                ({ tierName } = state.previous);
-              }
-              const isStale = state.status === "ready" && state.stale;
-              const isCached =
-                state.status === "error" && state.previous !== undefined;
-              const children = [
-                <text fg={props.theme.text}>
-                  {state.label}
-                  {tierName ? (
-                    <span style={{ fg: props.theme.textMuted }}>
-                      {" ["}
-                      {tierName}
-                      {"]"}
-                    </span>
-                  ) : null}
-                  {isStale ? (
-                    <span style={{ fg: props.theme.warning }}> stale</span>
-                  ) : null}
-                  {isCached ? (
-                    <span style={{ fg: props.theme.warning }}> cached</span>
-                  ) : null}
-                </text>,
-              ];
+          let tierName: string | undefined;
+          if (state.status === "ready") {
+            ({ tierName } = state.data);
+          } else if (state.status === "error" && state.previous) {
+            ({ tierName } = state.previous);
+          }
+          const isStale = state.status === "ready" && state.stale;
+          const isCached =
+            state.status === "error" && state.previous !== undefined;
 
-              if (state.status === "loading") {
-                children.push(
-                  <text fg={props.theme.textMuted}> loading...</text>
-                );
-              }
-
-              if (state.status === "ready") {
-                children.push(
-                  <UsageWindowRows
-                    theme={props.theme}
-                    windows={state.data.windows}
-                  />
-                );
-              }
-
-              if (state.status === "error" && state.previous) {
-                children.push(
-                  <UsageWindowRows
-                    theme={props.theme}
-                    windows={state.previous.windows}
-                  />
-                );
-              }
-
-              if (state.status === "error" && props.showErrors) {
-                children.push(
-                  <text fg={props.theme.error}> {state.message}</text>
-                );
-              }
-
-              return <box children={children} />;
-            }}
-          </For>
-          {props.lastRefreshAt ? (
-            <text fg={props.theme.textMuted}>
-              Updated {formatTimestamp(props.lastRefreshAt)}
-            </text>
-          ) : null}
-        </Show>,
-      ]}
-    />
+          return (
+            <box flexDirection="column">
+              <text fg={props.theme.text}>
+                {state.label}
+                {tierName ? (
+                  <span style={{ fg: props.theme.textMuted }}>
+                    {" ["}
+                    {tierName}
+                    {"]"}
+                  </span>
+                ) : null}
+                {isStale ? (
+                  <span style={{ fg: props.theme.warning }}> stale</span>
+                ) : null}
+                {isCached ? (
+                  <span style={{ fg: props.theme.warning }}> cached</span>
+                ) : null}
+              </text>
+              {state.status === "loading" ? (
+                <text fg={props.theme.textMuted}> loading...</text>
+              ) : null}
+              {state.status === "ready" ? (
+                <UsageWindowRows
+                  theme={props.theme}
+                  windows={state.data.windows}
+                />
+              ) : null}
+              {state.status === "error" && state.previous ? (
+                <UsageWindowRows
+                  theme={props.theme}
+                  windows={state.previous.windows}
+                />
+              ) : null}
+              {state.status === "error" && props.showErrors ? (
+                <text fg={props.theme.error}> {state.message}</text>
+              ) : null}
+            </box>
+          );
+        }}
+      </For>
+      {props.lastRefreshAt ? (
+        <text fg={props.theme.textMuted}>
+          Updated {formatTimestamp(props.lastRefreshAt)}
+        </text>
+      ) : null}
+    </box>
   );
 };
 
@@ -240,7 +205,9 @@ export const CompactStatusLine = (props: {
       (state.status === "error" && state.previous)
     ) {
       const data = state.status === "ready" ? state.data : state.previous;
-      if (!data) {return;}
+      if (!data) {
+        return;
+      }
       const [window] = data.windows;
       if (window) {
         const pct =

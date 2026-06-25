@@ -88,10 +88,12 @@ export const percentBar = (usedPercent: number | null, width = 12): string => {
   if (usedPercent === null) {
     return `[${"░".repeat(width)}]`;
   }
-  const filled = Math.max(
-    0,
-    Math.min(width, Math.round((usedPercent / 100) * width))
-  );
+  const ratio = usedPercent / 100;
+  let filled = Math.round(ratio * width);
+  if (usedPercent > 0 && filled === 0) {
+    filled = 1;
+  }
+  filled = Math.max(0, Math.min(width, filled));
   return `[${"█".repeat(filled)}${"░".repeat(width - filled)}]`;
 };
 
