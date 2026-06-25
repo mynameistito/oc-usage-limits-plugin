@@ -5,6 +5,7 @@ import { For, Show } from "solid-js";
 
 import {
   bottomWindowMainText,
+  formatPercent,
   formatTimestamp,
   percentBar,
   windowResetText,
@@ -56,9 +57,7 @@ const UsageWindowRows = (props: {
           </span>
           <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
             {" "}
-            {window.usedPercent === null
-              ? "?"
-              : `${Math.round(window.usedPercent)}% used`}
+            {formatPercent(window.usedPercent)} used
           </span>
         </text>
       </box>
@@ -210,13 +209,9 @@ export const CompactStatusLine = (props: {
       }
       const [window] = data.windows;
       if (window) {
-        const pct =
-          window.usedPercent === null
-            ? "?"
-            : `${Math.round(window.usedPercent)}%`;
         parts.push({
           color: dotColor(window.usedPercent, props.theme),
-          text: `${state.label} ${pct}`,
+          text: `${state.label} ${formatPercent(window.usedPercent)}`,
         });
       }
     }
