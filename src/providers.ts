@@ -1,5 +1,4 @@
-import { fetchCodexUsage } from "@/providers/codex.ts";
-import { fetchZaiCodingPlanUsage } from "@/providers/zai-coding-plan.ts";
+import { PROVIDER_ORDER, PROVIDER_REGISTRY } from "@/providers/registry.ts";
 import type {
   OpenCodeAuth,
   ProviderConfig,
@@ -26,15 +25,10 @@ export const fetchProvider = (
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
 ): Promise<ProviderUsage> => {
-  if (id === "codex") {
-    return fetchCodexUsage(config, openCodeAuth, timeoutMs);
+  if (!(id in PROVIDER_REGISTRY)) {
+    throw new Error(`unknown provider: ${id}`);
   }
-  if (id === "zai") {
-    return fetchZaiCodingPlanUsage(config, openCodeAuth, timeoutMs);
-  }
-
-  const exhaustive: never = id;
-  throw new Error(`unknown provider: ${exhaustive}`);
+  return PROVIDER_REGISTRY[id].fetch(config, openCodeAuth, timeoutMs);
 };
 
 /**
@@ -49,7 +43,7 @@ export const fetchProvider = (
 export const getProviderConfigs = (
   config: Required<UsageLimitsConfig>
 ): [ProviderID, ProviderConfig][] =>
-  (["codex", "zai"] as const).flatMap((id) => {
+  PROVIDER_ORDER.flatMap((id) => {
     const provider = config.providers[id];
     if (provider?.enabled !== true) {
       return [];

@@ -6,59 +6,10 @@ import type {
   UsageWindow,
 } from "@/types.ts";
 import { clampPercent, fetchJson, isRecord, readJsonFile } from "@/utils.ts";
+import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
 /** Default ChatGPT backend base URL used for Codex usage requests. */
 const DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api";
-
-/**
- * Determines whether a hostname refers to the local machine.
- *
- * Loopback hosts are the only case where plain `http` is permitted, so local
- * test servers do not require a TLS certificate.
- *
- * @param hostname - Hostname from a parsed URL (no port; IPv6 literals keep
- *   their surrounding brackets per the WHATWG URL standard).
- * @returns `true` when the host is a loopback address.
- */
-const isLoopbackHost = (hostname: string): boolean => {
-  const host =
-    hostname.startsWith("[") && hostname.endsWith("]")
-      ? hostname.slice(1, -1)
-      : hostname;
-
-  return (
-    host === "localhost" ||
-    host === "::1" ||
-    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/u.test(host)
-  );
-};
-
-/**
- * Resolves and validates the Codex base URL before it reaches a request.
- *
- * Only `https` URLs are allowed; `http` is permitted solely for loopback hosts.
- * Anything that fails to parse, or uses another scheme, falls back to the
- * default backend so the access token is never sent to an unexpected host. This
- * also keeps file-derived configuration from flowing unchecked into the request
- * URL.
- *
- * @param baseUrl - Configured base URL, or `undefined` for the default.
- * @returns A safe, absolute URL string with no trailing slash.
- */
-const resolveCodexBaseUrl = (baseUrl: string | undefined): string => {
-  const fallback = DEFAULT_CODEX_BASE_URL.replace(/\/$/u, "");
-  let parsed: URL;
-  try {
-    parsed = new URL((baseUrl ?? DEFAULT_CODEX_BASE_URL).trim());
-  } catch {
-    return fallback;
-  }
-
-  const allowed =
-    parsed.protocol === "https:" ||
-    (isLoopbackHost(parsed.hostname) && parsed.protocol === "http:");
-  return allowed ? parsed.toString().replace(/\/$/u, "") : fallback;
-};
 
 /**
  * Reads Codex credentials from the Codex CLI auth file.
@@ -154,7 +105,7 @@ export const fetchCodexUsage = async (
       ? { access: openai.access, accountId: openai.accountId }
       : await readCodexAuthFile(config?.authPath);
 
-  const baseUrl = resolveCodexBaseUrl(config?.baseUrl);
+  const baseUrl = resolveHttpsBaseUrl(config?.baseUrl, DEFAULT_CODEX_BASE_URL);
   const payload = await fetchJson(
     `${baseUrl}/wham/usage`,
     {
