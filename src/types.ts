@@ -1,5 +1,5 @@
 /** Provider adapters supported by the usage-limits plugin. */
-export type ProviderID = "codex" | "zai" | "synthetic";
+export type ProviderID = "codex" | "zai" | "synthetic" | "minimax";
 
 /**
  * Normalized usage information for one provider quota window.
@@ -124,6 +124,27 @@ export interface OpenCodeAuth {
     /** Synthetic API key. */
     key?: string;
     /** Synthetic API key (alternate field name). */
+    apiKey?: string;
+  };
+  /** MiniMax Token Plan credentials stored under the plugin's provider ID. */
+  minimax?: {
+    /** MiniMax Token Plan subscription key. */
+    key?: string;
+    /** MiniMax Token Plan subscription key (alternate field name). */
+    apiKey?: string;
+  };
+  /** MiniMax Token Plan credentials stored under the OpenCode convention ID. */
+  "minimax-coding-plan"?: {
+    /** MiniMax Token Plan subscription key. */
+    key?: string;
+    /** MiniMax Token Plan subscription key (alternate field name). */
+    apiKey?: string;
+  };
+  /** MiniMax Token Plan credentials stored under an alternate OpenCode ID. */
+  "minimax-token-plan"?: {
+    /** MiniMax Token Plan subscription key. */
+    key?: string;
+    /** MiniMax Token Plan subscription key (alternate field name). */
     apiKey?: string;
   };
 }

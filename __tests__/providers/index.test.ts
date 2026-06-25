@@ -24,6 +24,8 @@ describe("provider manifest", () => {
   test("maps OpenCode session providers to plugin providers", () => {
     expect(pluginProviderForOpenCode("openai")).toBe("codex");
     expect(pluginProviderForOpenCode("zai-coding-plan")).toBe("zai");
+    expect(pluginProviderForOpenCode("minimax-coding-plan")).toBe("minimax");
+    expect(pluginProviderForOpenCode("minimax")).toBe("minimax");
     expect(pluginProviderForOpenCode("anthropic")).toBeNull();
   });
 
@@ -33,6 +35,7 @@ describe("provider manifest", () => {
         enabled: true,
         providers: {
           codex: { enabled: true, label: "Codex" },
+          minimax: { enabled: true, label: "MiniMax" },
           synthetic: { enabled: true, label: "Synthetic" },
           zai: { enabled: false, label: "ZAI" },
         },
@@ -43,6 +46,7 @@ describe("provider manifest", () => {
     ).toEqual([
       ["codex", { enabled: true, label: "Codex" }],
       ["synthetic", { enabled: true, label: "Synthetic" }],
+      ["minimax", { enabled: true, label: "MiniMax" }],
     ]);
   });
 
