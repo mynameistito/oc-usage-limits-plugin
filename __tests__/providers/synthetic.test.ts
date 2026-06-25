@@ -46,8 +46,10 @@ describe("Synthetic provider", () => {
     expect(usage).toMatchObject({ id: "synthetic", label: "Syn" });
     expect(usage.windows).toHaveLength(2);
     expect(usage.windows[0]).toMatchObject({
+      current: 60,
       label: "5h",
       remainingPercent: 40,
+      total: 100,
       usedPercent: 60,
     });
     expect(usage.windows[1]).toMatchObject({
@@ -95,8 +97,10 @@ describe("Synthetic provider", () => {
 
     expect(usage.windows).toHaveLength(1);
     expect(usage.windows[0]).toMatchObject({
+      current: 50,
       label: "5h",
       remainingPercent: 75,
+      total: 200,
       usedPercent: 25,
     });
     expect(usage.windows[0]?.resetsAt?.toISOString()).toBe(renewsAt);
@@ -129,8 +133,10 @@ describe("Synthetic provider", () => {
 
     expect(usage.windows).toHaveLength(2);
     expect(usage.windows[0]).toMatchObject({
+      current: 100,
       label: "5h",
       remainingPercent: 50,
+      total: 200,
       usedPercent: 50,
     });
     expect(usage.windows[0]?.resetsAt?.toISOString()).toBe(nextTickAt);
