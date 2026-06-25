@@ -117,7 +117,7 @@ Set `baseUrl` on `minimax` to `https://api.minimaxi.com` when using the mainland
 
 ## Credential Lookup
 
-`authPath` and `apiKey` are optional overrides. Typical OpenCode users only need `enabled` and `label`; credentials are discovered automatically from OpenCode auth and provider defaults. Set `apiKey` (or `authPath` to a standalone key file) only when auto-discovery is not enough.
+`authPath` and `apiKey` are optional overrides. Typical OpenCode users only need `enabled: true`; `label` is an optional display override. Credentials are discovered automatically from OpenCode auth and provider defaults. Set `apiKey` (or `authPath` to a standalone key file) only when auto-discovery is not enough.
 
 Codex lookup order:
 
