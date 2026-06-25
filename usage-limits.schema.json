@@ -28,8 +28,14 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "label": { "type": "string" },
-        "authPath": { "type": "string" },
-        "apiKey": { "type": "string" },
+        "authPath": {
+          "type": "string",
+          "description": "Optional override path to a provider auth file. Omit to use auto-discovery from OpenCode auth and provider defaults."
+        },
+        "apiKey": {
+          "type": "string",
+          "description": "Optional literal API key or {env:NAME} fallback when auth files do not contain a key."
+        },
         "authorizationScheme": { "enum": ["raw", "bearer"] },
         "baseUrl": { "type": "string" }
       }

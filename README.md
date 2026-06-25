@@ -45,7 +45,7 @@ Restart OpenCode after changing TUI plugin config.
 
 ## Usage Config
 
-Create `~/.config/opencode/usage-limits.jsonc`:
+Create `~/.config/opencode/usage-limits.jsonc`. The same file lives at [`examples/usage-limits.jsonc`](examples/usage-limits.jsonc) and can be copied verbatim:
 
 ```jsonc
 {
@@ -58,15 +58,37 @@ Create `~/.config/opencode/usage-limits.jsonc`:
     "codex": {
       "enabled": true,
       "label": "Codex",
-      "authPath": "~/.codex/auth.json",
     },
     "zai": {
       "enabled": true,
       "label": "ZAI",
-      "authPath": "~/.local/share/opencode/auth.json",
-      "apiKey": "{env:OC_ZAI_API_KEY}",
+      "apiKey": "{env:OC_ZAI_API_KEY}", // Optional fallback when OpenCode auth has no ZAI key
       "authorizationScheme": "raw",
     },
+    "synthetic": {
+      "enabled": true,
+      "label": "Synthetic",
+      "apiKey": "{env:OC_SYNTHETIC_API_KEY}", // Optional fallback when OpenCode auth has no Synthetic key
+    },
+    "minimax": {
+      "enabled": true,
+      "label": "MiniMax",
+      "apiKey": "{env:OC_MINIMAX_TOKEN_PLAN_KEY}", // Optional fallback when OpenCode auth has no MiniMax key
+    },
+  },
+}
+```
+
+### Minimal config
+
+If you only need Codex and ZAI with auto-discovered credentials:
+
+```jsonc
+{
+  "$schema": "https://raw.githubusercontent.com/mynameistito/oc-usage-limits-plugin/main/usage-limits.schema.json",
+  "providers": {
+    "codex": { "enabled": true },
+    "zai": { "enabled": true, "authorizationScheme": "raw" },
   },
 }
 ```
@@ -89,31 +111,13 @@ Disabled providers are hidden:
 | `synthetic` | Synthetic quotas       | `OC_SYNTHETIC_API_KEY`      | Bearer       | `https://api.synthetic.new`       |
 | `minimax`   | MiniMax Token Plan     | `OC_MINIMAX_TOKEN_PLAN_KEY` | Bearer       | `https://www.minimax.io`          |
 
-Example Synthetic entry:
-
-```jsonc
-"synthetic": {
-  "enabled": true,
-  "label": "Synthetic",
-  "apiKey": "{env:OC_SYNTHETIC_API_KEY}"
-}
-```
-
 Synthetic always uses `Bearer` auth and ignores `authorizationScheme`.
-
-Example MiniMax entry:
-
-```jsonc
-"minimax": {
-  "enabled": true,
-  "label": "MiniMax",
-  "apiKey": "{env:OC_MINIMAX_TOKEN_PLAN_KEY}"
-}
-```
 
 Set `baseUrl` on `minimax` to `https://api.minimaxi.com` when using the mainland-China region. MiniMax always uses `Bearer` auth and ignores `authorizationScheme`.
 
 ## Credential Lookup
+
+`authPath` and `apiKey` are optional overrides. Typical OpenCode users only need `enabled` and `label`; credentials are discovered automatically from OpenCode auth and provider defaults. Set `apiKey` (or `authPath` to a standalone key file) only when auto-discovery is not enough.
 
 Codex lookup order:
 
