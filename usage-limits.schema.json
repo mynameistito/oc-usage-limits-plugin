@@ -15,7 +15,8 @@
       "additionalProperties": false,
       "properties": {
         "codex": { "$ref": "#/$defs/provider" },
-        "zai": { "$ref": "#/$defs/provider" }
+        "zai": { "$ref": "#/$defs/provider" },
+        "minimax": { "$ref": "#/$defs/provider" }
       }
     }
   },

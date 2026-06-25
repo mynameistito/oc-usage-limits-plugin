@@ -1,4 +1,5 @@
 import { codexProvider } from "@/providers/codex.ts";
+import { minimaxProvider } from "@/providers/minimax.ts";
 import { zaiProvider } from "@/providers/zai-coding-plan.ts";
 import type { ProviderID } from "@/types.ts";
 
@@ -7,7 +8,7 @@ import type { ProviderID } from "@/types.ts";
  *
  * Add new providers here: import the provider export and append it to this array.
  */
-export const PROVIDERS = [codexProvider, zaiProvider] as const;
+export const PROVIDERS = [codexProvider, zaiProvider, minimaxProvider] as const;
 
 /** Sidebar display order derived from {@link PROVIDERS}. */
 export const PROVIDER_ORDER = PROVIDERS.map(
