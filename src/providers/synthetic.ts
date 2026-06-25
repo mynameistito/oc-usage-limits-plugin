@@ -251,9 +251,9 @@ export const fetchSyntheticUsage = async (
 
 /** Plugin registration for the Synthetic provider adapter. */
 export const syntheticProvider = {
-  id: "synthetic",
   defaultLabel: "Synthetic",
   fetch: fetchSyntheticUsage,
   footerWindowLabel: "5h",
+  id: "synthetic",
   openCodeProviderIDs: [],
 } as const satisfies ProviderDefinition<"synthetic">;
