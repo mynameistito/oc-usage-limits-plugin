@@ -5,7 +5,10 @@ import { For, Show } from "solid-js";
 
 import {
   bottomWindowMainText,
-  windowMainText,
+  formatPercent,
+  formatTimestamp,
+  percentBar,
+  tokenCountText,
   windowResetText,
 } from "@/format.ts";
 import type { ProviderState, UsageWindow } from "@/types.ts";
@@ -35,23 +38,37 @@ const UsageWindowRows = (props: {
   windows: UsageWindow[];
 }) => (
   <For each={props.windows}>
-    {(window) => (
-      <box
-        flexDirection="row"
-        gap={1}
-        children={[
-          <text flexShrink={0} fg={dotColor(window.usedPercent, props.theme)}>
-            •
-          </text>,
-          <text fg={props.theme.text}>
-            {windowMainText(window)}
-            <span style={{ fg: props.theme.textMuted }}>
-              {windowResetText(window)}
-            </span>
-          </text>,
-        ]}
-      />
-    )}
+    {(window) => {
+      const tokenText = tokenCountText(window);
+      return (
+        <box
+          children={[
+            <text>
+              <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
+              <span style={{ fg: props.theme.text }}>
+                <b>{window.label}</b>
+              </span>
+              <span style={{ fg: props.theme.textMuted }}>
+                {windowResetText(window)}
+              </span>
+            </text>,
+            <text>
+              <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
+              <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
+                {percentBar(window.usedPercent, 12)}
+              </span>
+              <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
+                {" "}
+                {formatPercent(window.usedPercent)} used
+              </span>
+              {tokenText ? (
+                <span style={{ fg: props.theme.textMuted }}>{tokenText}</span>
+              ) : null}
+            </text>,
+          ]}
+        />
+      );
+    }}
   </For>
 );
 
@@ -61,13 +78,14 @@ const UsageWindowRows = (props: {
  * The panel lists every enabled provider, shows loading and stale states, and can
  * optionally display provider fetch errors.
  *
- * @param props - Provider states, error visibility, and active TUI theme.
+ * @param props - Provider states, error visibility, active TUI theme, and last refresh timestamp.
  * @returns Solid/OpenTUI JSX for the sidebar content slot.
  */
 export const UsageLimitsPanel = (props: {
   states: ProviderState[];
   showErrors: boolean;
   theme: TuiThemeCurrent;
+  lastRefreshAt: Date | null;
 }) => {
   if (!props.states.some((state) => state.status !== "disabled")) {
     return null;
@@ -85,13 +103,31 @@ export const UsageLimitsPanel = (props: {
               return null;
             }
 
-            const isStale =
-              (state.status === "ready" && state.stale) ||
-              (state.status === "error" && state.previous !== undefined);
+            let tierName: string | undefined;
+            if (state.status === "ready") {
+              ({ tierName } = state.data);
+            } else if (state.status === "error" && state.previous) {
+              ({ tierName } = state.previous);
+            }
+            const isStale = state.status === "ready" && state.stale;
+            const isCached =
+              state.status === "error" && state.previous !== undefined;
             const children = [
               <text fg={props.theme.text}>
                 {state.label}
-                {isStale ? " stale" : ""}
+                {tierName ? (
+                  <span style={{ fg: props.theme.textMuted }}>
+                    {" ["}
+                    {tierName}
+                    {"]"}
+                  </span>
+                ) : null}
+                {isStale ? (
+                  <span style={{ fg: props.theme.warning }}> stale</span>
+                ) : null}
+                {isCached ? (
+                  <span style={{ fg: props.theme.warning }}> cached</span>
+                ) : null}
               </text>,
             ];
 
@@ -128,6 +164,11 @@ export const UsageLimitsPanel = (props: {
             return <box children={children} />;
           }}
         </For>,
+        props.lastRefreshAt ? (
+          <text fg={props.theme.textMuted}>
+            Updated {formatTimestamp(props.lastRefreshAt)}
+          </text>
+        ) : null,
       ]}
     />
   );
@@ -145,8 +186,14 @@ export const BottomUsage = (props: {
 }) => (
   <Show when={props.window}>
     {(window) => (
-      <text fg={props.theme.text}>
-        {bottomWindowMainText(window())}
+      <text>
+        <span style={{ fg: dotColor(window().usedPercent, props.theme) }}>
+          {percentBar(window().usedPercent, 8)}
+        </span>
+        <span style={{ fg: props.theme.text }}>
+          {" "}
+          {bottomWindowMainText(window())}
+        </span>
         <span style={{ fg: props.theme.textMuted }}>
           {windowResetText(window())}
         </span>

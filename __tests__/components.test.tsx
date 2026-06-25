@@ -85,11 +85,17 @@ const usage = (overrides: Partial<ProviderUsage> = {}): ProviderUsage => ({
 
 const renderPanelText = async (
   states: ProviderState[],
-  showErrors: boolean
+  showErrors: boolean,
+  lastRefreshAt: Date | null = null
 ): Promise<string> => {
   const setup = await testRender(
     () => (
-      <UsageLimitsPanel showErrors={showErrors} states={states} theme={theme} />
+      <UsageLimitsPanel
+        showErrors={showErrors}
+        states={states}
+        theme={theme}
+        lastRefreshAt={lastRefreshAt}
+      />
     ),
     { height: 12, width: 80 }
   );
@@ -119,7 +125,9 @@ describe("UsageLimitsPanel", () => {
 
     expect(text).toContain("Usage Limits");
     expect(text).toContain("Codex");
-    expect(text).toContain("5h: 42% used resets 1h");
+    expect(text).toContain("5h");
+    expect(text).toContain("42%");
+    expect(text).toContain("[█████░░░░░░░]");
   });
 
   test("renders previous windows and error text when errors are visible", async () => {
@@ -136,8 +144,9 @@ describe("UsageLimitsPanel", () => {
       true
     );
 
-    expect(text).toContain("Codex stale");
-    expect(text).toContain("5h: 42% used resets 1h");
+    expect(text).toContain("Codex cached");
+    expect(text).toContain("5h");
+    expect(text).toContain("42%");
     expect(text).toContain("provider unavailable");
   });
 
@@ -155,8 +164,9 @@ describe("UsageLimitsPanel", () => {
       false
     );
 
-    expect(text).toContain("Codex stale");
-    expect(text).toContain("5h: 42% used resets 1h");
+    expect(text).toContain("Codex cached");
+    expect(text).toContain("5h");
+    expect(text).toContain("42%");
     expect(text).not.toContain("provider unavailable");
   });
 
@@ -175,6 +185,41 @@ describe("UsageLimitsPanel", () => {
 
     expect(text).toContain("Codex");
     expect(text).not.toContain("provider unavailable");
-    expect(text).not.toContain("5h: 42% used");
+    expect(text).not.toContain("42%");
+  });
+
+  test("renders tier badge when provider has tierName", async () => {
+    const text = await renderPanelText(
+      [
+        {
+          data: usage({ tierName: "Pro" }),
+          id: "codex",
+          label: "Codex",
+          stale: false,
+          status: "ready",
+        },
+      ],
+      true
+    );
+
+    expect(text).toContain("Codex [Pro]");
+  });
+
+  test("renders updated timestamp when lastRefreshAt is provided", async () => {
+    const text = await renderPanelText(
+      [
+        {
+          data: usage(),
+          id: "codex",
+          label: "Codex",
+          stale: false,
+          status: "ready",
+        },
+      ],
+      true,
+      new Date(2026, 5, 25, 14, 32, 0, 0)
+    );
+
+    expect(text).toContain("Updated 14:32");
   });
 });

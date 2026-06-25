@@ -23,7 +23,13 @@ const duration = (seconds: number | null): string => {
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   if (hours < 24) {
-    return remainder === 0 ? `${hours}h` : `${hours}h ${remainder}m`;
+    if (remainder === 0) {
+      return `${hours}h`;
+    }
+    if (remainder === 30) {
+      return `${hours}.5h`;
+    }
+    return `${hours}h ${remainder}m`;
   }
 
   const days = Math.floor(hours / 24);
@@ -38,8 +44,8 @@ const duration = (seconds: number | null): string => {
  *   report a percentage.
  * @returns A rounded usage string, or `? used` when usage is unknown.
  */
-const formatPercent = (value: number | null): string =>
-  value === null ? "? used" : `${Math.round(value)}% used`;
+export const formatPercent = (value: number | null): string =>
+  value === null ? "?" : `${Math.round(value)}%`;
 
 /**
  * Builds the primary line of text for a usage window in the sidebar panel.
@@ -54,10 +60,10 @@ export const windowMainText = (window: UsageWindow): string =>
  * Builds the compact prompt-footer text for the active provider's primary window.
  *
  * @param window - The active provider usage window to summarize.
- * @returns A compact percentage label such as `daily: 42% used`.
+ * @returns A compact percentage label such as `daily 42%`.
  */
 export const bottomWindowMainText = (window: UsageWindow): string =>
-  `${window.label}: ${formatPercent(window.usedPercent)}`;
+  `${window.label} ${formatPercent(window.usedPercent)}`;
 
 /**
  * Formats the reset suffix for a usage window.
@@ -69,7 +75,72 @@ export const bottomWindowMainText = (window: UsageWindow): string =>
 export const windowResetText = (window: UsageWindow): string =>
   window.resetAfterSeconds === null
     ? ""
-    : ` resets ${duration(window.resetAfterSeconds)}`;
+    : ` · ${duration(window.resetAfterSeconds)}`;
+
+/**
+ * Renders a Unicode block progress bar for usage percentage.
+ *
+ * @param usedPercent - Percentage consumed, or `null` when unknown.
+ * @param width - Total width of the bar in characters (default 12).
+ * @returns A string of filled (█) and empty (░) blocks.
+ */
+export const percentBar = (usedPercent: number | null, width = 12): string => {
+  if (usedPercent === null) {
+    return `[${"░".repeat(width)}]`;
+  }
+  const filled = Math.max(
+    0,
+    Math.min(width, Math.round((usedPercent / 100) * width))
+  );
+  return `[${"█".repeat(filled)}${"░".repeat(width - filled)}]`;
+};
+
+/**
+ * Formats a token count with K/M suffixes.
+ *
+ * @param count - The token count to format.
+ * @returns A formatted string such as `500`, `1.5K`, `15K`, `1.5M`, or `15M`.
+ */
+export const formatTokenCount = (count: number): string => {
+  if (count < 1000) {
+    return count.toString();
+  }
+  if (count < 1_000_000) {
+    const thousands = count / 1000;
+    return thousands % 1 === 0
+      ? `${thousands.toFixed(0)}K`
+      : `${thousands.toFixed(1)}K`;
+  }
+  const millions = count / 1_000_000;
+  return millions % 1 === 0
+    ? `${millions.toFixed(0)}M`
+    : `${millions.toFixed(1)}M`;
+};
+
+/**
+ * Formats a Date as HH:MM (24-hour, zero-padded).
+ *
+ * @param date - The date to format.
+ * @returns A time string such as `14:32`.
+ */
+export const formatTimestamp = (date: Date): string => {
+  const h = date.getHours().toString().padStart(2, "0");
+  const m = date.getMinutes().toString().padStart(2, "0");
+  return `${h}:${m}`;
+};
+
+/**
+ * Builds a count-based suffix string when the window has both current and total.
+ *
+ * @param window - The usage window whose counts should be rendered.
+ * @returns A suffix such as ` (1.5K/15K)`, or an empty string when counts are missing.
+ */
+export const tokenCountText = (window: UsageWindow): string => {
+  if (window.current !== undefined && window.total !== undefined) {
+    return ` (${formatTokenCount(window.current)}/${formatTokenCount(window.total)})`;
+  }
+  return "";
+};
 
 /**
  * Converts a provider-reported rolling-window size into a stable display label.
