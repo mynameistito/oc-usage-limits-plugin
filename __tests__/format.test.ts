@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 
 import {
   bottomWindowMainText,
+  formatTimestamp,
+  formatTokenCount,
   limitLabelForWindow,
+  percentBar,
+  tokenCountText,
   windowMainText,
   windowResetText,
 } from "@/format.ts";
@@ -51,6 +55,9 @@ describe("format helpers", () => {
     expect(windowResetText(usageWindow({ resetAfterSeconds: 3600 }))).toBe(
       " resets 1h"
     );
+    expect(windowResetText(usageWindow({ resetAfterSeconds: 5400 }))).toBe(
+      " resets 1.5h"
+    );
     expect(windowResetText(usageWindow({ resetAfterSeconds: 5460 }))).toBe(
       " resets 1h 31m"
     );
@@ -70,5 +77,44 @@ describe("format helpers", () => {
     expect(limitLabelForWindow(7 * 24 * 60 * 60, "fallback")).toBe("weekly");
     expect(limitLabelForWindow(30 * 24 * 60 * 60, "fallback")).toBe("monthly");
     expect(limitLabelForWindow(42, "fallback")).toBe("fallback");
+  });
+
+  test("renders percent bar with filled and empty blocks", () => {
+    expect(percentBar(42, 12)).toBe("█████░░░░░░░");
+    expect(percentBar(75, 8)).toBe("██████░░");
+    expect(percentBar(null, 12)).toBe("░░░░░░░░░░░░");
+    expect(percentBar(0, 12)).toBe("░░░░░░░░░░░░");
+    expect(percentBar(100, 12)).toBe("████████████");
+  });
+
+  test("formats token counts with K/M suffixes", () => {
+    expect(formatTokenCount(500)).toBe("500");
+    expect(formatTokenCount(1000)).toBe("1K");
+    expect(formatTokenCount(1500)).toBe("1.5K");
+    expect(formatTokenCount(15_000)).toBe("15K");
+    expect(formatTokenCount(1_000_000)).toBe("1M");
+    expect(formatTokenCount(1_500_000)).toBe("1.5M");
+    expect(formatTokenCount(15_000_000)).toBe("15M");
+  });
+
+  test("formats timestamp as HH:MM", () => {
+    expect(formatTimestamp(new Date(2026, 5, 25, 14, 32, 0, 0))).toBe("14:32");
+    expect(formatTimestamp(new Date(2026, 5, 25, 9, 5, 0, 0))).toBe("09:05");
+    expect(formatTimestamp(new Date(2026, 5, 25, 0, 0, 0, 0))).toBe("00:00");
+  });
+
+  test("renders token count text when window has current and total", () => {
+    expect(tokenCountText(usageWindow({ current: 1500, total: 15_000 }))).toBe(
+      " (1.5K/15K)"
+    );
+    expect(tokenCountText(usageWindow({ current: 500, total: 1000 }))).toBe(
+      " (500/1K)"
+    );
+    expect(
+      tokenCountText(usageWindow({ current: undefined, total: 1000 }))
+    ).toBe("");
+    expect(
+      tokenCountText(usageWindow({ current: 1500, total: undefined }))
+    ).toBe("");
   });
 });
