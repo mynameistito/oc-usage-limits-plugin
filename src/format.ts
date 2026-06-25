@@ -45,7 +45,7 @@ const duration = (seconds: number | null): string => {
  * @returns A rounded usage string, or `? used` when usage is unknown.
  */
 const formatPercent = (value: number | null): string =>
-  value === null ? "? used" : `${Math.round(value)}% used`;
+  value === null ? "?" : `${Math.round(value)}%`;
 
 /**
  * Builds the primary line of text for a usage window in the sidebar panel.
@@ -60,10 +60,10 @@ export const windowMainText = (window: UsageWindow): string =>
  * Builds the compact prompt-footer text for the active provider's primary window.
  *
  * @param window - The active provider usage window to summarize.
- * @returns A compact percentage label such as `daily: 42% used`.
+ * @returns A compact percentage label such as `daily 42%`.
  */
 export const bottomWindowMainText = (window: UsageWindow): string =>
-  `${window.label}: ${formatPercent(window.usedPercent)}`;
+  `${window.label} ${formatPercent(window.usedPercent)}`;
 
 /**
  * Formats the reset suffix for a usage window.
@@ -75,7 +75,7 @@ export const bottomWindowMainText = (window: UsageWindow): string =>
 export const windowResetText = (window: UsageWindow): string =>
   window.resetAfterSeconds === null
     ? ""
-    : ` resets ${duration(window.resetAfterSeconds)}`;
+    : ` · ${duration(window.resetAfterSeconds)}`;
 
 /**
  * Renders a Unicode block progress bar for usage percentage.
@@ -86,13 +86,13 @@ export const windowResetText = (window: UsageWindow): string =>
  */
 export const percentBar = (usedPercent: number | null, width = 12): string => {
   if (usedPercent === null) {
-    return "░".repeat(width);
+    return `[${"░".repeat(width)}]`;
   }
   const filled = Math.max(
     0,
     Math.min(width, Math.round((usedPercent / 100) * width))
   );
-  return "█".repeat(filled) + "░".repeat(width - filled);
+  return `[${"█".repeat(filled)}${"░".repeat(width - filled)}]`;
 };
 
 /**

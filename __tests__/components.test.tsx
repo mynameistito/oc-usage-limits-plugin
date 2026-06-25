@@ -125,8 +125,9 @@ describe("UsageLimitsPanel", () => {
 
     expect(text).toContain("Usage Limits");
     expect(text).toContain("Codex");
-    expect(text).toContain("5h: 42% used resets 1h");
-    expect(text).toContain("█████░░░░░░░");
+    expect(text).toContain("5h");
+    expect(text).toContain("42%");
+    expect(text).toContain("[█████░░░░░░░]");
   });
 
   test("renders previous windows and error text when errors are visible", async () => {
@@ -144,7 +145,8 @@ describe("UsageLimitsPanel", () => {
     );
 
     expect(text).toContain("Codex cached");
-    expect(text).toContain("5h: 42% used resets 1h");
+    expect(text).toContain("5h");
+    expect(text).toContain("42%");
     expect(text).toContain("provider unavailable");
   });
 
@@ -163,7 +165,8 @@ describe("UsageLimitsPanel", () => {
     );
 
     expect(text).toContain("Codex cached");
-    expect(text).toContain("5h: 42% used resets 1h");
+    expect(text).toContain("5h");
+    expect(text).toContain("42%");
     expect(text).not.toContain("provider unavailable");
   });
 
@@ -182,7 +185,7 @@ describe("UsageLimitsPanel", () => {
 
     expect(text).toContain("Codex");
     expect(text).not.toContain("provider unavailable");
-    expect(text).not.toContain("5h: 42% used");
+    expect(text).not.toContain("42%");
   });
 
   test("renders tier badge when provider has tierName", async () => {

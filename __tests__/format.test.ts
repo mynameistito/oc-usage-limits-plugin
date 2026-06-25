@@ -23,49 +23,43 @@ const usageWindow = (overrides: Partial<UsageWindow> = {}): UsageWindow => ({
 
 describe("format helpers", () => {
   test("formats usage window main labels", () => {
-    expect(windowMainText(usageWindow())).toBe("5h: 42% used");
+    expect(windowMainText(usageWindow())).toBe("5h: 42%");
     expect(bottomWindowMainText(usageWindow({ label: "daily" }))).toBe(
-      "daily: 42% used"
+      "daily 42%"
     );
   });
 
   test("uses a placeholder for unknown percentages", () => {
-    expect(windowMainText(usageWindow({ usedPercent: null }))).toBe(
-      "5h: ? used"
-    );
+    expect(windowMainText(usageWindow({ usedPercent: null }))).toBe("5h: ?");
   });
 
   test("rounds percentages to the nearest integer", () => {
-    expect(windowMainText(usageWindow({ usedPercent: 42.49 }))).toBe(
-      "5h: 42% used"
-    );
-    expect(windowMainText(usageWindow({ usedPercent: 42.5 }))).toBe(
-      "5h: 43% used"
-    );
+    expect(windowMainText(usageWindow({ usedPercent: 42.49 }))).toBe("5h: 42%");
+    expect(windowMainText(usageWindow({ usedPercent: 42.5 }))).toBe("5h: 43%");
   });
 
   test("formats reset durations across minute, hour, and day boundaries", () => {
     expect(windowResetText(usageWindow({ resetAfterSeconds: null }))).toBe("");
     expect(windowResetText(usageWindow({ resetAfterSeconds: 0 }))).toBe(
-      " resets now"
+      " · now"
     );
     expect(windowResetText(usageWindow({ resetAfterSeconds: 1 }))).toBe(
-      " resets 1m"
+      " · 1m"
     );
     expect(windowResetText(usageWindow({ resetAfterSeconds: 3600 }))).toBe(
-      " resets 1h"
+      " · 1h"
     );
     expect(windowResetText(usageWindow({ resetAfterSeconds: 5400 }))).toBe(
-      " resets 1.5h"
+      " · 1.5h"
     );
     expect(windowResetText(usageWindow({ resetAfterSeconds: 5460 }))).toBe(
-      " resets 1h 31m"
+      " · 1h 31m"
     );
     expect(windowResetText(usageWindow({ resetAfterSeconds: 86_400 }))).toBe(
-      " resets 1d"
+      " · 1d"
     );
     expect(windowResetText(usageWindow({ resetAfterSeconds: 176_400 }))).toBe(
-      " resets 2d 1h"
+      " · 2d 1h"
     );
   });
 
@@ -80,11 +74,11 @@ describe("format helpers", () => {
   });
 
   test("renders percent bar with filled and empty blocks", () => {
-    expect(percentBar(42, 12)).toBe("█████░░░░░░░");
-    expect(percentBar(75, 8)).toBe("██████░░");
-    expect(percentBar(null, 12)).toBe("░░░░░░░░░░░░");
-    expect(percentBar(0, 12)).toBe("░░░░░░░░░░░░");
-    expect(percentBar(100, 12)).toBe("████████████");
+    expect(percentBar(42, 12)).toBe("[█████░░░░░░░]");
+    expect(percentBar(75, 8)).toBe("[██████░░]");
+    expect(percentBar(null, 12)).toBe("[░░░░░░░░░░░░]");
+    expect(percentBar(0, 12)).toBe("[░░░░░░░░░░░░]");
+    expect(percentBar(100, 12)).toBe("[████████████]");
   });
 
   test("formats token counts with K/M suffixes", () => {
