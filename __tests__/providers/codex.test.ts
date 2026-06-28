@@ -117,4 +117,128 @@ describe("Codex provider", () => {
       expect(fetchMock.mock.calls[0]?.[0]).toBe(expectedUrl);
     }
   );
+
+  describe("window variants", () => {
+    test("primary window only", async () => {
+      installFetchMock(
+        Response.json({
+          plan_type: "team",
+          rate_limit: {
+            primary_window: {
+              limit_window_seconds: 18_000,
+              reset_after_seconds: 3600,
+              reset_at: 1_782_216_000,
+              used_percent: 50,
+            },
+          },
+        })
+      );
+
+      const usage = await fetchCodexUsage(
+        { baseUrl: "https://codex.example/", label: "Codex" },
+        { openai: { access: "access-token", accountId: "account-id" } },
+        1000
+      );
+
+      expect(usage.windows).toHaveLength(1);
+      expect(usage.windows[0]).toMatchObject({
+        label: "5h",
+        remainingPercent: 50,
+        resetAfterSeconds: 3600,
+        usedPercent: 50,
+      });
+    });
+
+    test("primary + secondary windows", async () => {
+      installFetchMock(
+        Response.json({
+          plan_type: "team",
+          rate_limit: {
+            primary_window: {
+              limit_window_seconds: 18_000,
+              reset_after_seconds: 3600,
+              reset_at: 1_782_216_000,
+              used_percent: 125,
+            },
+            secondary_window: {
+              limit_window_seconds: 86_400,
+              reset_after_seconds: 7200,
+              used_percent: -5,
+            },
+          },
+        })
+      );
+
+      const usage = await fetchCodexUsage(
+        { baseUrl: "https://codex.example/", label: "Codex" },
+        { openai: { access: "access-token", accountId: "account-id" } },
+        1000
+      );
+
+      expect(usage.windows).toHaveLength(2);
+      expect(usage.windows[0]).toMatchObject({
+        label: "5h",
+        remainingPercent: 0,
+        resetAfterSeconds: 3600,
+        usedPercent: 100,
+      });
+      expect(usage.windows[1]).toMatchObject({
+        label: "daily",
+        remainingPercent: 100,
+        resetAfterSeconds: 7200,
+        usedPercent: 0,
+      });
+    });
+
+    test("reset credits metadata", async () => {
+      installFetchMock(
+        Response.json({
+          plan_type: "team",
+          rate_limit: {
+            primary_window: {
+              limit_window_seconds: 18_000,
+              reset_after_seconds: 3600,
+              reset_at: 1_782_216_000,
+              used_percent: 50,
+            },
+          },
+          rate_limit_reset_credits: { available_count: 5 },
+        })
+      );
+
+      const usage = await fetchCodexUsage(
+        { baseUrl: "https://codex.example/", label: "Codex" },
+        { openai: { access: "access-token", accountId: "account-id" } },
+        1000
+      );
+
+      expect(usage.metadata).toMatchObject({
+        resetCredits: 5,
+      });
+    });
+
+    test("plan type", async () => {
+      installFetchMock(
+        Response.json({
+          plan_type: "enterprise",
+          rate_limit: {
+            primary_window: {
+              limit_window_seconds: 18_000,
+              reset_after_seconds: 3600,
+              reset_at: 1_782_216_000,
+              used_percent: 50,
+            },
+          },
+        })
+      );
+
+      const usage = await fetchCodexUsage(
+        { baseUrl: "https://codex.example/", label: "Codex" },
+        { openai: { access: "access-token", accountId: "account-id" } },
+        1000
+      );
+
+      expect(usage.tierName).toBe("enterprise");
+    });
+  });
 });

@@ -64,9 +64,15 @@ export const currentProviderID = (
 const windowFromState = (
   state: ProviderState | undefined
 ): ProviderUsage | undefined => {
-  if (!state) {return undefined;}
-  if (state.status === "ready") {return state.data;}
-  if (state.status === "error") {return state.previous;}
+  if (!state) {
+    return undefined;
+  }
+  if (state.status === "ready") {
+    return state.data;
+  }
+  if (state.status === "error") {
+    return state.previous;
+  }
   return undefined;
 };
 
@@ -96,7 +102,9 @@ export const usageForProvider = (
   const resolveWindow = (id: ProviderID): UsageWindow | null => {
     const state = states.find((item) => item.id === id);
     const data = windowFromState(state);
-    if (!data) {return null;}
+    if (!data) {
+      return null;
+    }
     const { footerWindowLabel } = PROVIDER_REGISTRY[id];
     return (
       data.windows.find((window) => window.label === footerWindowLabel) ??
@@ -107,14 +115,20 @@ export const usageForProvider = (
 
   if (usageID) {
     const window = resolveWindow(usageID);
-    if (window) {return window;}
+    if (window) {
+      return window;
+    }
   }
 
   // Fallback: first enabled provider with data.
   for (const state of states) {
-    if (state.status === "disabled") {continue;}
+    if (state.status === "disabled") {
+      continue;
+    }
     const window = resolveWindow(state.id);
-    if (window) {return window;}
+    if (window) {
+      return window;
+    }
   }
 
   return null;

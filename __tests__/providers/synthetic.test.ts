@@ -225,4 +225,169 @@ describe("Synthetic provider", () => {
       fetchSyntheticUsage({ apiKey: "syn-key" }, {}, 1000)
     ).rejects.toThrow("invalid Synthetic usage");
   });
+
+  describe("window variants", () => {
+    test("v3 rollingFiveHourLimit only (no weeklyTokenLimit)", async () => {
+      installFetchMock(
+        Response.json({
+          rollingFiveHourLimit: {
+            limited: false,
+            max: 100,
+            nextTickAt,
+            remaining: 40,
+            tickPercent: 0.6,
+          },
+        })
+      );
+
+      const usage = await fetchSyntheticUsage({ apiKey: "syn-key" }, {}, 1000);
+
+      expect(usage.windows).toHaveLength(1);
+      expect(usage.windows[0]).toMatchObject({
+        label: "5h",
+        remainingPercent: 40,
+        usedPercent: 60,
+      });
+    });
+
+    test("v3 with weeklyTokenLimit", async () => {
+      installFetchMock(
+        Response.json({
+          rollingFiveHourLimit: {
+            limited: false,
+            max: 100,
+            nextTickAt,
+            remaining: 40,
+            tickPercent: 0.6,
+          },
+          weeklyTokenLimit: {
+            nextRegenAt,
+            percentRemaining: 75,
+          },
+        })
+      );
+
+      const usage = await fetchSyntheticUsage({ apiKey: "syn-key" }, {}, 1000);
+
+      expect(usage.windows).toHaveLength(2);
+      expect(usage.windows[0]).toMatchObject({
+        label: "5h",
+        remainingPercent: 40,
+        usedPercent: 60,
+      });
+      expect(usage.windows[1]).toMatchObject({
+        label: "weekly",
+        remainingPercent: 75,
+        usedPercent: 25,
+      });
+    });
+
+    test("Legacy subscription only (no v3 fields)", async () => {
+      const renewsAt = new Date(Date.now() + 45 * 60 * 1000).toISOString();
+      installFetchMock(
+        Response.json({
+          subscription: {
+            limit: 200,
+            renewsAt,
+            requests: 50,
+          },
+        })
+      );
+
+      const usage = await fetchSyntheticUsage({ apiKey: "syn-key" }, {}, 1000);
+
+      expect(usage.windows).toHaveLength(1);
+      expect(usage.windows[0]).toMatchObject({
+        label: "5h",
+        remainingPercent: 75,
+        usedPercent: 25,
+      });
+    });
+
+    test("v3 + legacy both present (v3 takes precedence)", async () => {
+      const renewsAt = new Date(Date.now() + 45 * 60 * 1000).toISOString();
+      installFetchMock(
+        Response.json({
+          rollingFiveHourLimit: {
+            limited: false,
+            max: 200,
+            nextTickAt,
+            remaining: 100,
+            tickPercent: 0.05,
+          },
+          subscription: {
+            limit: 100,
+            renewsAt,
+            requests: 50,
+          },
+          weeklyTokenLimit: {
+            nextRegenAt,
+            percentRemaining: 50,
+          },
+        })
+      );
+
+      const usage = await fetchSyntheticUsage({ apiKey: "syn-key" }, {}, 1000);
+
+      expect(usage.windows).toHaveLength(2);
+      expect(usage.windows[0]).toMatchObject({
+        current: 100,
+        label: "5h",
+        remainingPercent: 50,
+        total: 200,
+        usedPercent: 50,
+      });
+      expect(usage.windows[0]?.resetsAt?.toISOString()).toBe(nextTickAt);
+    });
+
+    test("Zero remaining (remaining=0)", async () => {
+      installFetchMock(
+        Response.json({
+          rollingFiveHourLimit: {
+            limited: true,
+            max: 100,
+            nextTickAt,
+            remaining: 0,
+            tickPercent: 1,
+          },
+        })
+      );
+
+      const usage = await fetchSyntheticUsage({ apiKey: "syn-key" }, {}, 1000);
+
+      expect(usage.windows).toHaveLength(1);
+      expect(usage.windows[0]).toMatchObject({
+        current: 100,
+        label: "5h",
+        remainingPercent: 0,
+        total: 100,
+        usedPercent: 100,
+      });
+    });
+
+    test("current/total population (v3 path)", async () => {
+      installFetchMock(
+        Response.json({
+          rollingFiveHourLimit: {
+            limited: false,
+            max: 150,
+            nextTickAt,
+            remaining: 45,
+            tickPercent: 0.7,
+          },
+        })
+      );
+
+      const usage = await fetchSyntheticUsage({ apiKey: "syn-key" }, {}, 1000);
+
+      expect(usage.windows).toHaveLength(1);
+      expect(usage.windows[0]).toMatchObject({
+        current: 105,
+        label: "5h",
+        remainingPercent: 30,
+        total: 150,
+        usedPercent: 70,
+      });
+    });
+  });
 });
