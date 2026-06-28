@@ -116,12 +116,12 @@ describe("format helpers", () => {
   test("formats absolute reset time when window has resetsAt", () => {
     expect(
       windowResetTime(
-        usageWindow({ resetsAt: new Date("2026-06-23T12:00:00.000Z") })
+        usageWindow({ resetsAt: new Date(2026, 5, 23, 12, 0, 0, 0) })
       )
     ).toBe(" 12:00");
     expect(
       windowResetTime(
-        usageWindow({ resetsAt: new Date("2026-06-23T23:59:00.000Z") })
+        usageWindow({ resetsAt: new Date(2026, 5, 23, 23, 59, 0, 0) })
       )
     ).toBe(" 23:59");
     expect(windowResetTime(usageWindow({ resetsAt: null }))).toBe("");

@@ -109,7 +109,7 @@ const syntheticFiveHourWindow = (
       const used = clampPercent((1 - remaining / max) * 100);
       const resetsAt = parseIsoDate(rolling.nextTickAt);
       return {
-        current: Math.round(max - remaining),
+        current: Math.max(0, Math.min(max, Math.round(max - remaining))),
         label: "5h",
         remainingPercent: 100 - used,
         resetAfterSeconds: resetsAt
@@ -134,7 +134,7 @@ const syntheticFiveHourWindow = (
       const used = clampPercent((requests / limit) * 100);
       const resetsAt = parseIsoDate(subscription.renewsAt);
       return {
-        current: requests,
+        current: Math.max(0, Math.min(limit, requests)),
         label: "5h",
         remainingPercent: 100 - used,
         resetAfterSeconds: resetsAt

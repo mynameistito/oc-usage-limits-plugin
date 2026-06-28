@@ -205,6 +205,23 @@ describe("UsageLimitsPanel", () => {
     expect(text).toContain("Codex [Pro]");
   });
 
+  test("renders cached tier badge from previous data on error state", async () => {
+    const text = await renderPanelText(
+      [
+        {
+          id: "codex",
+          label: "Codex",
+          message: "provider unavailable",
+          previous: usage({ tierName: "Pro" }),
+          status: "error",
+        },
+      ],
+      true
+    );
+
+    expect(text).toContain("Codex [Pro]");
+  });
+
   test("renders updated timestamp when lastRefreshAt is provided", async () => {
     const text = await renderPanelText(
       [

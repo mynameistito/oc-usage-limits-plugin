@@ -118,14 +118,14 @@ const zaiWindowFromLimit = (
   const usageTotal = typeof limit.usage === "number" ? limit.usage : undefined;
 
   if (limit.type === "TOKENS_LIMIT") {
+    const rawCurrentValue =
+      typeof limit.currentValue === "number" ? limit.currentValue : undefined;
     const currentValue =
-      typeof limit.currentValue === "number"
-        ? Math.round(limit.currentValue)
-        : undefined;
+      rawCurrentValue === undefined ? undefined : Math.round(rawCurrentValue);
     const computedTotal =
-      currentValue !== undefined && usedPercent !== null && usedPercent > 0
-        ? Math.round(currentValue / (usedPercent / 100))
-        : undefined;
+      rawCurrentValue === undefined || usedPercent === null || usedPercent <= 0
+        ? undefined
+        : Math.round(rawCurrentValue / (usedPercent / 100));
     return {
       promptTotal: null,
       window: {
