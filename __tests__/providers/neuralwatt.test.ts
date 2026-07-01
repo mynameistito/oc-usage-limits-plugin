@@ -71,10 +71,10 @@ describe("NeuralWatt provider", () => {
     expect(usage.windows[0]).toMatchObject({
       current: 13.9023,
       label: "monthly",
-      remainingPercent: 30.488500000000002,
       total: 20,
-      usedPercent: 69.5115,
     });
+    expect(usage.windows[0]?.usedPercent).toBeCloseTo(69.5115, 5);
+    expect(usage.windows[0]?.remainingPercent).toBeCloseTo(30.4885, 5);
     expect(usage.windows[0]?.resetAfterSeconds).toBeGreaterThan(0);
     expect(usage.windows[0]?.resetsAt?.toISOString()).toBe(currentPeriodEnd);
     expect(usage.tierName).toBe("standard");
@@ -102,8 +102,8 @@ describe("NeuralWatt provider", () => {
     expect(usage.windows).toHaveLength(2);
     expect(usage.windows[0]).toMatchObject({
       label: "monthly",
-      usedPercent: 69.5115,
     });
+    expect(usage.windows[0]?.usedPercent).toBeCloseTo(69.5115, 5);
     expect(usage.windows[1]).toMatchObject({
       current: 45.5,
       label: "daily",
@@ -135,10 +135,10 @@ describe("NeuralWatt provider", () => {
     expect(usage.windows[0]).toMatchObject({
       current: 19.6626,
       label: "credits",
-      remainingPercent: 62.432938479174624,
       total: 52.34,
-      usedPercent: 37.567061520825376,
     });
+    expect(usage.windows[0]?.usedPercent).toBeCloseTo(37.567, 3);
+    expect(usage.windows[0]?.remainingPercent).toBeCloseTo(62.433, 3);
     expect(usage.tierName).toBeUndefined();
   });
 
