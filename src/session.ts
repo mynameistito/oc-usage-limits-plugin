@@ -2,7 +2,12 @@ import {
   pluginProviderForOpenCode,
   PROVIDER_REGISTRY,
 } from "@/providers/index.ts";
-import type { ProviderState, ProviderUsage, UsageWindow } from "@/types.ts";
+import type {
+  ProviderID,
+  ProviderState,
+  ProviderUsage,
+  UsageWindow,
+} from "@/types.ts";
 import { isRecord } from "@/utils.ts";
 
 /**
@@ -53,11 +58,33 @@ export const currentProviderID = (
 };
 
 /**
+ * Extracts the usage data from a provider state, preferring the latest ready
+ * data and falling back to the previous successful payload on error.
+ */
+const windowFromState = (
+  state: ProviderState | undefined
+): ProviderUsage | undefined => {
+  if (!state) {
+    return undefined;
+  }
+  if (state.status === "ready") {
+    return state.data;
+  }
+  if (state.status === "error") {
+    return state.previous;
+  }
+  return undefined;
+};
+
+/**
  * Selects the usage window that should be shown in the prompt footer.
  *
  * OpenCode provider IDs are mapped to this plugin's provider IDs, then the most
  * useful window is selected from the current provider state. If the latest fetch
  * failed, the last successful data attached to the error state is used.
+ *
+ * When the active provider is disabled or has no data, the first enabled
+ * provider with data is used as a fallback so the footer is never empty.
  *
  * @param states - Current provider states maintained by the plugin.
  * @param providerID - OpenCode provider identifier for the active session.
@@ -68,27 +95,41 @@ export const usageForProvider = (
   states: readonly ProviderState[],
   providerID: string | undefined
 ): UsageWindow | null => {
-  const usageID = providerID ? pluginProviderForOpenCode(providerID) : null;
-  if (!usageID) {
-    return null;
+  const usageID = providerID
+    ? (pluginProviderForOpenCode(providerID) as ProviderID | null)
+    : null;
+
+  const resolveWindow = (id: ProviderID): UsageWindow | null => {
+    const state = states.find((item) => item.id === id);
+    const data = windowFromState(state);
+    if (!data) {
+      return null;
+    }
+    const { footerWindowLabel } = PROVIDER_REGISTRY[id];
+    return (
+      data.windows.find((window) => window.label === footerWindowLabel) ??
+      data.windows[0] ??
+      null
+    );
+  };
+
+  if (usageID) {
+    const window = resolveWindow(usageID);
+    if (window) {
+      return window;
+    }
   }
 
-  const state = states.find((item) => item.id === usageID);
-  let data: ProviderUsage | undefined;
-  if (state?.status === "ready") {
-    ({ data } = state);
-  }
-  if (state?.status === "error") {
-    data = state.previous;
-  }
-  if (!data) {
-    return null;
+  // Fallback: first enabled provider with data.
+  for (const state of states) {
+    if (state.status === "disabled") {
+      continue;
+    }
+    const window = resolveWindow(state.id);
+    if (window) {
+      return window;
+    }
   }
 
-  const { footerWindowLabel } = PROVIDER_REGISTRY[usageID];
-  return (
-    data.windows.find((window) => window.label === footerWindowLabel) ??
-    data.windows[0] ??
-    null
-  );
+  return null;
 };

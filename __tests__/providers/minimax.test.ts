@@ -364,4 +364,143 @@ describe("MiniMax provider", () => {
       usedPercent: 9,
     });
   });
+
+  describe("plan variants", () => {
+    test("general entry with both 5h and weekly", async () => {
+      installFetchMock(
+        Response.json(
+          successEnvelope([
+            {
+              current_interval_remaining_percent: 60,
+              current_interval_status: 1,
+              current_weekly_remaining_percent: 40,
+              current_weekly_status: 1,
+              model_name: "general",
+              remains_time: fiveHourRemains,
+              weekly_remains_time: weeklyRemains,
+            },
+          ])
+        )
+      );
+
+      const usage = await fetchMiniMaxTokenPlanUsage(
+        { apiKey: "mm-key" },
+        {},
+        1000
+      );
+
+      expect(usage.windows).toHaveLength(2);
+      expect(usage.windows[0]).toMatchObject({
+        label: "5h",
+        remainingPercent: 60,
+        usedPercent: 40,
+      });
+      expect(usage.windows[1]).toMatchObject({
+        label: "weekly",
+        remainingPercent: 40,
+        usedPercent: 60,
+      });
+    });
+
+    test("general entry with only 5h (no weekly plan)", async () => {
+      installFetchMock(
+        Response.json(
+          successEnvelope([
+            {
+              current_interval_remaining_percent: 75,
+              current_interval_status: 1,
+              current_weekly_remaining_percent: 100,
+              current_weekly_status: 3,
+              model_name: "general",
+              remains_time: fiveHourRemains,
+              weekly_remains_time: weeklyRemains,
+            },
+          ])
+        )
+      );
+
+      const usage = await fetchMiniMaxTokenPlanUsage(
+        { apiKey: "mm-key" },
+        {},
+        1000
+      );
+
+      expect(usage.windows).toHaveLength(1);
+      expect(usage.windows[0]).toMatchObject({
+        label: "5h",
+        remainingPercent: 75,
+        usedPercent: 25,
+      });
+    });
+
+    test("5h window hidden (current_interval_status === 3)", async () => {
+      installFetchMock(
+        Response.json(
+          successEnvelope([
+            {
+              current_interval_remaining_percent: 100,
+              current_interval_status: 3,
+              current_weekly_remaining_percent: 80,
+              current_weekly_status: 1,
+              model_name: "general",
+              remains_time: fiveHourRemains,
+              weekly_remains_time: weeklyRemains,
+            },
+          ])
+        )
+      );
+
+      const usage = await fetchMiniMaxTokenPlanUsage(
+        { apiKey: "mm-key" },
+        {},
+        1000
+      );
+
+      expect(usage.windows).toHaveLength(1);
+      expect(usage.windows[0]).toMatchObject({
+        label: "weekly",
+        remainingPercent: 80,
+        usedPercent: 20,
+      });
+    });
+
+    test("non-general entry fallback", async () => {
+      installFetchMock(
+        Response.json(
+          successEnvelope([
+            {
+              current_interval_remaining_percent: 70,
+              current_interval_status: 1,
+              current_weekly_remaining_percent: 80,
+              current_weekly_status: 1,
+              model_name: "video",
+              remains_time: fiveHourRemains,
+              weekly_remains_time: weeklyRemains,
+            },
+            {
+              model_name: "image",
+            },
+          ])
+        )
+      );
+
+      const usage = await fetchMiniMaxTokenPlanUsage(
+        { apiKey: "mm-key" },
+        {},
+        1000
+      );
+
+      expect(usage.windows).toHaveLength(2);
+      expect(usage.windows[0]).toMatchObject({
+        label: "5h",
+        remainingPercent: 70,
+        usedPercent: 30,
+      });
+      expect(usage.windows[1]).toMatchObject({
+        label: "weekly",
+        remainingPercent: 80,
+        usedPercent: 20,
+      });
+    });
+  });
 });

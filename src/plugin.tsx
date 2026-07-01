@@ -21,6 +21,7 @@ import type { ProviderID, ProviderState, ProviderUsage } from "@/types.ts";
 export const tui: TuiPlugin = async (api) => {
   const [states, setStates] = createSignal<ProviderState[]>([]);
   const [showErrors, setShowErrors] = createSignal(true);
+  const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);
   let lastSuccess = new Map<ProviderID, ProviderUsage>();
   let refreshIntervalSeconds = 60;
 
@@ -102,6 +103,7 @@ export const tui: TuiPlugin = async (api) => {
         };
       })
     );
+    setLastRefreshAt(new Date());
   };
 
   await refresh();
@@ -148,6 +150,7 @@ export const tui: TuiPlugin = async (api) => {
             showErrors={showErrors()}
             states={states()}
             theme={ctx.theme.current}
+            lastRefreshAt={lastRefreshAt()}
           />
         );
       },

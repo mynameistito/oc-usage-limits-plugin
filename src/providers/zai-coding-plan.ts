@@ -115,18 +115,28 @@ const zaiWindowFromLimit = (
     typeof limit.nextResetTime === "number"
       ? new Date(limit.nextResetTime)
       : null;
-  const total = typeof limit.usage === "number" ? limit.usage : undefined;
+  const usageTotal = typeof limit.usage === "number" ? limit.usage : undefined;
 
   if (limit.type === "TOKENS_LIMIT") {
+    const rawCurrentValue =
+      typeof limit.currentValue === "number" ? limit.currentValue : undefined;
+    const currentValue =
+      rawCurrentValue === undefined ? undefined : Math.round(rawCurrentValue);
+    const computedTotal =
+      rawCurrentValue === undefined || usedPercent === null || usedPercent <= 0
+        ? undefined
+        : Math.round(rawCurrentValue / (usedPercent / 100));
     return {
       promptTotal: null,
       window: {
+        current: currentValue,
         label: "5h",
         remainingPercent: usedPercent === null ? null : 100 - usedPercent,
         resetAfterSeconds: resetsAt
           ? Math.max(0, Math.ceil((resetsAt.getTime() - Date.now()) / 1000))
           : null,
         resetsAt,
+        total: computedTotal,
         usedPercent,
       },
     };
@@ -134,7 +144,7 @@ const zaiWindowFromLimit = (
 
   if (limit.type === "TIME_LIMIT") {
     return {
-      promptTotal: total ?? null,
+      promptTotal: usageTotal ?? null,
       window: null,
     };
   }
