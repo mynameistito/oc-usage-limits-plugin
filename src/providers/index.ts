@@ -1,5 +1,6 @@
 import { codexProvider } from "@/providers/codex.ts";
 import { minimaxProvider } from "@/providers/minimax.ts";
+import { neuralwattProvider } from "@/providers/neuralwatt.ts";
 import { syntheticProvider } from "@/providers/synthetic.ts";
 import { zaiProvider } from "@/providers/zai-coding-plan.ts";
 import type { ProviderID } from "@/types.ts";
@@ -14,6 +15,7 @@ export const PROVIDERS = [
   zaiProvider,
   syntheticProvider,
   minimaxProvider,
+  neuralwattProvider,
 ] as const;
 
 /** Sidebar display order derived from {@link PROVIDERS}. */

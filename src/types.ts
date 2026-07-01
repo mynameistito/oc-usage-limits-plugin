@@ -1,5 +1,10 @@
 /** Provider adapters supported by the usage-limits plugin. */
-export type ProviderID = "codex" | "zai" | "synthetic" | "minimax";
+export type ProviderID =
+  | "codex"
+  | "zai"
+  | "synthetic"
+  | "minimax"
+  | "neuralwatt";
 
 /**
  * Normalized usage information for one provider quota window.
@@ -145,6 +150,11 @@ export interface OpenCodeAuth {
     /** MiniMax Token Plan subscription key. */
     key?: string;
     /** MiniMax Token Plan subscription key (alternate field name). */
+    apiKey?: string;
+  };
+  /** NeuralWatt credentials stored under the plugin's provider ID. */
+  neuralwatt?: {
+    /** NeuralWatt API key. */
     apiKey?: string;
   };
 }
