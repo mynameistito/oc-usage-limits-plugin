@@ -193,6 +193,7 @@ describe("UsageLimitsPanel", () => {
     const text = await renderPanelText(
       [
         {
+          errorKind: "missing_credentials",
           id: "synthetic",
           label: "Synthetic",
           message: "missing Synthetic key",

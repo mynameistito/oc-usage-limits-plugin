@@ -1,3 +1,4 @@
+import { MissingProviderCredentialsError } from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import type {
   OpenCodeAuth,
@@ -208,7 +209,10 @@ export const fetchSyntheticUsage = async (
     keyFromSyntheticAuth(openCodeAuth) ??
     configuredKey;
   if (!apiKey) {
-    throw new Error("missing Synthetic key");
+    throw new MissingProviderCredentialsError(
+      "synthetic",
+      "missing Synthetic key"
+    );
   }
 
   const baseUrl = resolveHttpsBaseUrl(

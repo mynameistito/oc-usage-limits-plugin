@@ -41,6 +41,9 @@ export interface ProviderUsage {
   metadata?: Record<string, string | number | boolean | null>;
 }
 
+/** Structured provider error categories used by UI behavior. */
+export type ProviderErrorKind = "missing_credentials";
+
 /**
  * UI state for a provider across refresh cycles.
  *
@@ -61,6 +64,7 @@ export type ProviderState =
       id: ProviderID;
       label: string;
       status: "error";
+      errorKind?: ProviderErrorKind;
       message: string;
       previous?: ProviderUsage;
     };

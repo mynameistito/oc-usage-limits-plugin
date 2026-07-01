@@ -1,7 +1,7 @@
 /* @jsxImportSource @opentui/solid */
 import type { TuiThemeCurrent } from "@opencode-ai/plugin/tui";
 import type { RGBA } from "@opentui/core";
-import { For, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 
 import {
   bottomWindowMainText,
@@ -65,9 +65,6 @@ const UsageWindowRows = (props: {
   </For>
 );
 
-const isMissingCredentialError = (message: string): boolean =>
-  /^missing .+ (?:auth|key)$/u.test(message);
-
 export const shouldRenderProviderState = (
   state: ProviderState,
   showErrors: boolean
@@ -82,7 +79,7 @@ export const shouldRenderProviderState = (
     return true;
   }
 
-  return showErrors && !isMissingCredentialError(state.message);
+  return showErrors && state.errorKind !== "missing_credentials";
 };
 
 /**
@@ -100,10 +97,11 @@ export const UsageLimitsPanel = (props: {
   theme: TuiThemeCurrent;
   lastRefreshAt: Date | null;
 }) => {
-  const visibleStates = () =>
+  const visibleStates = createMemo(() =>
     props.states.filter((state) =>
       shouldRenderProviderState(state, props.showErrors)
-    );
+    )
+  );
 
   if (visibleStates().length === 0) {
     return null;

@@ -21,6 +21,7 @@ const providerUsage = (): ProviderUsage => ({
 describe("sidebar provider visibility", () => {
   test("hides missing credential errors without cached usage", () => {
     const state: ProviderState = {
+      errorKind: "missing_credentials",
       id: "synthetic",
       label: "Synthetic",
       message: "missing Synthetic key",
@@ -44,6 +45,7 @@ describe("sidebar provider visibility", () => {
 
   test("keeps cached usage visible when a refresh hits missing credentials", () => {
     const state: ProviderState = {
+      errorKind: "missing_credentials",
       id: "synthetic",
       label: "Synthetic",
       message: "missing Synthetic key",
