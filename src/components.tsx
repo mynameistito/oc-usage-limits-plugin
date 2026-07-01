@@ -65,6 +65,26 @@ const UsageWindowRows = (props: {
   </For>
 );
 
+const isMissingCredentialError = (message: string): boolean =>
+  /^missing .+ (?:auth|key)$/u.test(message);
+
+export const shouldRenderProviderState = (
+  state: ProviderState,
+  showErrors: boolean
+): boolean => {
+  if (state.status === "disabled") {
+    return false;
+  }
+  if (state.status !== "error") {
+    return true;
+  }
+  if (state.previous) {
+    return true;
+  }
+
+  return showErrors && !isMissingCredentialError(state.message);
+};
+
 /**
  * Renders the sidebar usage-limits panel.
  *
@@ -80,7 +100,12 @@ export const UsageLimitsPanel = (props: {
   theme: TuiThemeCurrent;
   lastRefreshAt: Date | null;
 }) => {
-  if (!props.states.some((state) => state.status !== "disabled")) {
+  const visibleStates = () =>
+    props.states.filter((state) =>
+      shouldRenderProviderState(state, props.showErrors)
+    );
+
+  if (visibleStates().length === 0) {
     return null;
   }
 
@@ -89,12 +114,8 @@ export const UsageLimitsPanel = (props: {
       <text fg={props.theme.text}>
         <b>Usage Limits</b>
       </text>
-      <For each={props.states}>
+      <For each={visibleStates()}>
         {(state) => {
-          if (state.status === "disabled") {
-            return null;
-          }
-
           let tierName: string | undefined;
           if (state.status === "ready") {
             ({ tierName } = state.data);
