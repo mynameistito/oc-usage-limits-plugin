@@ -105,7 +105,13 @@ const syntheticFiveHourWindow = (
   if (isRecord(rolling)) {
     const { remaining } = rolling;
     const { max } = rolling;
-    if (typeof remaining === "number" && typeof max === "number" && max > 0) {
+    if (
+      typeof remaining === "number" &&
+      typeof max === "number" &&
+      max > 0 &&
+      Number.isFinite(remaining) &&
+      Number.isFinite(max)
+    ) {
       const used = clampPercent((1 - remaining / max) * 100);
       const resetsAt = parseIsoDate(rolling.nextTickAt);
       return {
@@ -129,12 +135,14 @@ const syntheticFiveHourWindow = (
     if (
       typeof limit === "number" &&
       typeof requests === "number" &&
-      limit > 0
+      limit > 0 &&
+      Number.isFinite(limit) &&
+      Number.isFinite(requests)
     ) {
       const used = clampPercent((requests / limit) * 100);
       const resetsAt = parseIsoDate(subscription.renewsAt);
       return {
-        current: Math.max(0, Math.min(limit, requests)),
+        current: Math.round(Math.max(0, Math.min(limit, requests))),
         label: "5h",
         remainingPercent: 100 - used,
         resetAfterSeconds: resetsAt
