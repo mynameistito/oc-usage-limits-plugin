@@ -198,7 +198,7 @@ describe("NeuralWatt provider", () => {
     test.each([
       { expectedLabel: "daily", period: "daily", usedPercent: 25 },
       { expectedLabel: "weekly", period: "weekly", usedPercent: 25 },
-      { expectedLabel: "monthly", period: "monthly", usedPercent: 25 },
+      { expectedLabel: "key monthly", period: "monthly", usedPercent: 25 },
       { expectedLabel: "allowance", period: "yearly", usedPercent: 25 },
     ])(
       "uses label '$expectedLabel' for period '$period'",

@@ -133,7 +133,8 @@ const neuralwattSubscriptionWindow = (
  * @returns A normalized allowance window, or `null` when absent.
  */
 const neuralwattAllowanceWindow = (
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  hasSubscription = false
 ): UsageWindow | null => {
   const { key } = payload;
   if (!isRecord(key) || key.allowance === null || key.allowance === undefined) {
@@ -153,9 +154,14 @@ const neuralwattAllowanceWindow = (
 
   const used = clampPercent((spent / limit) * 100);
   const period = typeof allowance.period === "string" ? allowance.period : "";
-  const label = ["daily", "weekly", "monthly"].includes(period)
-    ? period
-    : "allowance";
+  let label: string;
+  if (!["daily", "weekly", "monthly"].includes(period)) {
+    label = "allowance";
+  } else if (hasSubscription && period === "monthly") {
+    label = "key monthly";
+  } else {
+    label = period;
+  }
 
   return {
     current: Math.max(0, Math.min(limit, spent)),
@@ -258,7 +264,7 @@ export const fetchNeuralWattUsage = async (
     windows.push(subscription);
   }
 
-  const allowance = neuralwattAllowanceWindow(payload);
+  const allowance = neuralwattAllowanceWindow(payload, Boolean(subscription));
   if (allowance) {
     windows.push(allowance);
   }
