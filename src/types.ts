@@ -42,7 +42,7 @@ export interface ProviderUsage {
 }
 
 /** Structured provider error categories used by UI behavior. */
-export type ProviderErrorKind = "missing_credentials";
+type ProviderErrorKind = "missing_credentials";
 
 /**
  * UI state for a provider across refresh cycles.
