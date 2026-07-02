@@ -1,3 +1,4 @@
+import { MissingProviderCredentialsError } from "@/errors.ts";
 import { limitLabelForWindow } from "@/format.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import type {
@@ -25,7 +26,7 @@ const readCodexAuthFile = async (
 ): Promise<{ access: string; accountId: string }> => {
   const auth = await readJsonFile<unknown>(authPath ?? "~/.codex/auth.json");
   if (!isRecord(auth) || !isRecord(auth.tokens)) {
-    throw new Error("missing Codex auth");
+    throw new MissingProviderCredentialsError("codex", "missing Codex auth");
   }
 
   const access = auth.tokens.access_token;

@@ -1,3 +1,4 @@
+import { MissingProviderCredentialsError } from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import type {
   OpenCodeAuth,
@@ -175,7 +176,7 @@ export const fetchZaiCodingPlanUsage = async (
     keyFromZaiAuth(openCodeAuth) ??
     configuredKey;
   if (!apiKey) {
-    throw new Error("missing ZAI key");
+    throw new MissingProviderCredentialsError("zai", "missing ZAI key");
   }
 
   const scheme = config?.authorizationScheme ?? "raw";

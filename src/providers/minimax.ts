@@ -1,3 +1,4 @@
+import { MissingProviderCredentialsError } from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import type {
   OpenCodeAuth,
@@ -258,7 +259,7 @@ export const fetchMiniMaxTokenPlanUsage = async (
     keyFromMiniMaxAuth(openCodeAuth) ??
     configuredKey;
   if (!apiKey) {
-    throw new Error("missing MiniMax key");
+    throw new MissingProviderCredentialsError("minimax", "missing MiniMax key");
   }
 
   const baseUrl = resolveHttpsBaseUrl(

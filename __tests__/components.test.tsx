@@ -183,9 +183,29 @@ describe("UsageLimitsPanel", () => {
       false
     );
 
-    expect(text).toContain("Codex");
+    expect(text).not.toContain("Usage Limits");
+    expect(text).not.toContain("Codex");
     expect(text).not.toContain("provider unavailable");
     expect(text).not.toContain("42%");
+  });
+
+  test("hides missing credential providers without previous usage", async () => {
+    const text = await renderPanelText(
+      [
+        {
+          errorKind: "missing_credentials",
+          id: "synthetic",
+          label: "Synthetic",
+          message: "missing Synthetic key",
+          status: "error",
+        },
+      ],
+      true
+    );
+
+    expect(text).not.toContain("Usage Limits");
+    expect(text).not.toContain("Synthetic");
+    expect(text).not.toContain("missing Synthetic key");
   });
 
   test("renders tier badge when provider has tierName", async () => {

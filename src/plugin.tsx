@@ -4,6 +4,7 @@ import { createSignal } from "solid-js";
 
 import { BottomUsage, UsageLimitsPanel } from "@/components.tsx";
 import { loadConfig, loadOpenCodeAuth } from "@/config.ts";
+import { MissingProviderCredentialsError } from "@/errors.ts";
 import { fetchProvider, getProviderConfigs } from "@/providers.ts";
 import { defaultLabelFor } from "@/providers/index.ts";
 import { currentProviderID, usageForProvider } from "@/session.ts";
@@ -79,6 +80,10 @@ export const tui: TuiPlugin = async (api) => {
           const previousData = lastSuccess.get(id);
           if (previousData) {
             return {
+              errorKind:
+                error instanceof MissingProviderCredentialsError
+                  ? error.kind
+                  : undefined,
               id,
               label,
               message,
@@ -86,7 +91,16 @@ export const tui: TuiPlugin = async (api) => {
               status: "error",
             };
           }
-          return { id, label, message, status: "error" };
+          return {
+            errorKind:
+              error instanceof MissingProviderCredentialsError
+                ? error.kind
+                : undefined,
+            id,
+            label,
+            message,
+            status: "error",
+          };
         }
       })
     );

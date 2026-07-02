@@ -1,7 +1,7 @@
 /* @jsxImportSource @opentui/solid */
 import type { TuiThemeCurrent } from "@opencode-ai/plugin/tui";
 import type { RGBA } from "@opentui/core";
-import { For, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 
 import {
   bottomWindowMainText,
@@ -65,6 +65,23 @@ const UsageWindowRows = (props: {
   </For>
 );
 
+export const shouldRenderProviderState = (
+  state: ProviderState,
+  showErrors: boolean
+): boolean => {
+  if (state.status === "disabled") {
+    return false;
+  }
+  if (state.status !== "error") {
+    return true;
+  }
+  if (state.previous) {
+    return true;
+  }
+
+  return showErrors && state.errorKind !== "missing_credentials";
+};
+
 /**
  * Renders the sidebar usage-limits panel.
  *
@@ -80,7 +97,13 @@ export const UsageLimitsPanel = (props: {
   theme: TuiThemeCurrent;
   lastRefreshAt: Date | null;
 }) => {
-  if (!props.states.some((state) => state.status !== "disabled")) {
+  const visibleStates = createMemo(() =>
+    props.states.filter((state) =>
+      shouldRenderProviderState(state, props.showErrors)
+    )
+  );
+
+  if (visibleStates().length === 0) {
     return null;
   }
 
@@ -89,12 +112,8 @@ export const UsageLimitsPanel = (props: {
       <text fg={props.theme.text}>
         <b>Usage Limits</b>
       </text>
-      <For each={props.states}>
+      <For each={visibleStates()}>
         {(state) => {
-          if (state.status === "disabled") {
-            return null;
-          }
-
           let tierName: string | undefined;
           if (state.status === "ready") {
             ({ tierName } = state.data);
