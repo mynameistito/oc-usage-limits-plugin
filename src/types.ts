@@ -1,5 +1,5 @@
 /** Provider adapters supported by the usage-limits plugin. */
-export type ProviderID = "codex" | "zai" | "synthetic" | "minimax";
+export type ProviderID = "codex" | "zai" | "synthetic" | "minimax" | "qwen";
 
 /**
  * Normalized usage information for one provider quota window.
