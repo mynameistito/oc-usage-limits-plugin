@@ -90,6 +90,10 @@ const parseAuthStatus = (raw: string): boolean => {
  * Parses the Token Plan snapshot from the JSON output of
  * `qwencloud usage summary --format json`.
  *
+ * Note: `subscription tokenplan status` is a Team-only command (marked
+ * "Token Plan Team Edition" in the CLI source). Individual plans are only
+ * reported through `usage summary`'s `token_plan` field.
+ *
  * The CLI includes `free_tier`, `coding_plan`, `token_plan`, and
  * `pay_as_you_go` sections. This function extracts only the Token Plan
  * payload.
@@ -154,13 +158,21 @@ const buildQwenWindow = (
   let resetsAt: Date | null = null;
   let resetAfterSeconds: number | null = null;
   if (tp.resetDate) {
-    resetsAt = new Date(tp.resetDate);
-    const diff = resetsAt.getTime() - Date.now();
-    resetAfterSeconds = Math.max(0, Math.ceil(diff / 1000));
+    const parsed = new Date(tp.resetDate);
+    if (!Number.isNaN(parsed.getTime())) {
+      resetsAt = parsed;
+      resetAfterSeconds = Math.max(
+        0,
+        Math.ceil((parsed.getTime() - Date.now()) / 1000)
+      );
+    }
   }
 
   return {
-    current: tp.remainingCredits,
+    current:
+      tp.totalCredits !== undefined && tp.remainingCredits !== undefined
+        ? tp.totalCredits - tp.remainingCredits
+        : undefined,
     label: "credits",
     remainingPercent,
     resetAfterSeconds,
@@ -178,8 +190,10 @@ const buildQwenWindow = (
  * CLI asynchronously, so it does **not** require a separate management API key
  * — the CLI handles credential storage and renewal.
  *
- * @param config - Optional Qwen provider configuration.  Set `baseUrl` to
- *   override the CLI path (default `"qwencloud"`). `apiKey` is ignored.
+ * The `qwencloud` binary must be on `PATH`. The `baseUrl` and `apiKey` config
+ * fields are not used by this provider.
+ *
+ * @param config - Optional Qwen provider configuration.
  * @param _openCodeAuth - Unused; Qwen credentials live in the CLI keychain.
  * @param timeoutMs - Subprocess timeout in milliseconds (capped by the CLI).
  * @returns Normalized Qwen Token Plan usage data.
@@ -191,7 +205,7 @@ export const fetchQwenTokenPlanUsage = async (
   _openCodeAuth: OpenCodeAuth,
   timeoutMs: number
 ): Promise<ProviderUsage> => {
-  const cli = config?.baseUrl || DEFAULT_CLI;
+  const cli = DEFAULT_CLI;
 
   let authRaw: string;
   try {
@@ -212,11 +226,20 @@ export const fetchQwenTokenPlanUsage = async (
     throw new Error("Not authenticated. Run: qwencloud auth login");
   }
 
-  const usageRaw = await runQwencloud(
-    cli,
-    ["usage", "summary", "--format", "json"],
-    timeoutMs
-  );
+  let usageRaw: string;
+  try {
+    usageRaw = await runQwencloud(
+      cli,
+      ["usage", "summary", "--format", "json"],
+      timeoutMs
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `qwencloud usage query failed (${msg}). Verify the CLI is authenticated and try again.`,
+      { cause: error }
+    );
+  }
   const tp = parseTokenPlan(usageRaw);
 
   if (!tp.subscribed) {
