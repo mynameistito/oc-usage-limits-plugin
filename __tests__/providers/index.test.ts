@@ -26,6 +26,10 @@ describe("provider manifest", () => {
     expect(pluginProviderForOpenCode("zai-coding-plan")).toBe("zai");
     expect(pluginProviderForOpenCode("minimax-coding-plan")).toBe("minimax");
     expect(pluginProviderForOpenCode("minimax")).toBe("minimax");
+    expect(pluginProviderForOpenCode("bailian-token-plan-personal")).toBe(
+      "qwen"
+    );
+    expect(pluginProviderForOpenCode("qwen")).toBe("qwen");
     expect(pluginProviderForOpenCode("anthropic")).toBeNull();
   });
 
@@ -36,6 +40,7 @@ describe("provider manifest", () => {
         providers: {
           codex: { enabled: true, label: "Codex" },
           minimax: { enabled: true, label: "MiniMax" },
+          qwen: { enabled: true, label: "Qwen" },
           synthetic: { enabled: true, label: "Synthetic" },
           zai: { enabled: false, label: "ZAI" },
         },
@@ -47,6 +52,7 @@ describe("provider manifest", () => {
       ["codex", { enabled: true, label: "Codex" }],
       ["synthetic", { enabled: true, label: "Synthetic" }],
       ["minimax", { enabled: true, label: "MiniMax" }],
+      ["qwen", { enabled: true, label: "Qwen" }],
     ]);
   });
 

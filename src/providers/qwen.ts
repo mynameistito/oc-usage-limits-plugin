@@ -8,23 +8,12 @@ import type {
   ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
-import { clampPercent } from "@/utils.ts";
+import { clampPercent, isRecord } from "@/utils.ts";
 
 const execFileAsync = promisify(execFile);
 
 /** Default CLI command used when no override is configured. */
 const DEFAULT_CLI = "qwencloud";
-
-/**
- * Minimal parsed auth-status subset — only the fields the provider needs.
- *
- * The CLI `auth status` response contains additional fields and may vary across
- * versions; this type only describes what this provider consumes.
- */
-interface QwencloudAuthStatus {
-  authenticated?: boolean;
-  server_verified?: boolean;
-}
 
 /**
  * Runs the QwenCloud CLI and captures stdout.
@@ -52,19 +41,16 @@ const runQwencloud = async (
     // execFile rejects on non-zero exit. The CLI writes usage/auth data to
     // stdout even when returning exit code 2 (not authenticated) or 1 (usage
     // error), so read stdout from the error object before re-throwing.
-    const execErr = error as {
-      stdout?: string;
-      stderr?: string;
-      code?: number;
-    };
+    const execErr = error as { code?: number; stdout?: string };
     const out = (execErr.stdout ?? "").trim();
     if (out) {
       return out;
     }
-    // No stdout → genuine spawn failure (binary missing, timeout, etc.)
-    const msg =
-      execErr.stderr?.trim() || `exit code ${execErr.code ?? "unknown"}`;
-    throw new Error(msg, { cause: error });
+    // CLI stderr can contain verbose diagnostics or response bodies, so never
+    // expose it in the user-facing error state.
+    const exitCode =
+      typeof execErr.code === "number" ? `exit code ${execErr.code}` : "failed";
+    throw new Error(`qwencloud CLI ${exitCode}`, { cause: error });
   }
 };
 
@@ -76,10 +62,14 @@ const runQwencloud = async (
  * @returns `true` when the CLI reports authenticated credentials.
  */
 const parseAuthStatus = (raw: string): boolean => {
-  let data: QwencloudAuthStatus;
+  let data: unknown;
   try {
-    data = JSON.parse(raw) as QwencloudAuthStatus;
+    data = JSON.parse(raw) as unknown;
   } catch {
+    throw new Error("Failed to parse qwencloud auth status");
+  }
+
+  if (!isRecord(data)) {
     throw new Error("Failed to parse qwencloud auth status");
   }
 
@@ -200,7 +190,7 @@ const buildQwenWindow = (
  * @throws {Error} When the CLI is not installed, not authenticated, or the
  *   account has no active Token Plan subscription.
  */
-export const fetchQwenTokenPlanUsage = async (
+const fetchQwenTokenPlanUsage = async (
   config: ProviderConfig | undefined,
   _openCodeAuth: OpenCodeAuth,
   timeoutMs: number
