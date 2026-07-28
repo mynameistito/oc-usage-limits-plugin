@@ -24,12 +24,14 @@ const DEFAULT_CLI = "qwencloud";
  * @param cli  - CLI binary or command name.
  * @param args - CLI arguments (without the program name).
  * @param timeoutMs - Maximum execution time in milliseconds.
+ * @param allowNonZeroOutput - Whether stdout from a failed command is valid.
  * @returns The stdout output of the CLI.
  */
 const runQwencloud = async (
   cli: string,
   args: string[],
-  timeoutMs: number
+  timeoutMs: number,
+  allowNonZeroOutput = false
 ): Promise<string> => {
   try {
     const { stdout } = (await execFileAsync(cli, args, {
@@ -43,7 +45,7 @@ const runQwencloud = async (
     // error), so read stdout from the error object before re-throwing.
     const execErr = error as { code?: number; stdout?: string };
     const out = (execErr.stdout ?? "").trim();
-    if (out) {
+    if (out && allowNonZeroOutput) {
       return out;
     }
     // CLI stderr can contain verbose diagnostics or response bodies, so never
@@ -202,7 +204,8 @@ const fetchQwenTokenPlanUsage = async (
     authRaw = await runQwencloud(
       cli,
       ["auth", "status", "--format", "json"],
-      timeoutMs
+      timeoutMs,
+      true
     );
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
