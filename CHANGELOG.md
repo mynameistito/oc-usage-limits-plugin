@@ -1,5 +1,14 @@
 # oc-usage-limits-plugin
 
+## 1.3.0
+
+### Minor Changes
+
+- b08342c: Add Qwen Token Plan usage limits through the QwenCloud CLI. Install
+  `@qwencloud/qwencloud-cli`, then authenticate with `qwencloud auth login` to
+  show remaining credits and the reset date in the sidebar and prompt footer for
+  OpenCode's `bailian-token-plan-personal` provider.
+
 ## 1.2.0
 
 ### Minor Changes
