@@ -16,6 +16,7 @@
       "properties": {
         "codex": { "$ref": "#/$defs/provider" },
         "minimax": { "$ref": "#/$defs/provider" },
+        "qwen": { "$ref": "#/$defs/provider" },
         "synthetic": { "$ref": "#/$defs/provider" },
         "zai": { "$ref": "#/$defs/provider" }
       }
