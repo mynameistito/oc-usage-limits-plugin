@@ -45,7 +45,12 @@ const runQwencloud = async (
     // error), so read stdout from the error object before re-throwing.
     const execErr = error as { code?: number; stdout?: string };
     const out = (execErr.stdout ?? "").trim();
-    if (out && allowNonZeroOutput) {
+    if (
+      out &&
+      allowNonZeroOutput &&
+      typeof execErr.code === "number" &&
+      execErr.code !== 0
+    ) {
       return out;
     }
     // CLI stderr can contain verbose diagnostics or response bodies, so never
