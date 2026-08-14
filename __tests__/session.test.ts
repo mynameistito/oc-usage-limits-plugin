@@ -1,14 +1,20 @@
 import { describe, expect, test } from "bun:test";
 
+import { Result } from "effect";
+
 import { currentProviderID, usageForProvider } from "@/session.ts";
 import type { ProviderState, UsageWindow } from "@/types.ts";
+import {
+  parseUsagePercentage,
+  percentageQuota,
+  quotaUsedPercent,
+} from "@/usage.ts";
 
 const window = (label: string, usedPercent = 25): UsageWindow => ({
+  kind: label === "weekly" ? "weekly" : "rolling",
   label,
-  remainingPercent: 100 - usedPercent,
-  resetAfterSeconds: 60,
+  quota: percentageQuota(Result.getOrThrow(parseUsagePercentage(usedPercent))),
   resetsAt: new Date("2026-06-23T12:00:00.000Z"),
-  usedPercent,
 });
 
 describe("session helpers", () => {
@@ -47,7 +53,8 @@ describe("session helpers", () => {
       },
     ];
 
-    expect(usageForProvider(states, "openai")?.usedPercent).toBe(75);
+    const usage = usageForProvider(states, "openai");
+    expect(Number(usage ? quotaUsedPercent(usage.quota) : null)).toBe(75);
   });
 
   test("selects ZAI token usage and falls back to previous data from error states", () => {
@@ -67,7 +74,8 @@ describe("session helpers", () => {
     ];
 
     expect(usageForProvider(states, "zai-coding-plan")?.label).toBe("5h");
-    expect(usageForProvider(states, "zai-coding-plan")?.usedPercent).toBe(88);
+    const usage = usageForProvider(states, "zai-coding-plan");
+    expect(Number(usage ? quotaUsedPercent(usage.quota) : null)).toBe(88);
   });
 
   test("selects MiniMax usage for minimax-coding-plan sessions", () => {
@@ -87,9 +95,8 @@ describe("session helpers", () => {
     ];
 
     expect(usageForProvider(states, "minimax-coding-plan")?.label).toBe("5h");
-    expect(usageForProvider(states, "minimax-coding-plan")?.usedPercent).toBe(
-      88
-    );
+    const usage = usageForProvider(states, "minimax-coding-plan");
+    expect(Number(usage ? quotaUsedPercent(usage.quota) : null)).toBe(88);
   });
 
   test("returns null for unknown providers or unavailable data", () => {

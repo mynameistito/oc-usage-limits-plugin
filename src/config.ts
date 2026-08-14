@@ -1,7 +1,11 @@
 import { homedir } from "node:os";
 import path from "node:path";
 
-import type { OpenCodeAuth, UsageLimitsConfig } from "@/types.ts";
+import { Result } from "effect";
+
+import { parseOpenCodeAuth, parseUsageLimitsConfig } from "@/config-schema.ts";
+import { ConfigDecodeError, ConfigReadError } from "@/errors.ts";
+import type { OpenCodeAuth, ResolvedUsageLimitsConfig } from "@/types.ts";
 import { readJsonFile } from "@/utils.ts";
 
 /** Default user configuration path for this plugin. */
@@ -20,67 +24,47 @@ const OPENCODE_AUTH_PATH = path.join(
   "auth.json"
 );
 
-const numericConfigValue = (
-  value: unknown,
-  fallback: number,
-  minimum: number
-): number =>
-  typeof value === "number" && Number.isFinite(value) && value >= minimum
-    ? value
-    : fallback;
+/** Fully resolved defaults used when no plugin config exists. */
+export const DEFAULT_CONFIG: ResolvedUsageLimitsConfig = {
+  enabled: true,
+  providers: {},
+  refreshIntervalSeconds: 60,
+  requestTimeoutMs: 10_000,
+  showErrors: true,
+};
 
-/**
- * Loads the usage-limits plugin configuration from OpenCode's config directory.
- *
- * Missing files, unreadable files, and invalid JSONC all resolve to conservative
- * defaults so the plugin can start without interrupting the TUI. Partial config
- * files are merged with the same defaults.
- *
- * @returns The fully-populated plugin configuration.
- */
-export const loadConfig = async (): Promise<Required<UsageLimitsConfig>> => {
-  const fallback: Required<UsageLimitsConfig> = {
-    enabled: true,
-    providers: {},
-    refreshIntervalSeconds: 60,
-    requestTimeoutMs: 10_000,
-    showErrors: true,
-  };
+const isMissingFile = (error: unknown): boolean =>
+  error instanceof Error && "code" in error && error.code === "ENOENT";
 
+/** Loads and parses the usage-limits plugin configuration. */
+export const loadConfig = async (): Promise<
+  Result.Result<ResolvedUsageLimitsConfig, ConfigReadError | ConfigDecodeError>
+> => {
   try {
-    const config = await readJsonFile<UsageLimitsConfig>(CONFIG_PATH);
-    return {
-      enabled: config.enabled ?? fallback.enabled,
-      providers: config.providers ?? fallback.providers,
-      refreshIntervalSeconds: numericConfigValue(
-        config.refreshIntervalSeconds,
-        fallback.refreshIntervalSeconds,
-        15
-      ),
-      requestTimeoutMs: numericConfigValue(
-        config.requestTimeoutMs,
-        fallback.requestTimeoutMs,
-        1000
-      ),
-      showErrors: config.showErrors ?? fallback.showErrors,
-    };
-  } catch {
-    return fallback;
+    return parseUsageLimitsConfig(await readJsonFile(CONFIG_PATH));
+  } catch (error) {
+    if (isMissingFile(error)) {
+      return Result.succeed(DEFAULT_CONFIG);
+    }
+    if (error instanceof SyntaxError) {
+      return Result.fail(
+        new ConfigDecodeError({ cause: "syntax", operation: "parse-jsonc" })
+      );
+    }
+    return Result.fail(
+      new ConfigReadError({
+        cause: "filesystem",
+        operation: "read-config",
+        path: CONFIG_PATH,
+      })
+    );
   }
 };
 
-/**
- * Loads OpenCode's shared auth file for provider credentials.
- *
- * This file may not exist for every installation or provider. Auth loading is
- * therefore best-effort and returns an empty object when credentials are absent
- * or unreadable.
- *
- * @returns The parsed OpenCode auth payload, or an empty auth object.
- */
+/** Loads recognized OpenCode auth fields without making auth absence fatal. */
 export const loadOpenCodeAuth = async (): Promise<OpenCodeAuth> => {
   try {
-    return await readJsonFile<OpenCodeAuth>(OPENCODE_AUTH_PATH);
+    return parseOpenCodeAuth(await readJsonFile(OPENCODE_AUTH_PATH));
   } catch {
     return {};
   }

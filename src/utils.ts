@@ -122,6 +122,9 @@ const stripJsonComments = (input: string): string => {
       ) {
         index += 1;
       }
+      if (index >= input.length) {
+        throw new SyntaxError("Unterminated JSONC block comment");
+      }
       index += 1;
       continue;
     }
@@ -146,16 +149,16 @@ const expandHome = (value: string): string =>
 /**
  * Reads and parses a JSON or JSONC file.
  *
- * A leading `~` in the path is expanded before reading. The generic type is a
- * caller-provided assertion; callers should still validate external data before
- * relying on specific fields.
+ * A leading `~` in the path is expanded before reading. The parsed value remains
+ * `unknown` so its owning boundary must decode it before use.
  *
  * @param filePath - Absolute path, relative path, or home-relative path to read.
- * @returns The parsed JSON value typed as `T`.
+ * @returns The parsed JSON value as `unknown`.
  */
-export const readJsonFile = async <T>(filePath: string): Promise<T> => {
+export const readJsonFile = async (filePath: string): Promise<unknown> => {
   const raw = await readFile(expandHome(filePath), "utf-8");
-  return JSON.parse(stripJsonComments(raw)) as T;
+  const parsed: unknown = JSON.parse(stripJsonComments(raw));
+  return parsed;
 };
 
 /**
@@ -220,7 +223,8 @@ export const fetchJson = async (
   }
 
   try {
-    return JSON.parse(body) as unknown;
+    const parsed: unknown = JSON.parse(body);
+    return parsed;
   } catch {
     throw new Error("invalid JSON");
   }

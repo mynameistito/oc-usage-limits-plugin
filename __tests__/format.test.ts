@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { Result } from "effect";
+
 import {
   bottomWindowMainText,
   formatTimestamp,
@@ -12,13 +14,24 @@ import {
   windowResetTime,
 } from "@/format.ts";
 import type { UsageWindow } from "@/types.ts";
+import type { UsageQuota } from "@/usage.ts";
+import {
+  countQuota,
+  parseUsageCount,
+  parseUsagePercentage,
+  percentageQuota,
+} from "@/usage.ts";
 
+const NOW = new Date("2026-06-23T11:00:00.000Z");
+const percentage = (usedPercent: number | null): UsageQuota =>
+  usedPercent === null
+    ? { _tag: "Unknown" }
+    : percentageQuota(Result.getOrThrow(parseUsagePercentage(usedPercent)));
 const usageWindow = (overrides: Partial<UsageWindow> = {}): UsageWindow => ({
+  kind: "rolling",
   label: "5h",
-  remainingPercent: 58,
-  resetAfterSeconds: 3600,
+  quota: percentage(42),
   resetsAt: new Date("2026-06-23T12:00:00.000Z"),
-  usedPercent: 42,
   ...overrides,
 });
 
@@ -31,37 +44,33 @@ describe("format helpers", () => {
   });
 
   test("uses a placeholder for unknown percentages", () => {
-    expect(windowMainText(usageWindow({ usedPercent: null }))).toBe("5h: ?");
+    expect(windowMainText(usageWindow({ quota: percentage(null) }))).toBe(
+      "5h: ?"
+    );
   });
 
   test("rounds percentages to the nearest integer", () => {
-    expect(windowMainText(usageWindow({ usedPercent: 42.49 }))).toBe("5h: 42%");
-    expect(windowMainText(usageWindow({ usedPercent: 42.5 }))).toBe("5h: 43%");
+    expect(windowMainText(usageWindow({ quota: percentage(42.49) }))).toBe(
+      "5h: 42%"
+    );
+    expect(windowMainText(usageWindow({ quota: percentage(42.5) }))).toBe(
+      "5h: 43%"
+    );
   });
 
-  test("formats reset durations across minute, hour, and day boundaries", () => {
-    expect(windowResetText(usageWindow({ resetAfterSeconds: null }))).toBe("");
-    expect(windowResetText(usageWindow({ resetAfterSeconds: 0 }))).toBe(
-      " · now"
-    );
-    expect(windowResetText(usageWindow({ resetAfterSeconds: 1 }))).toBe(
-      " · 1m"
-    );
-    expect(windowResetText(usageWindow({ resetAfterSeconds: 3600 }))).toBe(
-      " · 1h"
-    );
-    expect(windowResetText(usageWindow({ resetAfterSeconds: 5400 }))).toBe(
-      " · 1.5h"
-    );
-    expect(windowResetText(usageWindow({ resetAfterSeconds: 5460 }))).toBe(
-      " · 1h 31m"
-    );
-    expect(windowResetText(usageWindow({ resetAfterSeconds: 86_400 }))).toBe(
-      " · 1d"
-    );
-    expect(windowResetText(usageWindow({ resetAfterSeconds: 176_400 }))).toBe(
-      " · 2d 1h"
-    );
+  test.each([
+    [null, ""],
+    [0, " · now"],
+    [1, " · 1m"],
+    [3600, " · 1h"],
+    [5400, " · 1.5h"],
+    [5460, " · 1h 31m"],
+    [86_400, " · 1d"],
+    [176_400, " · 2d 1h"],
+  ] as const)("formats a %s second reset duration", (seconds, expected) => {
+    const resetsAt =
+      seconds === null ? null : new Date(NOW.getTime() + seconds * 1000);
+    expect(windowResetText(usageWindow({ resetsAt }), NOW)).toBe(expected);
   });
 
   test("maps known limit windows with tolerance", () => {
@@ -93,36 +102,29 @@ describe("format helpers", () => {
   });
 
   test("formats timestamp as HH:MM", () => {
-    expect(formatTimestamp(new Date(2026, 5, 25, 14, 32, 0, 0))).toBe("14:32");
-    expect(formatTimestamp(new Date(2026, 5, 25, 9, 5, 0, 0))).toBe("09:05");
-    expect(formatTimestamp(new Date(2026, 5, 25, 0, 0, 0, 0))).toBe("00:00");
+    expect(formatTimestamp(new Date(2026, 5, 25, 14, 32))).toBe("14:32");
+    expect(formatTimestamp(new Date(2026, 5, 25, 9, 5))).toBe("09:05");
+    expect(formatTimestamp(new Date(2026, 5, 25, 0, 0))).toBe("00:00");
   });
 
-  test("renders token count text when window has current and total", () => {
-    expect(tokenCountText(usageWindow({ current: 1500, total: 15_000 }))).toBe(
-      " (1.5K/15K)"
-    );
-    expect(tokenCountText(usageWindow({ current: 500, total: 1000 }))).toBe(
-      " (500/1K)"
-    );
+  test("renders token count text only for count quotas", () => {
     expect(
-      tokenCountText(usageWindow({ current: undefined, total: 1000 }))
-    ).toBe("");
-    expect(
-      tokenCountText(usageWindow({ current: 1500, total: undefined }))
-    ).toBe("");
+      tokenCountText(
+        usageWindow({
+          quota: countQuota(
+            Result.getOrThrow(parseUsageCount(1500)),
+            Result.getOrThrow(parseUsageCount(15_000)),
+            Result.getOrThrow(parseUsagePercentage(10))
+          ),
+        })
+      )
+    ).toBe(" (1.5K/15K)");
+    expect(tokenCountText(usageWindow())).toBe("");
   });
 
-  test("formats absolute reset time when window has resetsAt", () => {
+  test("formats absolute reset time", () => {
     expect(
-      windowResetTime(
-        usageWindow({ resetsAt: new Date(2026, 5, 23, 12, 0, 0, 0) })
-      )
-    ).toBe(" 12:00");
-    expect(
-      windowResetTime(
-        usageWindow({ resetsAt: new Date(2026, 5, 23, 23, 59, 0, 0) })
-      )
+      windowResetTime(usageWindow({ resetsAt: new Date(2026, 5, 23, 23, 59) }))
     ).toBe(" 23:59");
     expect(windowResetTime(usageWindow({ resetsAt: null }))).toBe("");
   });

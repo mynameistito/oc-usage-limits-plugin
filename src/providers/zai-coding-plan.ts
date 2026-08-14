@@ -1,3 +1,6 @@
+import { Result } from "effect";
+
+import { credentialValue } from "@/config-schema.ts";
 import { MissingProviderCredentialsError } from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import type {
@@ -7,7 +10,14 @@ import type {
   UsageWindow,
 } from "@/types.ts";
 import {
-  clampPercent,
+  countQuota,
+  parseUsageCount,
+  parseUsagePercentage,
+  percentageQuota,
+  resetInstantOrNull,
+  unknownQuota,
+} from "@/usage.ts";
+import {
   fetchJson,
   isRecord,
   readJsonFile,
@@ -39,6 +49,31 @@ const inferZaiTier = (total: number | null): string | undefined => {
   return undefined;
 };
 
+const zaiQuota = (
+  current: number | undefined,
+  total: number | undefined,
+  usedPercent: number | null
+) => {
+  const parsedUsed = parseUsagePercentage(usedPercent);
+  if (Result.isFailure(parsedUsed)) {
+    return unknownQuota;
+  }
+  const parsedCurrent = parseUsageCount(current);
+  const parsedTotal = parseUsageCount(total);
+  if (
+    Result.isSuccess(parsedCurrent) &&
+    Result.isSuccess(parsedTotal) &&
+    parsedCurrent.success <= parsedTotal.success
+  ) {
+    return countQuota(
+      parsedCurrent.success,
+      parsedTotal.success,
+      parsedUsed.success
+    );
+  }
+  return percentageQuota(parsedUsed.success);
+};
+
 /**
  * Extracts a ZAI API key from any supported auth object shape.
  *
@@ -53,21 +88,26 @@ const keyFromZaiAuth = (value: unknown): string | undefined => {
     return undefined;
   }
 
-  if (typeof value.key === "string") {
-    return value.key;
+  const directKey = credentialValue(value.key);
+  if (directKey) {
+    return directKey;
   }
 
-  if (typeof value.apiKey === "string") {
-    return value.apiKey;
+  const directApiKey = credentialValue(value.apiKey);
+  if (directApiKey) {
+    return directApiKey;
   }
 
   const zaiCodingPlan = value["zai-coding-plan"];
-  if (isRecord(zaiCodingPlan) && typeof zaiCodingPlan.key === "string") {
-    return zaiCodingPlan.key;
+  if (isRecord(zaiCodingPlan)) {
+    const key = credentialValue(zaiCodingPlan.key);
+    if (key) {
+      return key;
+    }
   }
 
-  if (isRecord(value.zai) && typeof value.zai.key === "string") {
-    return value.zai.key;
+  if (isRecord(value.zai)) {
+    return credentialValue(value.zai.key);
   }
 
   return undefined;
@@ -90,7 +130,7 @@ const readZaiAuthPathKey = async (
   }
 
   try {
-    return keyFromZaiAuth(await readJsonFile<unknown>(authPath));
+    return keyFromZaiAuth(await readJsonFile(authPath));
   } catch {
     return undefined;
   }
@@ -108,14 +148,13 @@ const readZaiAuthPathKey = async (
 const zaiWindowFromLimit = (
   limit: Record<string, unknown>
 ): { promptTotal: number | null; window: UsageWindow | null } => {
-  const usedPercent =
-    typeof limit.percentage === "number"
-      ? clampPercent(limit.percentage)
-      : null;
-  const resetsAt =
+  const parsedUsed = parseUsagePercentage(limit.percentage);
+  const usedPercent = Result.isSuccess(parsedUsed) ? parsedUsed.success : null;
+  const resetsAt = resetInstantOrNull(
     typeof limit.nextResetTime === "number"
       ? new Date(limit.nextResetTime)
-      : null;
+      : null
+  );
   const usageTotal = typeof limit.usage === "number" ? limit.usage : undefined;
 
   if (limit.type === "TOKENS_LIMIT") {
@@ -130,15 +169,10 @@ const zaiWindowFromLimit = (
     return {
       promptTotal: null,
       window: {
-        current: currentValue,
+        kind: "rolling",
         label: "5h",
-        remainingPercent: usedPercent === null ? null : 100 - usedPercent,
-        resetAfterSeconds: resetsAt
-          ? Math.max(0, Math.ceil((resetsAt.getTime() - Date.now()) / 1000))
-          : null,
+        quota: zaiQuota(currentValue, computedTotal, usedPercent),
         resetsAt,
-        total: computedTotal,
-        usedPercent,
       },
     };
   }
@@ -151,6 +185,40 @@ const zaiWindowFromLimit = (
   }
 
   return { promptTotal: null, window: null };
+};
+
+const parseZaiLimits = (
+  limits: readonly unknown[]
+): { readonly promptTotal: number | null; readonly windows: UsageWindow[] } => {
+  const windows: UsageWindow[] = [];
+  let promptTotal: number | null = null;
+  let sawTokenLimit = false;
+
+  for (const limit of limits) {
+    if (!isRecord(limit) || typeof limit.type !== "string") {
+      continue;
+    }
+
+    const usage = zaiWindowFromLimit(limit);
+    if (limit.type === "TOKENS_LIMIT") {
+      sawTokenLimit = true;
+    }
+    if (usage.window) {
+      windows.push(usage.window);
+    }
+    if (usage.promptTotal !== null) {
+      ({ promptTotal } = usage);
+    }
+  }
+
+  if (
+    sawTokenLimit &&
+    windows.every((window) => window.quota._tag === "Unknown")
+  ) {
+    throw new Error("invalid ZAI usage");
+  }
+
+  return { promptTotal, windows };
 };
 
 /**
@@ -169,14 +237,17 @@ export const fetchZaiCodingPlanUsage = async (
   config: ProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-): Promise<ProviderUsage> => {
-  const configuredKey = resolveEnvReference(config?.apiKey);
+): Promise<ProviderUsage<"zai">> => {
+  const configuredKey = resolveEnvReference(credentialValue(config?.apiKey));
   const apiKey =
     (await readZaiAuthPathKey(config?.authPath)) ??
     keyFromZaiAuth(openCodeAuth) ??
     configuredKey;
   if (!apiKey) {
-    throw new MissingProviderCredentialsError("zai", "missing ZAI key");
+    throw new MissingProviderCredentialsError({
+      operation: "fetch-usage",
+      providerID: "zai",
+    });
   }
 
   const scheme = config?.authorizationScheme ?? "raw";
@@ -201,22 +272,7 @@ export const fetchZaiCodingPlanUsage = async (
     throw new Error("invalid ZAI usage");
   }
 
-  const windows: UsageWindow[] = [];
-  let promptTotal: number | null = null;
-
-  for (const limit of payload.data.limits) {
-    if (!isRecord(limit) || typeof limit.type !== "string") {
-      continue;
-    }
-
-    const usage = zaiWindowFromLimit(limit);
-    if (usage.window) {
-      windows.push(usage.window);
-    }
-    if (usage.promptTotal !== null) {
-      ({ promptTotal } = usage);
-    }
-  }
+  const { promptTotal, windows } = parseZaiLimits(payload.data.limits);
 
   return {
     capturedAt: new Date(),

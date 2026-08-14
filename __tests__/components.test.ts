@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
+import { Result } from "effect";
+
 import { shouldRenderProviderState } from "@/components.tsx";
 import type { ProviderState, ProviderUsage } from "@/types.ts";
+import { parseUsagePercentage, percentageQuota } from "@/usage.ts";
 
 const providerUsage = (): ProviderUsage => ({
   capturedAt: new Date("2026-07-02T12:00:00.000Z"),
@@ -9,11 +12,10 @@ const providerUsage = (): ProviderUsage => ({
   label: "Synthetic",
   windows: [
     {
+      kind: "rolling",
       label: "5h",
-      remainingPercent: 100,
-      resetAfterSeconds: null,
+      quota: percentageQuota(Result.getOrThrow(parseUsagePercentage(0))),
       resetsAt: null,
-      usedPercent: 0,
     },
   ],
 });

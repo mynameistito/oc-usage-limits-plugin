@@ -14,12 +14,12 @@ describe("Codex provider", () => {
             limit_window_seconds: 18_000,
             reset_after_seconds: 3600,
             reset_at: 1_782_216_000,
-            used_percent: 125,
+            used_percent: 100,
           },
           secondary_window: {
             limit_window_seconds: 86_400,
             reset_after_seconds: 7200,
-            used_percent: -5,
+            used_percent: 0,
           },
         },
         rate_limit_reset_credits: { available_count: 2 },
@@ -51,15 +51,11 @@ describe("Codex provider", () => {
     expect(usage.windows).toMatchObject([
       {
         label: "5h",
-        remainingPercent: 0,
-        resetAfterSeconds: 3600,
-        usedPercent: 100,
+        quota: { remainingPercent: 0, usedPercent: 100 },
       },
       {
         label: "daily",
-        remainingPercent: 100,
-        resetAfterSeconds: 7200,
-        usedPercent: 0,
+        quota: { remainingPercent: 100, usedPercent: 0 },
       },
     ]);
     expect(usage.windows[0]?.resetsAt?.toISOString()).toBe(
@@ -143,9 +139,7 @@ describe("Codex provider", () => {
       expect(usage.windows).toHaveLength(1);
       expect(usage.windows[0]).toMatchObject({
         label: "5h",
-        remainingPercent: 50,
-        resetAfterSeconds: 3600,
-        usedPercent: 50,
+        quota: { remainingPercent: 50, usedPercent: 50 },
       });
     });
 
@@ -158,12 +152,12 @@ describe("Codex provider", () => {
               limit_window_seconds: 18_000,
               reset_after_seconds: 3600,
               reset_at: 1_782_216_000,
-              used_percent: 125,
+              used_percent: 100,
             },
             secondary_window: {
               limit_window_seconds: 86_400,
               reset_after_seconds: 7200,
-              used_percent: -5,
+              used_percent: 0,
             },
           },
         })
@@ -178,15 +172,11 @@ describe("Codex provider", () => {
       expect(usage.windows).toHaveLength(2);
       expect(usage.windows[0]).toMatchObject({
         label: "5h",
-        remainingPercent: 0,
-        resetAfterSeconds: 3600,
-        usedPercent: 100,
+        quota: { remainingPercent: 0, usedPercent: 100 },
       });
       expect(usage.windows[1]).toMatchObject({
         label: "daily",
-        remainingPercent: 100,
-        resetAfterSeconds: 7200,
-        usedPercent: 0,
+        quota: { remainingPercent: 100, usedPercent: 0 },
       });
     });
 
@@ -216,6 +206,30 @@ describe("Codex provider", () => {
         resetCredits: 5,
       });
     });
+
+    test.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
+      "rejects invalid required percentage %s",
+      async (usedPercent) => {
+        installFetchMock(
+          Response.json({
+            rate_limit: {
+              primary_window: {
+                limit_window_seconds: 18_000,
+                used_percent: usedPercent,
+              },
+            },
+          })
+        );
+
+        await expect(
+          fetchCodexUsage(
+            undefined,
+            { openai: { access: "token", accountId: "account" } },
+            1000
+          )
+        ).rejects.toThrow("invalid Codex usage");
+      }
+    );
 
     test("plan type", async () => {
       installFetchMock(

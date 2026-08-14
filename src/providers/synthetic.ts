@@ -1,3 +1,6 @@
+import { Result } from "effect";
+
+import { credentialValue } from "@/config-schema.ts";
 import { MissingProviderCredentialsError } from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import type {
@@ -6,8 +9,15 @@ import type {
   ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
+import type { Percentage, QuotaCount, UsageQuota } from "@/usage.ts";
 import {
-  clampPercent,
+  countQuota,
+  parseUsageCount,
+  parseUsagePercentage,
+  percentageQuota,
+  resetInstantOrNull,
+} from "@/usage.ts";
+import {
   fetchJson,
   isRecord,
   readJsonFile,
@@ -17,6 +27,15 @@ import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
 /** Default Synthetic API base URL. */
 const DEFAULT_SYNTHETIC_BASE_URL = "https://api.synthetic.new";
+
+const countQuotaWhenIntegral = (
+  current: QuotaCount,
+  total: QuotaCount,
+  usedPercent: Percentage
+): UsageQuota =>
+  Number.isInteger(current) && Number.isInteger(total) && current <= total
+    ? countQuota(current, total, usedPercent)
+    : percentageQuota(usedPercent);
 
 /**
  * Extracts a Synthetic API key from any supported auth object shape.
@@ -33,20 +52,24 @@ const keyFromSyntheticAuth = (value: unknown): string | undefined => {
     return undefined;
   }
 
-  if (typeof value.key === "string") {
-    return value.key;
+  const directKey = credentialValue(value.key);
+  if (directKey) {
+    return directKey;
   }
 
-  if (typeof value.apiKey === "string") {
-    return value.apiKey;
+  const directApiKey = credentialValue(value.apiKey);
+  if (directApiKey) {
+    return directApiKey;
   }
 
   if (isRecord(value.synthetic)) {
-    if (typeof value.synthetic.key === "string") {
-      return value.synthetic.key;
+    const key = credentialValue(value.synthetic.key);
+    if (key) {
+      return key;
     }
-    if (typeof value.synthetic.apiKey === "string") {
-      return value.synthetic.apiKey;
+    const apiKey = credentialValue(value.synthetic.apiKey);
+    if (apiKey) {
+      return apiKey;
     }
   }
 
@@ -70,7 +93,7 @@ const readSyntheticAuthPathKey = async (
   }
 
   try {
-    return keyFromSyntheticAuth(await readJsonFile<unknown>(authPath));
+    return keyFromSyntheticAuth(await readJsonFile(authPath));
   } catch {
     return undefined;
   }
@@ -87,7 +110,7 @@ const parseIsoDate = (value: unknown): Date | null => {
     return null;
   }
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return resetInstantOrNull(parsed);
 };
 
 /**
@@ -106,19 +129,36 @@ const syntheticFiveHourWindow = (
   if (isRecord(rolling)) {
     const { remaining } = rolling;
     const { max } = rolling;
-    if (typeof remaining === "number" && typeof max === "number" && max > 0) {
-      const used = clampPercent((1 - remaining / max) * 100);
+    const parsedRemaining = parseUsageCount(remaining);
+    const parsedMax = parseUsageCount(max);
+    if (
+      Result.isSuccess(parsedRemaining) &&
+      Result.isSuccess(parsedMax) &&
+      parsedMax.success > 0 &&
+      parsedRemaining.success <= parsedMax.success
+    ) {
+      const parsedUsed = parseUsagePercentage(
+        (1 - parsedRemaining.success / parsedMax.success) * 100
+      );
+      if (Result.isFailure(parsedUsed)) {
+        return null;
+      }
+      const parsedCurrent = parseUsageCount(
+        parsedMax.success - parsedRemaining.success
+      );
+      if (Result.isFailure(parsedCurrent)) {
+        return null;
+      }
       const resetsAt = parseIsoDate(rolling.nextTickAt);
       return {
-        current: Math.max(0, Math.min(max, Math.round(max - remaining))),
+        kind: "rolling",
         label: "5h",
-        remainingPercent: 100 - used,
-        resetAfterSeconds: resetsAt
-          ? Math.max(0, Math.ceil((resetsAt.getTime() - Date.now()) / 1000))
-          : null,
+        quota: countQuotaWhenIntegral(
+          parsedCurrent.success,
+          parsedMax.success,
+          parsedUsed.success
+        ),
         resetsAt,
-        total: max,
-        usedPercent: used,
       };
     }
   }
@@ -127,23 +167,30 @@ const syntheticFiveHourWindow = (
   if (isRecord(subscription)) {
     const { limit } = subscription;
     const { requests } = subscription;
+    const parsedLimit = parseUsageCount(limit);
+    const parsedRequests = parseUsageCount(requests);
     if (
-      typeof limit === "number" &&
-      typeof requests === "number" &&
-      limit > 0
+      Result.isSuccess(parsedLimit) &&
+      Result.isSuccess(parsedRequests) &&
+      parsedLimit.success > 0 &&
+      parsedRequests.success <= parsedLimit.success
     ) {
-      const used = clampPercent((requests / limit) * 100);
+      const parsedUsed = parseUsagePercentage(
+        (parsedRequests.success / parsedLimit.success) * 100
+      );
+      if (Result.isFailure(parsedUsed)) {
+        return null;
+      }
       const resetsAt = parseIsoDate(subscription.renewsAt);
       return {
-        current: Math.max(0, Math.min(limit, requests)),
+        kind: "rolling",
         label: "5h",
-        remainingPercent: 100 - used,
-        resetAfterSeconds: resetsAt
-          ? Math.max(0, Math.ceil((resetsAt.getTime() - Date.now()) / 1000))
-          : null,
+        quota: countQuotaWhenIntegral(
+          parsedRequests.success,
+          parsedLimit.success,
+          parsedUsed.success
+        ),
         resetsAt,
-        total: limit,
-        usedPercent: used,
       };
     }
   }
@@ -169,20 +216,21 @@ const syntheticWeeklyWindow = (
   }
 
   const { percentRemaining } = weekly;
-  if (typeof percentRemaining !== "number") {
+  const parsedRemaining = parseUsagePercentage(percentRemaining);
+  if (Result.isFailure(parsedRemaining)) {
     return null;
   }
 
-  const used = clampPercent(100 - percentRemaining);
+  const parsedUsed = parseUsagePercentage(100 - parsedRemaining.success);
+  if (Result.isFailure(parsedUsed)) {
+    return null;
+  }
   const resetsAt = parseIsoDate(weekly.nextRegenAt);
   return {
+    kind: "weekly",
     label: "weekly",
-    remainingPercent: 100 - used,
-    resetAfterSeconds: resetsAt
-      ? Math.max(0, Math.ceil((resetsAt.getTime() - Date.now()) / 1000))
-      : null,
+    quota: percentageQuota(parsedUsed.success),
     resetsAt,
-    usedPercent: used,
   };
 };
 
@@ -202,17 +250,17 @@ export const fetchSyntheticUsage = async (
   config: ProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-): Promise<ProviderUsage> => {
-  const configuredKey = resolveEnvReference(config?.apiKey);
+): Promise<ProviderUsage<"synthetic">> => {
+  const configuredKey = resolveEnvReference(credentialValue(config?.apiKey));
   const apiKey =
     (await readSyntheticAuthPathKey(config?.authPath)) ??
     keyFromSyntheticAuth(openCodeAuth) ??
     configuredKey;
   if (!apiKey) {
-    throw new MissingProviderCredentialsError(
-      "synthetic",
-      "missing Synthetic key"
-    );
+    throw new MissingProviderCredentialsError({
+      operation: "fetch-usage",
+      providerID: "synthetic",
+    });
   }
 
   const baseUrl = resolveHttpsBaseUrl(

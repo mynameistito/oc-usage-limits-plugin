@@ -4,9 +4,11 @@ import { describe, expect, test } from "bun:test";
 import type { TuiThemeCurrent } from "@opencode-ai/plugin/tui";
 import { RGBA } from "@opentui/core";
 import { testRender } from "@opentui/solid";
+import { Result } from "effect";
 
 import { CompactStatusLine, UsageLimitsPanel } from "@/components.tsx";
 import type { ProviderState, ProviderUsage, UsageWindow } from "@/types.ts";
+import { parseUsagePercentage, percentageQuota } from "@/usage.ts";
 
 const color = RGBA.fromValues(1, 2, 3, 255);
 
@@ -67,11 +69,10 @@ const theme: TuiThemeCurrent = {
 };
 
 const usageWindow = (overrides: Partial<UsageWindow> = {}): UsageWindow => ({
+  kind: "rolling",
   label: "5h",
-  remainingPercent: 58,
-  resetAfterSeconds: 3600,
+  quota: percentageQuota(Result.getOrThrow(parseUsagePercentage(42))),
   resetsAt: new Date("2026-06-23T12:00:00.000Z"),
-  usedPercent: 42,
   ...overrides,
 });
 
@@ -303,7 +304,13 @@ describe("CompactStatusLine", () => {
         data: usage({
           id: "zai",
           label: "ZAI",
-          windows: [usageWindow({ usedPercent: 75 })],
+          windows: [
+            usageWindow({
+              quota: percentageQuota(
+                Result.getOrThrow(parseUsagePercentage(75))
+              ),
+            }),
+          ],
         }),
         id: "zai",
         label: "ZAI",
@@ -334,7 +341,9 @@ describe("CompactStatusLine", () => {
   test("renders unknown percentage as question mark", async () => {
     const text = await renderStatusLine([
       {
-        data: usage({ windows: [usageWindow({ usedPercent: null })] }),
+        data: usage({
+          windows: [usageWindow({ quota: { _tag: "Unknown" } })],
+        }),
         id: "codex",
         label: "Codex",
         stale: false,

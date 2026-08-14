@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import { Result } from "effect";
+
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import type {
   OpenCodeAuth,
@@ -8,7 +10,14 @@ import type {
   ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
-import { clampPercent, isRecord } from "@/utils.ts";
+import {
+  countQuota,
+  parseUsageCount,
+  parseUsagePercentage,
+  percentageQuota,
+  resetInstantOrNull,
+} from "@/usage.ts";
+import { isRecord } from "@/utils.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -34,6 +43,20 @@ const productionCommandRunner: QwenCommandRunner = async (
 
 /** Default CLI command used when no override is configured. */
 const DEFAULT_CLI = "qwencloud";
+
+const commandExitCode = (error: unknown): number | undefined => {
+  if (!isRecord(error)) {
+    return undefined;
+  }
+  return typeof error.code === "number" && Number.isFinite(error.code)
+    ? error.code
+    : undefined;
+};
+
+const commandStdout = (error: unknown): string | undefined =>
+  isRecord(error) && typeof error.stdout === "string"
+    ? error.stdout.trim()
+    : undefined;
 
 /**
  * Runs the QwenCloud CLI and captures stdout.
@@ -61,21 +84,17 @@ const runQwencloud = async (
     // execFile rejects on non-zero exit. The CLI writes usage/auth data to
     // stdout even when returning exit code 2 (not authenticated) or 1 (usage
     // error), so read stdout from the error object before re-throwing.
-    const execErr = error as { code?: number; stdout?: string };
-    const out = (execErr.stdout ?? "").trim();
-    if (
-      out &&
-      allowNonZeroOutput &&
-      typeof execErr.code === "number" &&
-      execErr.code !== 0
-    ) {
+    const exitCode = commandExitCode(error);
+    const out = commandStdout(error);
+    if (out && allowNonZeroOutput && exitCode !== undefined && exitCode !== 0) {
       return out;
     }
     // CLI stderr can contain verbose diagnostics or response bodies, so never
     // expose it in the user-facing error state.
-    const exitCode =
-      typeof execErr.code === "number" ? `exit code ${execErr.code}` : "failed";
-    throw new Error(`qwencloud CLI ${exitCode}`, { cause: error });
+    const safeStatus =
+      exitCode === undefined ? "failed" : `exit code ${exitCode}`;
+    // oxlint-disable-next-line preserve-caught-error -- SECURITY: Subprocess errors can retain stdout, stderr, and response bodies.
+    throw new Error(`qwencloud CLI ${safeStatus}`);
   }
 };
 
@@ -89,7 +108,7 @@ const runQwencloud = async (
 const parseAuthStatus = (raw: string): boolean => {
   let data: unknown;
   try {
-    data = JSON.parse(raw) as unknown;
+    data = JSON.parse(raw);
   } catch {
     throw new Error("Failed to parse qwencloud auth status");
   }
@@ -117,30 +136,31 @@ const parseAuthStatus = (raw: string): boolean => {
  * @returns The parsed Token Plan snapshot.
  */
 const parseTokenPlan = (raw: string) => {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const data = JSON.parse(raw);
-  if (!data || typeof data !== "object") {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error("Failed to parse qwencloud usage response");
+  }
+  if (!isRecord(data)) {
     throw new Error("Invalid qwencloud usage response");
   }
 
-  const tp = (data as Record<string, unknown>).token_plan;
-  if (!tp || typeof tp !== "object") {
+  const tp = data.token_plan;
+  if (!isRecord(tp)) {
     return { subscribed: false as const };
   }
 
-  const plan = tp as Record<string, unknown>;
   return {
-    planName: typeof plan.planName === "string" ? plan.planName : undefined,
+    planName: typeof tp.planName === "string" ? tp.planName : undefined,
     remainingCredits:
-      typeof plan.remainingCredits === "number"
-        ? plan.remainingCredits
-        : undefined,
-    resetDate: typeof plan.resetDate === "string" ? plan.resetDate : undefined,
-    status: typeof plan.status === "string" ? plan.status : undefined,
-    subscribed: plan.subscribed === true,
+      typeof tp.remainingCredits === "number" ? tp.remainingCredits : undefined,
+    resetDate: typeof tp.resetDate === "string" ? tp.resetDate : undefined,
+    status: typeof tp.status === "string" ? tp.status : undefined,
+    subscribed: tp.subscribed === true,
     totalCredits:
-      typeof plan.totalCredits === "number" ? plan.totalCredits : undefined,
-    usedPct: typeof plan.usedPct === "number" ? plan.usedPct : undefined,
+      typeof tp.totalCredits === "number" ? tp.totalCredits : undefined,
+    usedPct: typeof tp.usedPct === "number" ? tp.usedPct : undefined,
   };
 };
 
@@ -156,45 +176,48 @@ const parseTokenPlan = (raw: string) => {
  * @returns A normalized usage window, or `null` when no percentage is reported.
  */
 const buildQwenWindow = (
-  tp: ReturnType<typeof parseTokenPlan>,
-  now: Date
+  tp: ReturnType<typeof parseTokenPlan>
 ): UsageWindow | null => {
   if (!tp.subscribed) {
     return null;
   }
 
-  const { usedPct } = tp;
-  if (typeof usedPct !== "number") {
+  const parsedUsed = parseUsagePercentage(tp.usedPct);
+  if (Result.isFailure(parsedUsed)) {
     return null;
   }
 
-  const used = clampPercent(usedPct);
-  const remainingPercent = 100 - used;
-
   let resetsAt: Date | null = null;
-  let resetAfterSeconds: number | null = null;
   if (tp.resetDate) {
     const parsed = new Date(tp.resetDate);
     if (!Number.isNaN(parsed.getTime())) {
-      resetsAt = parsed;
-      resetAfterSeconds = Math.max(
-        0,
-        Math.ceil((parsed.getTime() - now.getTime()) / 1000)
-      );
+      resetsAt = resetInstantOrNull(parsed);
     }
   }
 
+  const parsedTotal = parseUsageCount(tp.totalCredits);
+  const parsedRemaining = parseUsageCount(tp.remainingCredits);
+  const parsedCurrent =
+    Result.isSuccess(parsedTotal) &&
+    Result.isSuccess(parsedRemaining) &&
+    parsedRemaining.success <= parsedTotal.success
+      ? parseUsageCount(parsedTotal.success - parsedRemaining.success)
+      : undefined;
+
   return {
-    current:
-      tp.totalCredits !== undefined && tp.remainingCredits !== undefined
-        ? tp.totalCredits - tp.remainingCredits
-        : undefined,
+    kind: "credits",
     label: "credits",
-    remainingPercent,
-    resetAfterSeconds,
+    quota:
+      Result.isSuccess(parsedTotal) &&
+      parsedCurrent !== undefined &&
+      Result.isSuccess(parsedCurrent)
+        ? countQuota(
+            parsedCurrent.success,
+            parsedTotal.success,
+            parsedUsed.success
+          )
+        : percentageQuota(parsedUsed.success),
     resetsAt,
-    total: tp.totalCredits,
-    usedPercent: used,
   };
 };
 
@@ -220,7 +243,7 @@ export const createQwenProvider = (
     config: ProviderConfig | undefined,
     _openCodeAuth: OpenCodeAuth,
     timeoutMs: number
-  ): Promise<ProviderUsage> => {
+  ): Promise<ProviderUsage<"qwen">> => {
     const cli = DEFAULT_CLI;
 
     let authRaw: string;
@@ -234,9 +257,9 @@ export const createQwenProvider = (
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
+      // oxlint-disable-next-line preserve-caught-error -- SECURITY: Keep the classified message, not the subprocess cause graph.
       throw new Error(
-        `qwencloud CLI not available (${msg}). Install: npm i -g @qwencloud/qwencloud-cli and run: qwencloud auth login`,
-        { cause: error }
+        `qwencloud CLI not available (${msg}). Install: npm i -g @qwencloud/qwencloud-cli and run: qwencloud auth login`
       );
     }
 
@@ -254,9 +277,9 @@ export const createQwenProvider = (
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
+      // oxlint-disable-next-line preserve-caught-error -- SECURITY: Keep the classified message, not the subprocess cause graph.
       throw new Error(
-        `qwencloud usage query failed (${msg}). Verify the CLI is authenticated and try again.`,
-        { cause: error }
+        `qwencloud usage query failed (${msg}). Verify the CLI is authenticated and try again.`
       );
     }
     const tp = parseTokenPlan(usageRaw);
@@ -268,7 +291,7 @@ export const createQwenProvider = (
     }
 
     const capturedAt = dependencies.now();
-    const window = buildQwenWindow(tp, capturedAt);
+    const window = buildQwenWindow(tp);
     if (!window) {
       throw new Error("invalid Qwen usage");
     }

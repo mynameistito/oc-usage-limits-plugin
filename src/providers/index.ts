@@ -1,34 +1,40 @@
 import { codexProvider } from "@/providers/codex.ts";
+import type { ProviderDefinition } from "@/providers/definition.ts";
 import { minimaxProvider } from "@/providers/minimax.ts";
 import { qwenProvider } from "@/providers/qwen.ts";
 import { syntheticProvider } from "@/providers/synthetic.ts";
 import { zaiProvider } from "@/providers/zai-coding-plan.ts";
 import type { ProviderID } from "@/types.ts";
 
-/**
- * Registered providers in sidebar display order.
- *
- * Add new providers here: import the provider export and append it to this array.
- */
-export const PROVIDERS = [
-  codexProvider,
-  zaiProvider,
-  syntheticProvider,
-  minimaxProvider,
-  qwenProvider,
-] as const;
+type ProviderRegistry = {
+  readonly [ID in ProviderID]: ProviderDefinition<ID>;
+};
 
-/** Sidebar display order derived from {@link PROVIDERS}. */
-export const PROVIDER_ORDER = PROVIDERS.map(
-  (provider) => provider.id
-) as readonly ProviderID[];
+/**
+ * Sidebar display order for supported providers.
+ *
+ * Adding a provider requires updating `ProviderID`, this order, and
+ * `PROVIDER_REGISTRY` alongside the provider adapter export.
+ */
+export const PROVIDER_ORDER = [
+  "codex",
+  "zai",
+  "synthetic",
+  "minimax",
+  "qwen",
+] as const satisfies readonly ProviderID[];
 
 /** Registry of supported provider adapters keyed by plugin provider ID. */
-export const PROVIDER_REGISTRY = Object.fromEntries(
-  PROVIDERS.map((provider) => [provider.id, provider])
-) as {
-  [K in ProviderID]: Extract<(typeof PROVIDERS)[number], { id: K }>;
+export const PROVIDER_REGISTRY: ProviderRegistry = {
+  codex: codexProvider,
+  minimax: minimaxProvider,
+  qwen: qwenProvider,
+  synthetic: syntheticProvider,
+  zai: zaiProvider,
 };
+
+/** Provider definitions projected in explicit sidebar display order. */
+export const PROVIDERS = PROVIDER_ORDER.map((id) => PROVIDER_REGISTRY[id]);
 
 /**
  * Returns the default display label for a provider ID.

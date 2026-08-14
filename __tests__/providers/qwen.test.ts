@@ -7,8 +7,18 @@ const NOW = new Date("2026-08-14T12:00:00.000Z");
 
 const commandError = (input: {
   code?: number | string;
+  stderr?: string;
   stdout?: string;
 }): Error => Object.assign(new Error("command failed"), input);
+
+const safeErrorGraph = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+  return `${error.name}:${error.message}:${
+    error.cause === undefined ? "" : safeErrorGraph(error.cause)
+  }`;
+};
 
 const createRunner = (
   auth: string | Error,
@@ -61,12 +71,13 @@ describe("Qwen provider", () => {
       label: "Plus",
       windows: [
         {
-          current: 750,
           label: "credits",
-          remainingPercent: 25,
-          resetAfterSeconds: 3601,
-          total: 1000,
-          usedPercent: 75,
+          quota: {
+            current: 750,
+            remainingPercent: 25,
+            total: 1000,
+            usedPercent: 75,
+          },
         },
       ],
     });
@@ -76,11 +87,21 @@ describe("Qwen provider", () => {
   });
 
   test("reports an unavailable CLI without exposing subprocess diagnostics", async () => {
-    const { runner } = createRunner(commandError({ code: "ENOENT" }));
-
-    await expect(fetchUsage(runner)).rejects.toThrow(
-      "qwencloud CLI not available (qwencloud CLI failed)"
+    const secret = "stderr-secret-like-value";
+    const { runner } = createRunner(
+      commandError({ code: "ENOENT", stderr: secret, stdout: secret })
     );
+
+    try {
+      await fetchUsage(runner);
+      throw new Error("expected Qwen CLI failure");
+    } catch (error) {
+      expect(safeErrorGraph(error)).toContain(
+        "qwencloud CLI not available (qwencloud CLI failed)"
+      );
+      expect(safeErrorGraph(error)).not.toContain(secret);
+      expect(error instanceof Error ? error.cause : undefined).toBeUndefined();
+    }
   });
 
   test("accepts unauthenticated JSON from a non-zero auth command", async () => {
@@ -102,7 +123,7 @@ describe("Qwen provider", () => {
       "malformed usage JSON",
       JSON.stringify({ authenticated: true }),
       "{",
-      "JSON Parse error",
+      "Failed to parse qwencloud usage response",
     ],
     [
       "partial usage JSON",
@@ -114,6 +135,25 @@ describe("Qwen provider", () => {
     const { runner } = createRunner(auth, usage);
 
     await expect(fetchUsage(runner)).rejects.toThrow(message);
+  });
+
+  test("redacts malformed usage output from parse failures", async () => {
+    const fragment = "malformed-output-secret-fragment";
+    const { runner } = createRunner(
+      JSON.stringify({ authenticated: true }),
+      `{"token_plan":"${fragment}`
+    );
+
+    try {
+      await fetchUsage(runner);
+      throw new Error("expected malformed Qwen usage failure");
+    } catch (error) {
+      expect(safeErrorGraph(error)).toContain(
+        "Failed to parse qwencloud usage response"
+      );
+      expect(safeErrorGraph(error)).not.toContain(fragment);
+      expect(error instanceof Error ? error.cause : undefined).toBeUndefined();
+    }
   });
 
   test("reports accounts without a subscription", async () => {
@@ -128,14 +168,51 @@ describe("Qwen provider", () => {
   });
 
   test("classifies a non-zero usage exit as a usage query failure", async () => {
+    const secret = "stdout-secret-like-value";
     const { runner } = createRunner(
       JSON.stringify({ authenticated: true }),
-      commandError({ code: 1, stdout: "internal details" })
+      commandError({ code: 1, stderr: secret, stdout: secret })
     );
 
-    await expect(fetchUsage(runner)).rejects.toThrow(
-      "qwencloud usage query failed (qwencloud CLI exit code 1)"
+    try {
+      await fetchUsage(runner);
+      throw new Error("expected Qwen usage command failure");
+    } catch (error) {
+      expect(safeErrorGraph(error)).toContain(
+        "qwencloud usage query failed (qwencloud CLI exit code 1)"
+      );
+      expect(safeErrorGraph(error)).not.toContain(secret);
+      expect(error instanceof Error ? error.cause : undefined).toBeUndefined();
+    }
+  });
+
+  test.each([-1, Number.POSITIVE_INFINITY])(
+    "rejects invalid required usage percentage %s",
+    async (usedPct) => {
+      const { runner } = createRunner(
+        JSON.stringify({ authenticated: true }),
+        JSON.stringify({ token_plan: { subscribed: true, usedPct } })
+      );
+
+      await expect(fetchUsage(runner)).rejects.toThrow("invalid Qwen usage");
+    }
+  );
+
+  test("downgrades invalid optional counts to percentage usage", async () => {
+    const { runner } = createRunner(
+      JSON.stringify({ authenticated: true }),
+      JSON.stringify({
+        token_plan: {
+          remainingCredits: -1,
+          subscribed: true,
+          totalCredits: Number.POSITIVE_INFINITY,
+          usedPct: 25,
+        },
+      })
     );
+
+    const usage = await fetchUsage(runner);
+    expect(usage.windows[0]?.quota._tag).toBe("Percentage");
   });
 
   test("classifies an auth timeout as CLI unavailability", async () => {

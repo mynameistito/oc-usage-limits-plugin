@@ -1,3 +1,6 @@
+import { Result } from "effect";
+
+import { credentialValue } from "@/config-schema.ts";
 import { MissingProviderCredentialsError } from "@/errors.ts";
 import { limitLabelForWindow } from "@/format.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
@@ -7,7 +10,13 @@ import type {
   ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
-import { clampPercent, fetchJson, isRecord, readJsonFile } from "@/utils.ts";
+import {
+  parseUsagePercentage,
+  percentageQuota,
+  resetInstantOrNull,
+  unknownQuota,
+} from "@/usage.ts";
+import { fetchJson, isRecord, readJsonFile } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
 /** Default ChatGPT backend base URL used for Codex usage requests. */
@@ -24,9 +33,12 @@ const DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api";
 const readCodexAuthFile = async (
   authPath: string | undefined
 ): Promise<{ access: string; accountId: string }> => {
-  const auth = await readJsonFile<unknown>(authPath ?? "~/.codex/auth.json");
+  const auth = await readJsonFile(authPath ?? "~/.codex/auth.json");
   if (!isRecord(auth) || !isRecord(auth.tokens)) {
-    throw new MissingProviderCredentialsError("codex", "missing Codex auth");
+    throw new MissingProviderCredentialsError({
+      operation: "read-auth",
+      providerID: "codex",
+    });
   }
 
   const access = auth.tokens.access_token;
@@ -51,34 +63,40 @@ const codexWindow = (value: unknown, fallback: string): UsageWindow | null => {
     return null;
   }
 
-  const used =
-    typeof value.used_percent === "number"
-      ? clampPercent(value.used_percent)
-      : null;
-  const resetAfter =
-    typeof value.reset_after_seconds === "number"
-      ? value.reset_after_seconds
-      : null;
+  const parsedUsed = parseUsagePercentage(value.used_percent);
+  if (value.used_percent !== undefined && Result.isFailure(parsedUsed)) {
+    return null;
+  }
+  const used = Result.isSuccess(parsedUsed) ? parsedUsed.success : null;
   const windowSeconds =
     typeof value.limit_window_seconds === "number"
       ? value.limit_window_seconds
       : 0;
-  const resetAt =
+  const resetAt = resetInstantOrNull(
     typeof value.reset_at === "number" && value.reset_at > 0
       ? new Date(value.reset_at * 1000)
-      : null;
+      : null
+  );
 
   return {
+    kind: windowSeconds > 0 ? "rolling" : "other",
     label:
       windowSeconds > 0
         ? limitLabelForWindow(windowSeconds, fallback)
         : fallback,
-    remainingPercent: used === null ? null : 100 - used,
-    resetAfterSeconds: resetAfter,
+    quota: used === null ? unknownQuota : percentageQuota(used),
     resetsAt: resetAt,
-    usedPercent: used,
   };
 };
+
+const reportedWindowsAreInvalid = (
+  rateLimit: Record<string, unknown> | undefined,
+  windows: readonly UsageWindow[]
+): boolean =>
+  rateLimit !== undefined &&
+  (rateLimit.primary_window !== undefined ||
+    rateLimit.secondary_window !== undefined) &&
+  windows.length === 0;
 
 /**
  * Fetches and normalizes Codex usage limits.
@@ -97,14 +115,16 @@ export const fetchCodexUsage = async (
   config: ProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-): Promise<ProviderUsage> => {
+): Promise<ProviderUsage<"codex">> => {
   const { openai } = openCodeAuth;
+  const access = credentialValue(openai?.access);
+  const accountId = credentialValue(openai?.accountId);
   const credentials =
-    typeof openai?.access === "string" &&
-    openai.access.trim() !== "" &&
-    typeof openai.accountId === "string" &&
-    openai.accountId.trim() !== ""
-      ? { access: openai.access, accountId: openai.accountId }
+    typeof access === "string" &&
+    access.trim() !== "" &&
+    typeof accountId === "string" &&
+    accountId.trim() !== ""
+      ? { access, accountId }
       : await readCodexAuthFile(config?.authPath);
 
   const baseUrl = resolveHttpsBaseUrl(config?.baseUrl, DEFAULT_CODEX_BASE_URL);
@@ -132,6 +152,9 @@ export const fetchCodexUsage = async (
     codexWindow(rateLimit?.primary_window, "usage"),
     codexWindow(rateLimit?.secondary_window, "secondary"),
   ].filter((item): item is UsageWindow => item !== null);
+  if (reportedWindowsAreInvalid(rateLimit, windows)) {
+    throw new Error("invalid Codex usage");
+  }
   const resetCredits =
     isRecord(payload.rate_limit_reset_credits) &&
     typeof payload.rate_limit_reset_credits.available_count === "number"

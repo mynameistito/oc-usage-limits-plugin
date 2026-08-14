@@ -6,11 +6,11 @@ import type {
 } from "@/types.ts";
 
 /** Fetches and normalizes usage for one provider adapter. */
-type ProviderFetch = (
+type ProviderFetch<ID extends ProviderID> = (
   config: ProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-) => Promise<ProviderUsage>;
+) => Promise<ProviderUsage<ID>>;
 
 /** Static metadata and adapter binding for one plugin provider. */
 export interface ProviderDefinition<ID extends ProviderID = ProviderID> {
@@ -19,7 +19,7 @@ export interface ProviderDefinition<ID extends ProviderID = ProviderID> {
   /** Default sidebar label when config.label is omitted. */
   defaultLabel: string;
   /** Provider-specific usage fetch adapter. */
-  fetch: ProviderFetch;
+  fetch: ProviderFetch<ID>;
   /**
    * OpenCode session provider IDs that map to this plugin provider for the
    * prompt footer. Empty means sidebar-only.
