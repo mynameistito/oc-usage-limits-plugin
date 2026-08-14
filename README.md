@@ -104,12 +104,12 @@ Disabled providers are hidden:
 
 ## Providers
 
-| Provider ID | Service                | Env var                     | Auth header  | Default base URL                  |
-| ----------- | ---------------------- | --------------------------- | ------------ | --------------------------------- |
-| `codex`     | ChatGPT Codex usage    | —                           | Bearer       | `https://chatgpt.com/backend-api` |
-| `zai`       | Z.AI Coding Plan quota | `OC_ZAI_API_KEY`            | raw / Bearer | `https://api.z.ai`                |
-| `synthetic` | Synthetic quotas       | `OC_SYNTHETIC_API_KEY`      | Bearer       | `https://api.synthetic.new`       |
-| `minimax`   | MiniMax Token Plan     | `OC_MINIMAX_TOKEN_PLAN_KEY` | Bearer       | `https://www.minimax.io`          |
+| Provider ID | Service | Env var | Auth header | Default base URL |
+| --- | --- | --- | --- | --- |
+| `codex` | ChatGPT Codex usage | — | Bearer | `https://chatgpt.com/backend-api` |
+| `zai` | Z.AI Coding Plan quota | `OC_ZAI_API_KEY` | raw / Bearer | `https://api.z.ai` |
+| `synthetic` | Synthetic quotas | `OC_SYNTHETIC_API_KEY` | Bearer | `https://api.synthetic.new` |
+| `minimax` | MiniMax Token Plan | `OC_MINIMAX_TOKEN_PLAN_KEY` | Bearer | `https://www.minimax.io` |
 
 Synthetic always uses `Bearer` auth and ignores `authorizationScheme`.
 
