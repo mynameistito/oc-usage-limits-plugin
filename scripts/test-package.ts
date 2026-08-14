@@ -1,6 +1,18 @@
+import { createRequire } from "node:module";
+
 const expectedId = "mynameistito.usage-limits";
-const entrypoint = new URL("../dist/index.mjs", import.meta.url).href;
-const module = (await import(entrypoint)) as { default?: unknown };
+const entrypoint = new URL("../dist/index.mjs", import.meta.url);
+
+try {
+  createRequire(entrypoint).resolve("effect");
+} catch {
+  console.error(
+    "Package smoke test failed: Effect did not resolve from the built entrypoint"
+  );
+  process.exit(1);
+}
+
+const module = (await import(entrypoint.href)) as { default?: unknown };
 const plugin = module.default;
 
 if (
