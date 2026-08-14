@@ -18,6 +18,7 @@ jobs:
         task:
           - typecheck
           - test
+          - test:package
           - check
           - build
           - knip
