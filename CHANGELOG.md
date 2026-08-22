@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 2.0.0-next.0
+
+### Major Changes
+
+- 5b2920b: Add an OpenCode v2 TUI plugin entrypoint with hierarchical UI slots, v2 session data access, and v2 lifecycle cleanup.
+
 ## 1.4.0
 
 ### Minor Changes
