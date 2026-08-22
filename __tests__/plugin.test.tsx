@@ -6,6 +6,7 @@ import { testRender } from "@opentui/solid";
 import type { JSX } from "@opentui/solid";
 import { Deferred, Effect, Result } from "effect";
 
+import type { UsageTheme } from "@/components.tsx";
 import { ConfigDecodeError } from "@/errors.ts";
 import type { ProviderError } from "@/errors.ts";
 import { createUsageLimitsPlugin } from "@/plugin.tsx";
@@ -26,19 +27,20 @@ const NOW = new Date("2026-08-14T12:34:00.000Z");
 const color = RGBA.fromValues(1, 2, 3, 255);
 // SAFETY: The proxy supplies the RGBA value for every theme color while
 // retaining the one numeric theme property used by OpenTUI.
-const context = {
-  theme: {
-    current: new Proxy(
-      { thinkingOpacity: 0.6 },
-      { get: (target, key) => Reflect.get(target, key) ?? color }
-    ),
-  },
-};
+const theme = new Proxy(
+  { thinkingOpacity: 0.6 },
+  { get: (target, key) => Reflect.get(target, key) ?? color }
+) as unknown as UsageTheme;
 
 type CharacterizedSlots = Record<
   "sidebar.content" | "prompt.footer.status",
-  (context: UsageLimitsSlotContext) => JSX.Element
+  (context: UsageLimitsSlotContext) => JSX.Element | null
 >;
+
+const DEFAULT_SLOT: UsageLimitsSlotContext = {
+  mode: "normal",
+  sessionID: "session-1",
+};
 
 interface ScheduledRefresh {
   callback: () => Promise<void>;
@@ -127,12 +129,13 @@ const createHarness = (initialConfig = config()) => {
 
   const partialApi = {
     data: { session: { message: { list: () => [{ providerID: "openai" }] } } },
+    theme,
     ui: {
-      slot: (
-        name: "sidebar.content" | "prompt.footer.status",
-        render: CharacterizedSlots[typeof name]
-      ) => {
-        registered = { ...registered, [name]: render };
+      slot: (claim: {
+        append: "sidebar.content" | "prompt.footer.status";
+        render: CharacterizedSlots[typeof claim.append];
+      }) => {
+        registered = { ...registered, [claim.append]: claim.render };
         return () => {
           slotDisposals += 1;
         };
@@ -158,12 +161,13 @@ const createHarness = (initialConfig = config()) => {
 
 const renderSlot = async (
   registered: CharacterizedSlots,
-  name: "prompt.footer.status" | "sidebar.content"
+  name: "prompt.footer.status" | "sidebar.content",
+  slot: UsageLimitsSlotContext = DEFAULT_SLOT
 ): Promise<string> => {
-  const setup = await testRender(
-    () => registered[name](context as unknown as UsageLimitsSlotContext),
-    { height: 12, width: 80 }
-  );
+  const setup = await testRender(() => registered[name](slot), {
+    height: 12,
+    width: 80,
+  });
   try {
     await setup.flush();
     return setup.captureCharFrame();
@@ -232,6 +236,23 @@ describe("usage-limits TUI lifecycle", () => {
     expect(await renderSlot(registered, "prompt.footer.status")).not.toContain(
       "%"
     );
+  });
+
+  test("does not render footer usage for shell mode or missing sessions", async () => {
+    const harness = createHarness();
+    const registered = await initialize(harness);
+
+    expect(
+      await renderSlot(registered, "prompt.footer.status", {
+        mode: "shell",
+        sessionID: "session-1",
+      })
+    ).not.toContain("42%");
+    expect(
+      await renderSlot(registered, "prompt.footer.status", {
+        mode: "normal",
+      })
+    ).not.toContain("42%");
   });
 
   test("uses safe defaults when typed config parsing fails", async () => {

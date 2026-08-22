@@ -1,10 +1,10 @@
 /* @jsxImportSource @opentui/solid */
-import type { TuiThemeCurrent } from "@opencode-ai/plugin/tui";
 import type { JSX } from "@opentui/solid";
 import { Effect, Fiber } from "effect";
 import { createSignal } from "solid-js";
 
 import { BottomUsage, UsageLimitsPanel } from "@/components.tsx";
+import type { UsageTheme } from "@/components.tsx";
 import { loadConfig, loadOpenCodeAuth } from "@/config.ts";
 import { usageCoordinator } from "@/coordinator.ts";
 import type { ProviderError } from "@/errors.ts";
@@ -20,19 +20,20 @@ import type {
 } from "@/types.ts";
 
 export interface UsageLimitsSlotContext {
-  theme: TuiThemeCurrent;
   sessionID?: string;
+  mode?: "normal" | "shell";
 }
 
-type UsageLimitsSlot = (context: UsageLimitsSlotContext) => JSX.Element;
+type UsageLimitsSlot = (context: UsageLimitsSlotContext) => JSX.Element | null;
 
 export interface UsageLimitsPluginContext {
   ui: {
-    slot: (
-      name: "sidebar.content" | "prompt.footer.status",
-      render: UsageLimitsSlot
-    ) => () => void;
+    slot: (claim: {
+      append: "sidebar.content" | "prompt.footer.status";
+      render: UsageLimitsSlot;
+    }) => () => void;
   };
+  theme: UsageTheme;
   data: {
     session: {
       message: {
@@ -92,24 +93,33 @@ export const createUsageLimitsPlugin =
     const [states, setStates] = createSignal<ProviderState[]>([]);
     const [showErrors, setShowErrors] = createSignal(true);
     const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);
-    const disposeSidebar = context.ui.slot("sidebar.content", (slot) => (
-      <UsageLimitsPanel
-        showErrors={showErrors()}
-        states={states()}
-        theme={slot.theme}
-        lastRefreshAt={lastRefreshAt()}
-      />
-    ));
-    const disposeFooter = context.ui.slot("prompt.footer.status", (slot) => {
-      const providerID = currentProviderID(
-        context.data.session.message.list(slot.sessionID ?? "")
-      );
-      return (
-        <BottomUsage
-          theme={slot.theme}
-          window={usageForProvider(states(), providerID)}
+    const disposeSidebar = context.ui.slot({
+      append: "sidebar.content",
+      render: () => (
+        <UsageLimitsPanel
+          showErrors={showErrors()}
+          states={states()}
+          theme={context.theme}
+          lastRefreshAt={lastRefreshAt()}
         />
-      );
+      ),
+    });
+    const disposeFooter = context.ui.slot({
+      append: "prompt.footer.status",
+      render: (slot) => {
+        if (!slot.sessionID || slot.mode === "shell") {
+          return null;
+        }
+        const providerID = currentProviderID(
+          context.data.session.message.list(slot.sessionID)
+        );
+        return (
+          <BottomUsage
+            theme={context.theme}
+            window={usageForProvider(states(), providerID)}
+          />
+        );
+      },
     });
 
     const coordinator = usageCoordinator({
