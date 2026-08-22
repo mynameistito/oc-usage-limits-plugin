@@ -112,73 +112,71 @@ export const UsageLimitsPanel = (props: {
     )
   );
 
-  if (visibleStates().length === 0) {
-    return null;
-  }
-
   return (
-    <box flexDirection="column">
-      <text fg={props.theme.text}>
-        <b>Usage Limits</b>
-      </text>
-      <For each={visibleStates()}>
-        {(state) => {
-          let tierName: string | undefined;
-          if (state.status === "ready") {
-            ({ tierName } = state.data);
-          } else if (state.status === "error" && state.previous) {
-            ({ tierName } = state.previous);
-          }
-          const isStale = state.status === "ready" && state.stale;
-          const isCached =
-            state.status === "error" && state.previous !== undefined;
-
-          return (
-            <box flexDirection="column">
-              <text fg={props.theme.text}>
-                {state.label}
-                {tierName ? (
-                  <span style={{ fg: props.theme.textMuted }}>
-                    {" ["}
-                    {tierName}
-                    {"]"}
-                  </span>
-                ) : null}
-                {isStale ? (
-                  <span style={{ fg: props.theme.warning }}> stale</span>
-                ) : null}
-                {isCached ? (
-                  <span style={{ fg: props.theme.warning }}> cached</span>
-                ) : null}
-              </text>
-              {state.status === "loading" ? (
-                <text fg={props.theme.textMuted}> loading...</text>
-              ) : null}
-              {state.status === "ready" ? (
-                <UsageWindowRows
-                  theme={props.theme}
-                  windows={state.data.windows}
-                />
-              ) : null}
-              {state.status === "error" && state.previous ? (
-                <UsageWindowRows
-                  theme={props.theme}
-                  windows={state.previous.windows}
-                />
-              ) : null}
-              {state.status === "error" && props.showErrors ? (
-                <text fg={props.theme.error}> {state.message}</text>
-              ) : null}
-            </box>
-          );
-        }}
-      </For>
-      {props.lastRefreshAt ? (
-        <text fg={props.theme.textMuted}>
-          Updated {formatTimestamp(props.lastRefreshAt)}
+    <Show when={visibleStates().length > 0}>
+      <box flexDirection="column">
+        <text fg={props.theme.text}>
+          <b>Usage Limits</b>
         </text>
-      ) : null}
-    </box>
+        <For each={visibleStates()}>
+          {(state) => {
+            let tierName: string | undefined;
+            if (state.status === "ready") {
+              ({ tierName } = state.data);
+            } else if (state.status === "error" && state.previous) {
+              ({ tierName } = state.previous);
+            }
+            const isStale = state.status === "ready" && state.stale;
+            const isCached =
+              state.status === "error" && state.previous !== undefined;
+
+            return (
+              <box flexDirection="column">
+                <text fg={props.theme.text}>
+                  {state.label}
+                  {tierName ? (
+                    <span style={{ fg: props.theme.textMuted }}>
+                      {" ["}
+                      {tierName}
+                      {"]"}
+                    </span>
+                  ) : null}
+                  {isStale ? (
+                    <span style={{ fg: props.theme.warning }}> stale</span>
+                  ) : null}
+                  {isCached ? (
+                    <span style={{ fg: props.theme.warning }}> cached</span>
+                  ) : null}
+                </text>
+                {state.status === "loading" ? (
+                  <text fg={props.theme.textMuted}> loading...</text>
+                ) : null}
+                {state.status === "ready" ? (
+                  <UsageWindowRows
+                    theme={props.theme}
+                    windows={state.data.windows}
+                  />
+                ) : null}
+                {state.status === "error" && state.previous ? (
+                  <UsageWindowRows
+                    theme={props.theme}
+                    windows={state.previous.windows}
+                  />
+                ) : null}
+                {state.status === "error" && props.showErrors ? (
+                  <text fg={props.theme.error}> {state.message}</text>
+                ) : null}
+              </box>
+            );
+          }}
+        </For>
+        {props.lastRefreshAt ? (
+          <text fg={props.theme.textMuted}>
+            Updated {formatTimestamp(props.lastRefreshAt)}
+          </text>
+        ) : null}
+      </box>
+    </Show>
   );
 };
 

@@ -1,6 +1,6 @@
 # oc-usage-limits-plugin
 
-OpenCode TUI plugin that shows Codex, ZAI, Synthetic, and MiniMax Token Plan usage limits in the sidebar and prompt footer.
+OpenCode TUI plugin that shows Codex, ZAI, Synthetic, MiniMax Token Plan, and Qwen usage limits in the sidebar and prompt footer.
 
 ## Features
 
@@ -9,6 +9,7 @@ OpenCode TUI plugin that shows Codex, ZAI, Synthetic, and MiniMax Token Plan usa
 - Shows current ZAI quota windows from ZAI Coding Plan auth.
 - Shows current Synthetic rolling 5-hour and weekly windows.
 - Shows current MiniMax Token Plan rolling 5-hour and weekly windows.
+- Shows current Qwen Token Plan windows from the local `qwencloud` CLI.
 - Adds compact prompt-footer usage when the current session uses an OpenAI, ZAI Coding Plan, Synthetic, or MiniMax Token Plan model.
 - Providers are toggled from `~/.config/opencode/usage-limits.jsonc`.
 - Reads OpenCode-connected credentials first, then falls back to explicit config/env credentials.
@@ -110,6 +111,7 @@ Disabled providers are hidden:
 | `zai` | Z.AI Coding Plan quota | `OC_ZAI_API_KEY` | raw / Bearer | `https://api.z.ai` |
 | `synthetic` | Synthetic quotas | `OC_SYNTHETIC_API_KEY` | Bearer | `https://api.synthetic.new` |
 | `minimax` | MiniMax Token Plan | `OC_MINIMAX_TOKEN_PLAN_KEY` | Bearer | `https://www.minimax.io` |
+| `qwen` | Qwen Token Plan | `qwencloud` CLI | CLI | — |
 
 Synthetic always uses `Bearer` auth and ignores `authorizationScheme`.
 
@@ -174,6 +176,7 @@ Provider mapping:
 - OpenCode provider `zai-coding-plan` -> ZAI token usage.
 - OpenCode provider `synthetic` -> Synthetic usage.
 - OpenCode provider `minimax-coding-plan` -> MiniMax Token Plan usage (prompt footer); `minimax` is also accepted as an alias.
+- OpenCode provider `qwen` -> Qwen Token Plan usage.
 
 ## Development
 
@@ -191,5 +194,6 @@ The package exposes a TUI entrypoint at `oc-usage-limits-plugin/tui` for OpenCod
 
 - The refresh interval defaults to 60 seconds.
 - The effective minimum refresh interval is 15 seconds.
+- Provider work starts in a scoped coordinator after both TUI slots are registered. Disposal interrupts the coordinator and its active provider work.
 - Errors are intentionally short and do not include auth tokens or response bodies.
 - MiniMax Token Plan returns `{ model_remains, base_resp }`; the per-model `current_interval_status` and `current_weekly_status` are treated as `1` = in plan and `3` = not in plan, and a window is hidden when its status is `3` (the API otherwise reports a meaningless `100%` remaining for a non-existent bucket).

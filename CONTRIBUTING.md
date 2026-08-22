@@ -37,6 +37,16 @@ bun run knip
 - Add or update tests under `__tests__/` for non-trivial behavior.
 - Run the relevant checks before opening a PR.
 
+## Architecture
+
+- Pure domain modules define usage values, typed errors, config decoding, and formatting without owning lifecycle state.
+- Provider adapters use Effect runtime services for HTTP, filesystem, environment, command, and clock boundaries. Credentials stay provider-owned and errors remain redacted.
+- The scoped coordinator owns refresh policy, cancellation, concurrent provider work, the last-success cache, and immutable snapshots.
+- `src/plugin.tsx` is the composition root and UI bridge: it registers slots, provides production services, and forwards snapshots to Solid signals.
+- Solid components own presentation control flow and must not fetch providers or schedule refreshes.
+- To add a provider, extend the typed provider manifest and adapter, then add fixtures and lifecycle/error coverage under `__tests__/`.
+- Do not include credentials, response bodies, stderr, or raw boundary causes in user-facing errors or tests.
+
 ## Code Style
 
 - Use Bun only for package and script commands.
