@@ -71,16 +71,16 @@ opencode plugin oc-usage-limits-plugin -g
 
 ## Release Lanes
 
-Stable releases run from `main` and publish to npm's `latest` dist-tag with a GitHub release. v2 previews run only from the `v2` source branch and publish `2.0.0-next.N` to the `next` dist-tag; they never create GitHub releases or move `latest`.
+Stable releases run from `main` and publish to npm's `latest` dist-tag with a GitHub release. v2 previews run only from the `opencode-v2` source branch and publish `2.0.0-next.N` to the `next` dist-tag; they never create GitHub releases or move `latest`.
 
 The v2 branch must be created from the post-stable `main` branch and must carry its own v2 Changesets prerelease metadata. The exact setup command is:
 
 ```bash
-git switch -c v2 main
+git switch -c opencode-v2 main
 bunx changeset pre enter next
 ```
 
-Commit `.changeset/pre.json` and the v2 Changesets on that branch before pushing. Do not run prerelease mode on `main`, and do not copy the three stable Changesets into `v2`; the preview workflow refuses to run without the `v2` branch and committed prerelease metadata.
+Commit `.changeset/pre.json` and the v2 Changesets on that branch before pushing. Do not run prerelease mode on `main`, and do not copy the three stable Changesets into `opencode-v2`; the preview workflow refuses to run without the `opencode-v2` branch and committed prerelease metadata.
 
 ## Usage Config
 

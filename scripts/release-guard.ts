@@ -1,19 +1,41 @@
+import { readFileSync } from "node:fs";
+
 interface PreviewRelease {
   branch: string;
   version: string;
   distTag: string;
 }
 
+interface PrereleaseMetadata {
+  mode?: unknown;
+  tag?: unknown;
+  changesets?: unknown;
+}
+
 const previewVersionPattern = /^2\.0\.0-next\.\d+$/u;
+
+export const validatePrereleaseMetadata = (
+  metadata: PrereleaseMetadata
+): void => {
+  if (
+    metadata.mode !== "pre" ||
+    metadata.tag !== "next" ||
+    !Array.isArray(metadata.changesets)
+  ) {
+    throw new Error(
+      "Preview releases require Changesets prerelease metadata with mode pre and tag next."
+    );
+  }
+};
 
 export const validatePreviewRelease = ({
   branch,
   version,
   distTag,
 }: PreviewRelease): void => {
-  if (branch !== "v2") {
+  if (branch !== "opencode-v2") {
     throw new Error(
-      `Preview releases must run from the v2 branch, got ${branch}.`
+      `Preview releases must run from the opencode-v2 branch, got ${branch}.`
     );
   }
 
@@ -40,9 +62,16 @@ const readOption = (args: string[], name: string): string => {
 };
 
 const run = (args: string[]): void => {
+  if (args[0] === "metadata") {
+    validatePrereleaseMetadata(
+      JSON.parse(readFileSync(readOption(args, "--file"), "utf-8"))
+    );
+    return;
+  }
+
   if (args[0] !== "preview") {
     throw new Error(
-      "Usage: release-guard.ts preview --branch <branch> --version <version> --dist-tag <tag>"
+      "Usage: release-guard.ts preview --branch <branch> --version <version> --dist-tag <tag> | metadata --file <path>"
     );
   }
 
