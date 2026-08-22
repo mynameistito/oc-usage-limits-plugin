@@ -27,8 +27,6 @@ import {
 } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
 
-/* eslint-disable no-shadow, require-await, unicorn/no-useless-undefined */
-
 /** ZAI Coding Plan quota endpoint used to fetch usage limits. */
 const ZAI_QUOTA_URL = "https://api.z.ai/api/monitor/usage/quota/limit";
 
@@ -138,14 +136,16 @@ const readZaiAuthPathKey = (
   ProviderEnvironment | ProviderFileSystem
 > => {
   if (!authPath) {
-    return Effect.succeed(undefined);
+    return Effect.succeed<undefined>(globalThis.undefined);
   }
-  return Effect.gen(function* readZaiAuthPathKey() {
+  return Effect.gen(function* loadZaiAuthPathKey() {
     const files = yield* ProviderFileSystem;
     const environment = yield* ProviderEnvironment;
     const auth = yield* files.readJson({ path: authPath, providerID: "zai" });
     return keyFromZaiAuth(auth, environment.credential);
-  }).pipe(Effect.catchCause(() => Effect.succeed(undefined)));
+  }).pipe(
+    Effect.catchCause(() => Effect.succeed<undefined>(globalThis.undefined))
+  );
 };
 
 /**
@@ -250,7 +250,7 @@ const fetchZaiCodingPlanUsageEffect = (
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
 ): ReturnType<ProviderDefinition<"zai">["fetch"]> =>
-  Effect.gen(function* fetchZaiCodingPlanUsageEffect() {
+  Effect.gen(function* runFetchZaiCodingPlanUsage() {
     const environment = yield* ProviderEnvironment;
     const http = yield* ProviderHttpClient;
     const clock = yield* ProviderClock;
@@ -320,7 +320,7 @@ const fetchZaiCodingPlanUsageEffect = (
   });
 
 /** Stable Promise export for direct consumers of the provider adapter. */
-export const fetchZaiCodingPlanUsage = async (
+export const fetchZaiCodingPlanUsage = (
   config: ZaiProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number

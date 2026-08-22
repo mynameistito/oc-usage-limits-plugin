@@ -5,6 +5,7 @@ import {
   MissingProviderCredentialsError,
   ProviderResponseDecodeError,
 } from "@/errors.ts";
+import type { ProviderTransportError } from "@/errors.ts";
 import { limitLabelForWindow } from "@/format.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import { ProviderClock } from "@/providers/runtime/clock.ts";
@@ -27,8 +28,6 @@ import {
 import { isRecord } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
-/* eslint-disable complexity, consistent-type-imports, no-nested-ternary, no-shadow, require-await, unicorn/no-useless-undefined */
-
 /** Default ChatGPT backend base URL used for Codex usage requests. */
 const DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api";
 
@@ -49,10 +48,10 @@ const readCodexAuthFile = (
   },
   | MissingProviderCredentialsError
   | ProviderResponseDecodeError
-  | import("@/errors.ts").ProviderTransportError,
+  | ProviderTransportError,
   ProviderEnvironment | ProviderFileSystem
 > =>
-  Effect.gen(function* readCodexAuthFile() {
+  Effect.gen(function* loadCodexAuthFile() {
     const files = yield* ProviderFileSystem;
     const environment = yield* ProviderEnvironment;
     const auth = yield* files.readJson({
@@ -74,6 +73,37 @@ const readCodexAuthFile = (
       });
     }
     return { access, accountId };
+  });
+
+const loadCodexCredentials = (
+  config: CodexProviderConfig | undefined,
+  isOfficialHost: boolean,
+  openCodeAccess: Redacted.Redacted<string> | undefined,
+  openCodeAccountId: Redacted.Redacted<string> | undefined,
+  configuredAccess: Redacted.Redacted<string> | undefined
+) =>
+  Effect.gen(function* loadCredentials() {
+    if (!isOfficialHost && !config?.authPath && !configuredAccess) {
+      return yield* new MissingProviderCredentialsError({
+        operation: "fetch-usage",
+        providerID: "codex",
+      });
+    }
+    if (isOfficialHost && openCodeAccess && openCodeAccountId) {
+      return { access: openCodeAccess, accountId: openCodeAccountId };
+    }
+    if (config?.authPath) {
+      return yield* readCodexAuthFile(config.authPath);
+    }
+    if (configuredAccess) {
+      return {
+        access: configuredAccess,
+        accountId: isOfficialHost
+          ? (openCodeAccountId ?? Redacted.make("configured"))
+          : Redacted.make("configured"),
+      };
+    }
+    return yield* readCodexAuthFile(globalThis.undefined);
   });
 
 /**
@@ -142,7 +172,7 @@ const fetchCodexUsageEffect = (
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
 ): ReturnType<ProviderDefinition<"codex">["fetch"]> =>
-  Effect.gen(function* fetchCodexUsageEffect() {
+  Effect.gen(function* runFetchCodexUsage() {
     const environment = yield* ProviderEnvironment;
     const http = yield* ProviderHttpClient;
     const clock = yield* ProviderClock;
@@ -156,25 +186,13 @@ const fetchCodexUsageEffect = (
       openCodeAuth.openai?.accountId
     );
     const configuredAccess = environment.resolveCredential(config?.apiKey);
-    if (!isOfficialHost && !config?.authPath && !configuredAccess) {
-      return yield* new MissingProviderCredentialsError({
-        operation: "fetch-usage",
-        providerID: "codex",
-      });
-    }
-    const credentials =
-      isOfficialHost && openCodeAccess && openCodeAccountId
-        ? { access: openCodeAccess, accountId: openCodeAccountId }
-        : config?.authPath
-          ? yield* readCodexAuthFile(config.authPath)
-          : configuredAccess
-            ? {
-                access: configuredAccess,
-                accountId: isOfficialHost
-                  ? (openCodeAccountId ?? Redacted.make("configured"))
-                  : Redacted.make("configured"),
-              }
-            : yield* readCodexAuthFile(undefined);
+    const credentials = yield* loadCodexCredentials(
+      config,
+      isOfficialHost,
+      openCodeAccess,
+      openCodeAccountId,
+      configuredAccess
+    );
 
     const payload = yield* http.requestJson({
       headers: {
@@ -231,7 +249,7 @@ const fetchCodexUsageEffect = (
   });
 
 /** Stable Promise export for direct consumers of the provider adapter. */
-export const fetchCodexUsage = async (
+export const fetchCodexUsage = (
   config: CodexProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number

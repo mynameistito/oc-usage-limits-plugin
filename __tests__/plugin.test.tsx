@@ -119,8 +119,9 @@ const createHarness = (initialConfig = config()) => {
       Effect.gen(function* sleep() {
         const deferred = yield* Deferred.make<boolean>();
         const scheduledRefresh: ScheduledRefresh = {
-          callback: () =>
-            Effect.runPromise(Deferred.succeed(deferred, true)).then(() => {}),
+          callback: async () => {
+            await Effect.runPromise(Deferred.succeed(deferred, true));
+          },
           cancelled: false,
           delayMs,
         };
@@ -136,8 +137,8 @@ const createHarness = (initialConfig = config()) => {
 
   const partialApi = {
     lifecycle: {
-      // oxlint-disable-next-line prefer-await-to-callbacks -- The lifecycle API registers a disposal callback.
-      onDispose: (callback: TuiDispose) => {
+      onDispose: (...args: [TuiDispose]) => {
+        const [callback] = args;
         dispose = callback;
         return () => {
           dispose = undefined;

@@ -8,9 +8,35 @@ import {
 } from "@/errors.ts";
 import type { ProviderID } from "@/types.ts";
 
-/* eslint-disable no-await-in-loop, no-empty-function, no-nested-ternary, prefer-await-to-then */
-
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+
+const cancelReader = async (
+  reader: ReadableStreamDefaultReader<Uint8Array>
+) => {
+  try {
+    await reader.cancel();
+  } catch {
+    // Cancellation is best-effort when the request is already complete.
+  }
+};
+
+const readChunks = async (
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  chunks: Uint8Array[],
+  length: number
+): Promise<number> => {
+  const result = await reader.read();
+  if (result.done) {
+    return length;
+  }
+  const nextLength = length + result.value.byteLength;
+  if (nextLength > MAX_RESPONSE_BYTES) {
+    await reader.cancel();
+    throw new RangeError("response limit exceeded");
+  }
+  chunks.push(result.value);
+  return readChunks(reader, chunks, nextLength);
+};
 
 /** A bounded provider JSON request. */
 export interface ProviderHttpRequest {
@@ -63,21 +89,12 @@ const readBoundedBody = async (
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let length = 0;
-  const abort = () => reader.cancel().catch(() => {});
+  const abort = () => {
+    void cancelReader(reader);
+  };
   signal.addEventListener("abort", abort, { once: true });
   try {
-    while (true) {
-      const result = await reader.read();
-      if (result.done) {
-        break;
-      }
-      length += result.value.byteLength;
-      if (length > MAX_RESPONSE_BYTES) {
-        await reader.cancel();
-        throw new RangeError("response limit exceeded");
-      }
-      chunks.push(result.value);
-    }
+    length = await readChunks(reader, chunks, length);
   } finally {
     signal.removeEventListener("abort", abort);
   }
@@ -130,13 +147,14 @@ export const makeProviderHttpClient = (fetchImplementation: ProviderFetch) =>
             });
           }
           if (!response.ok) {
+            let cause: "forbidden" | "http" | "unauthorized" = "http";
+            if (response.status === 401) {
+              cause = "unauthorized";
+            } else if (response.status === 403) {
+              cause = "forbidden";
+            }
             throw new ProviderTransportError({
-              cause:
-                response.status === 401
-                  ? "unauthorized"
-                  : response.status === 403
-                    ? "forbidden"
-                    : "http",
+              cause,
               operation: "fetch-usage",
               providerID: request.providerID,
               status: response.status,
