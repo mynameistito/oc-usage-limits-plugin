@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 1.4.1
+
+### Patch Changes
+
+- 25a8eba: Align the Solid dependency with OpenTUI so the TUI plugin installs successfully.
+
 ## 1.4.0
 
 ### Minor Changes
