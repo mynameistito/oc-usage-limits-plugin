@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import { fetchProvider, getProviderConfigs } from "@/providers.ts";
+import { Effect } from "effect";
+
+import {
+  fetchProvider,
+  fetchProviderEffect,
+  getProviderConfigs,
+} from "@/providers.ts";
 import { codexProvider } from "@/providers/codex.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import {
@@ -10,6 +16,7 @@ import {
   PROVIDER_REGISTRY,
   PROVIDERS,
 } from "@/providers/index.ts";
+import { ProviderRuntimeLive } from "@/providers/runtime/index.ts";
 import type { ProviderUsage } from "@/types.ts";
 
 import { installFetchMock } from "./helpers.ts";
@@ -17,9 +24,7 @@ import { installFetchMock } from "./helpers.ts";
 describe("provider manifest", () => {
   test("binds each fetch result to its definition ID", () => {
     const definition: ProviderDefinition<"codex"> = codexProvider;
-    const fetch: (
-      ...args: Parameters<typeof definition.fetch>
-    ) => Promise<ProviderUsage<"codex">> = definition.fetch;
+    const fetch: typeof definition.fetch = definition.fetch;
 
     expect(fetch).toBe(codexProvider.fetch);
   });
@@ -73,28 +78,25 @@ describe("provider manifest", () => {
     installFetchMock(
       Response.json({
         plan_type: "plus",
-        rate_limit: {},
+        rate_limit: { primary_window: { used_percent: 0 } },
         rate_limit_reset_credits: { available_count: 3 },
       })
     );
 
-    const result: Promise<ProviderUsage<"codex">> = fetchProvider(
-      "codex",
-      { enabled: true },
-      { openai: { access: "token", accountId: "account" } },
-      1000
+    const result: Promise<ProviderUsage<"codex">> = Effect.runPromise(
+      fetchProviderEffect(
+        "codex",
+        { enabled: true },
+        { openai: { access: "token", accountId: "account" } },
+        1000
+      ).pipe(Effect.provide(ProviderRuntimeLive))
     );
     await expect(result).resolves.toMatchObject({ id: "codex" });
   });
 
   test("rejects unknown provider ids", () => {
     expect(() =>
-      fetchProvider(
-        "unknown" as never,
-        { apiKey: "key", enabled: true },
-        {},
-        1000
-      )
+      fetchProvider("unknown" as never, undefined, {}, 1000)
     ).toThrow("unknown provider: unknown");
   });
 });

@@ -1,60 +1,41 @@
 import { codexProvider } from "@/providers/codex.ts";
-import type { ProviderDefinition } from "@/providers/definition.ts";
 import { minimaxProvider } from "@/providers/minimax.ts";
 import { qwenProvider } from "@/providers/qwen.ts";
 import { syntheticProvider } from "@/providers/synthetic.ts";
 import { zaiProvider } from "@/providers/zai-coding-plan.ts";
 import type { ProviderID } from "@/types.ts";
 
-type ProviderRegistry = {
-  readonly [ID in ProviderID]: ProviderDefinition<ID>;
-};
+/** Single ordered manifest of every supported provider definition. */
+export const PROVIDER_MANIFEST = [
+  codexProvider,
+  zaiProvider,
+  syntheticProvider,
+  minimaxProvider,
+  qwenProvider,
+] as const;
 
-/**
- * Sidebar display order for supported providers.
- *
- * Adding a provider requires updating `ProviderID`, this order, and
- * `PROVIDER_REGISTRY` alongside the provider adapter export.
- */
-export const PROVIDER_ORDER = [
-  "codex",
-  "zai",
-  "synthetic",
-  "minimax",
-  "qwen",
-] as const satisfies readonly ProviderID[];
+/** Sidebar display order derived from the provider manifest. */
+export const PROVIDER_ORDER: readonly ProviderID[] = PROVIDER_MANIFEST.map(
+  (provider) => provider.id
+);
 
-/** Registry of supported provider adapters keyed by plugin provider ID. */
-export const PROVIDER_REGISTRY: ProviderRegistry = {
-  codex: codexProvider,
-  minimax: minimaxProvider,
-  qwen: qwenProvider,
-  synthetic: syntheticProvider,
-  zai: zaiProvider,
-};
+/** Provider lookup derived from the same ordered manifest. */
+export const PROVIDER_REGISTRY = Object.fromEntries(
+  PROVIDER_MANIFEST.map((provider) => [provider.id, provider])
+) as Readonly<Record<ProviderID, (typeof PROVIDER_MANIFEST)[number]>>;
 
 /** Provider definitions projected in explicit sidebar display order. */
-export const PROVIDERS = PROVIDER_ORDER.map((id) => PROVIDER_REGISTRY[id]);
+export const PROVIDERS = [...PROVIDER_MANIFEST] as const;
 
-/**
- * Returns the default display label for a provider ID.
- *
- * @param id - Plugin provider identifier.
- * @returns The canonical display label for the provider.
- */
+/** Returns the default display label for a provider ID. */
 export const defaultLabelFor = (id: ProviderID): string =>
   PROVIDER_REGISTRY[id].defaultLabel;
 
-/**
- * Maps an OpenCode session provider ID to a plugin provider ID.
- *
- * @param openCodeID - OpenCode provider identifier from the active session.
- * @returns The matching plugin provider ID, or `null` when unmapped.
- */
+/** Maps an OpenCode session provider ID to a plugin provider ID. */
 export const pluginProviderForOpenCode = (
   openCodeID: string
 ): ProviderID | null => {
-  for (const provider of PROVIDERS) {
+  for (const provider of PROVIDER_MANIFEST) {
     if (provider.openCodeProviderIDs.some((id) => id === openCodeID)) {
       return provider.id;
     }

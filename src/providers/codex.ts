@@ -1,12 +1,20 @@
-import { Result } from "effect";
+import { Effect, Redacted, Result } from "effect";
 
-import { credentialValue } from "@/config-schema.ts";
-import { MissingProviderCredentialsError } from "@/errors.ts";
+import { codexProviderConfigSchema } from "@/config-schema.ts";
+import {
+  MissingProviderCredentialsError,
+  ProviderResponseDecodeError,
+} from "@/errors.ts";
 import { limitLabelForWindow } from "@/format.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
+import { ProviderClock } from "@/providers/runtime/clock.ts";
+import { ProviderEnvironment } from "@/providers/runtime/environment.ts";
+import { ProviderFileSystem } from "@/providers/runtime/filesystem.ts";
+import { ProviderHttpClient } from "@/providers/runtime/http.ts";
+import { ProviderRuntimeLive } from "@/providers/runtime/index.ts";
 import type {
   OpenCodeAuth,
-  ProviderConfig,
+  CodexProviderConfig,
   ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
@@ -16,8 +24,10 @@ import {
   resetInstantOrNull,
   unknownQuota,
 } from "@/usage.ts";
-import { fetchJson, isRecord, readJsonFile } from "@/utils.ts";
+import { isRecord } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
+
+/* eslint-disable complexity, consistent-type-imports, no-nested-ternary, no-shadow, require-await, unicorn/no-useless-undefined */
 
 /** Default ChatGPT backend base URL used for Codex usage requests. */
 const DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api";
@@ -30,25 +40,41 @@ const DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api";
  * @throws {Error} When the auth file is missing or does not contain credentials.
  * @throws {TypeError} When the auth file contains credentials with invalid types.
  */
-const readCodexAuthFile = async (
+const readCodexAuthFile = (
   authPath: string | undefined
-): Promise<{ access: string; accountId: string }> => {
-  const auth = await readJsonFile(authPath ?? "~/.codex/auth.json");
-  if (!isRecord(auth) || !isRecord(auth.tokens)) {
-    throw new MissingProviderCredentialsError({
-      operation: "read-auth",
+): Effect.Effect<
+  {
+    readonly access: Redacted.Redacted<string>;
+    readonly accountId: Redacted.Redacted<string>;
+  },
+  | MissingProviderCredentialsError
+  | ProviderResponseDecodeError
+  | import("@/errors.ts").ProviderTransportError,
+  ProviderEnvironment | ProviderFileSystem
+> =>
+  Effect.gen(function* readCodexAuthFile() {
+    const files = yield* ProviderFileSystem;
+    const environment = yield* ProviderEnvironment;
+    const auth = yield* files.readJson({
+      path: authPath ?? "~/.codex/auth.json",
       providerID: "codex",
     });
-  }
-
-  const access = auth.tokens.access_token;
-  const accountId = auth.tokens.account_id;
-  if (typeof access !== "string" || typeof accountId !== "string") {
-    throw new TypeError("invalid Codex credential types");
-  }
-
-  return { access, accountId };
-};
+    if (!isRecord(auth) || !isRecord(auth.tokens)) {
+      return yield* new MissingProviderCredentialsError({
+        operation: "read-auth",
+        providerID: "codex",
+      });
+    }
+    const access = environment.credential(auth.tokens.access_token);
+    const accountId = environment.credential(auth.tokens.account_id);
+    if (!access || !accountId) {
+      return yield* new MissingProviderCredentialsError({
+        operation: "read-auth",
+        providerID: "codex",
+      });
+    }
+    return { access, accountId };
+  });
 
 /**
  * Converts a raw Codex rate-limit window into the plugin's normalized shape.
@@ -111,72 +137,118 @@ const reportedWindowsAreInvalid = (
  * @returns Normalized Codex usage data.
  * @throws {Error} When credentials are missing or the provider response is invalid.
  */
-export const fetchCodexUsage = async (
-  config: ProviderConfig | undefined,
+const fetchCodexUsageEffect = (
+  config: CodexProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-): Promise<ProviderUsage<"codex">> => {
-  const { openai } = openCodeAuth;
-  const access = credentialValue(openai?.access);
-  const accountId = credentialValue(openai?.accountId);
-  const credentials =
-    typeof access === "string" &&
-    access.trim() !== "" &&
-    typeof accountId === "string" &&
-    accountId.trim() !== ""
-      ? { access, accountId }
-      : await readCodexAuthFile(config?.authPath);
+): ReturnType<ProviderDefinition<"codex">["fetch"]> =>
+  Effect.gen(function* fetchCodexUsageEffect() {
+    const environment = yield* ProviderEnvironment;
+    const http = yield* ProviderHttpClient;
+    const clock = yield* ProviderClock;
+    const baseUrl = resolveHttpsBaseUrl(
+      config?.baseUrl,
+      DEFAULT_CODEX_BASE_URL
+    );
+    const isOfficialHost = new URL(baseUrl).hostname === "chatgpt.com";
+    const openCodeAccess = environment.credential(openCodeAuth.openai?.access);
+    const openCodeAccountId = environment.credential(
+      openCodeAuth.openai?.accountId
+    );
+    const configuredAccess = environment.resolveCredential(config?.apiKey);
+    if (!isOfficialHost && !config?.authPath && !configuredAccess) {
+      return yield* new MissingProviderCredentialsError({
+        operation: "fetch-usage",
+        providerID: "codex",
+      });
+    }
+    const credentials =
+      isOfficialHost && openCodeAccess && openCodeAccountId
+        ? { access: openCodeAccess, accountId: openCodeAccountId }
+        : config?.authPath
+          ? yield* readCodexAuthFile(config.authPath)
+          : configuredAccess
+            ? {
+                access: configuredAccess,
+                accountId: isOfficialHost
+                  ? (openCodeAccountId ?? Redacted.make("configured"))
+                  : Redacted.make("configured"),
+              }
+            : yield* readCodexAuthFile(undefined);
 
-  const baseUrl = resolveHttpsBaseUrl(config?.baseUrl, DEFAULT_CODEX_BASE_URL);
-  const payload = await fetchJson(
-    `${baseUrl}/wham/usage`,
-    {
+    const payload = yield* http.requestJson({
       headers: {
-        Authorization: `Bearer ${credentials.access}`,
-        "ChatGPT-Account-Id": credentials.accountId,
+        Authorization: `Bearer ${Redacted.value(credentials.access)}`,
+        "ChatGPT-Account-Id": Redacted.value(credentials.accountId),
         "User-Agent": "opencode-usage-limits",
       },
       method: "GET",
-    },
-    timeoutMs
+      providerID: "codex",
+      timeoutMs,
+      url: `${baseUrl}/wham/usage`,
+    });
+
+    if (!isRecord(payload)) {
+      return yield* new ProviderResponseDecodeError({
+        cause: "schema",
+        operation: "decode-response",
+        providerID: "codex",
+      });
+    }
+
+    const rateLimit = isRecord(payload.rate_limit)
+      ? payload.rate_limit
+      : undefined;
+    const primaryWindow = codexWindow(rateLimit?.primary_window, "usage");
+    const windows = [
+      primaryWindow,
+      codexWindow(rateLimit?.secondary_window, "secondary"),
+    ].filter((item): item is UsageWindow => item !== null);
+    if (!primaryWindow || reportedWindowsAreInvalid(rateLimit, windows)) {
+      return yield* new ProviderResponseDecodeError({
+        cause: "schema",
+        operation: "decode-response",
+        providerID: "codex",
+      });
+    }
+    const resetCredits =
+      isRecord(payload.rate_limit_reset_credits) &&
+      typeof payload.rate_limit_reset_credits.available_count === "number" &&
+      Number.isFinite(payload.rate_limit_reset_credits.available_count) &&
+      payload.rate_limit_reset_credits.available_count >= 0
+        ? payload.rate_limit_reset_credits.available_count
+        : null;
+
+    return {
+      capturedAt: yield* clock.now,
+      id: "codex",
+      label: config?.label ?? "Codex",
+      metadata: { resetCredits },
+      tierName:
+        typeof payload.plan_type === "string" ? payload.plan_type : undefined,
+      windows,
+    };
+  });
+
+/** Stable Promise export for direct consumers of the provider adapter. */
+export const fetchCodexUsage = async (
+  config: CodexProviderConfig | undefined,
+  openCodeAuth: OpenCodeAuth,
+  timeoutMs: number
+): Promise<ProviderUsage<"codex">> =>
+  Effect.runPromise(
+    fetchCodexUsageEffect(config, openCodeAuth, timeoutMs).pipe(
+      Effect.provide(ProviderRuntimeLive)
+    )
   );
-
-  if (!isRecord(payload)) {
-    throw new Error("invalid Codex usage");
-  }
-
-  const rateLimit = isRecord(payload.rate_limit)
-    ? payload.rate_limit
-    : undefined;
-  const windows = [
-    codexWindow(rateLimit?.primary_window, "usage"),
-    codexWindow(rateLimit?.secondary_window, "secondary"),
-  ].filter((item): item is UsageWindow => item !== null);
-  if (reportedWindowsAreInvalid(rateLimit, windows)) {
-    throw new Error("invalid Codex usage");
-  }
-  const resetCredits =
-    isRecord(payload.rate_limit_reset_credits) &&
-    typeof payload.rate_limit_reset_credits.available_count === "number"
-      ? payload.rate_limit_reset_credits.available_count
-      : null;
-
-  return {
-    capturedAt: new Date(),
-    id: "codex",
-    label: config?.label ?? "Codex",
-    metadata: { resetCredits },
-    tierName:
-      typeof payload.plan_type === "string" ? payload.plan_type : undefined,
-    windows,
-  };
-};
 
 /** Plugin registration for the Codex provider adapter. */
 export const codexProvider = {
+  capabilities: { customBaseUrl: true, transport: "http" },
+  configSchema: codexProviderConfigSchema,
   defaultLabel: "Codex",
-  fetch: fetchCodexUsage,
-  footerWindowLabel: "5h",
+  fetch: fetchCodexUsageEffect,
+  footerWindowKind: "rolling",
   id: "codex",
   openCodeProviderIDs: ["openai"],
 } as const satisfies ProviderDefinition<"codex">;

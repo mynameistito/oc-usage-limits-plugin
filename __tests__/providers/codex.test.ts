@@ -27,7 +27,11 @@ describe("Codex provider", () => {
     );
 
     const usage = await fetchCodexUsage(
-      { baseUrl: "https://codex.example/", label: "Codex" },
+      {
+        apiKey: "configured-token",
+        baseUrl: "https://codex.example/",
+        label: "Codex",
+      },
       { openai: { access: "access-token", accountId: "account-id" } },
       1000
     );
@@ -37,8 +41,8 @@ describe("Codex provider", () => {
     );
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       headers: {
-        Authorization: "Bearer access-token",
-        "ChatGPT-Account-Id": "account-id",
+        Authorization: "Bearer configured-token",
+        "ChatGPT-Account-Id": "configured",
       },
       method: "GET",
     });
@@ -75,6 +79,16 @@ describe("Codex provider", () => {
     ).rejects.toThrow("invalid Codex usage");
   });
 
+  test("does not use discovered OpenCode credentials for a custom host", async () => {
+    await expect(
+      fetchCodexUsage(
+        { baseUrl: "https://codex.example/" },
+        { openai: { access: "discovered", accountId: "discovered" } },
+        1000
+      )
+    ).rejects.toThrow("missing Codex auth");
+  });
+
   test.each([
     ["http://localhost:3000/", "http://localhost:3000/wham/usage"],
     ["http://127.0.0.1:4321", "http://127.0.0.1:4321/wham/usage"],
@@ -84,10 +98,12 @@ describe("Codex provider", () => {
       "https://chatgpt.com/backend-api/wham/usage",
     ],
   ] as const)("allows safe base URL %s", async (baseUrl, expectedUrl) => {
-    const fetchMock = installFetchMock(Response.json({ rate_limit: {} }));
+    const fetchMock = installFetchMock(
+      Response.json({ rate_limit: { primary_window: { used_percent: 0 } } })
+    );
 
     await fetchCodexUsage(
-      { baseUrl },
+      { apiKey: "configured-token", baseUrl },
       { openai: { access: "token", accountId: "account" } },
       1000
     );
@@ -102,7 +118,9 @@ describe("Codex provider", () => {
   ] as const)(
     "falls back from unsafe base URL %s",
     async (baseUrl, expectedUrl) => {
-      const fetchMock = installFetchMock(Response.json({ rate_limit: {} }));
+      const fetchMock = installFetchMock(
+        Response.json({ rate_limit: { primary_window: { used_percent: 0 } } })
+      );
 
       await fetchCodexUsage(
         { baseUrl },
@@ -131,7 +149,11 @@ describe("Codex provider", () => {
       );
 
       const usage = await fetchCodexUsage(
-        { baseUrl: "https://codex.example/", label: "Codex" },
+        {
+          apiKey: "configured-token",
+          baseUrl: "https://codex.example/",
+          label: "Codex",
+        },
         { openai: { access: "access-token", accountId: "account-id" } },
         1000
       );
@@ -164,7 +186,11 @@ describe("Codex provider", () => {
       );
 
       const usage = await fetchCodexUsage(
-        { baseUrl: "https://codex.example/", label: "Codex" },
+        {
+          apiKey: "configured-token",
+          baseUrl: "https://codex.example/",
+          label: "Codex",
+        },
         { openai: { access: "access-token", accountId: "account-id" } },
         1000
       );
@@ -197,7 +223,11 @@ describe("Codex provider", () => {
       );
 
       const usage = await fetchCodexUsage(
-        { baseUrl: "https://codex.example/", label: "Codex" },
+        {
+          apiKey: "configured-token",
+          baseUrl: "https://codex.example/",
+          label: "Codex",
+        },
         { openai: { access: "access-token", accountId: "account-id" } },
         1000
       );
@@ -247,7 +277,11 @@ describe("Codex provider", () => {
       );
 
       const usage = await fetchCodexUsage(
-        { baseUrl: "https://codex.example/", label: "Codex" },
+        {
+          apiKey: "configured-token",
+          baseUrl: "https://codex.example/",
+          label: "Codex",
+        },
         { openai: { access: "access-token", accountId: "account-id" } },
         1000
       );

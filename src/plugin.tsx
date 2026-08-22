@@ -1,20 +1,32 @@
 /* @jsxImportSource @opentui/solid */
 import type { TuiPlugin } from "@opencode-ai/plugin/tui";
-import { Result } from "effect";
+import { Effect, Result } from "effect";
 import { createSignal } from "solid-js";
 
 import { BottomUsage, UsageLimitsPanel } from "@/components.tsx";
 import { DEFAULT_CONFIG, loadConfig, loadOpenCodeAuth } from "@/config.ts";
 import { MissingProviderCredentialsError } from "@/errors.ts";
-import { fetchProvider, getProviderConfigs } from "@/providers.ts";
+import { fetchProviderEffect, getProviderConfigs } from "@/providers.ts";
 import { defaultLabelFor } from "@/providers/index.ts";
+import { ProviderRuntimeLive } from "@/providers/runtime/index.ts";
 import { currentProviderID, usageForProvider } from "@/session.ts";
-import type { ProviderID, ProviderState, ProviderUsage } from "@/types.ts";
+import type {
+  ProviderID,
+  ProviderState,
+  ProviderUsage,
+  OpenCodeAuth,
+  ProviderConfigMap,
+} from "@/types.ts";
 
 /** Runtime dependencies used by the usage-limits TUI lifecycle. */
 export interface UsageLimitsTuiDependencies {
   /** Fetches one configured provider's usage. */
-  fetchProvider: typeof fetchProvider;
+  fetchProvider: <ID extends ProviderID>(
+    id: ID,
+    config: ProviderConfigMap[ID] | undefined,
+    openCodeAuth: OpenCodeAuth,
+    timeoutMs: number
+  ) => Promise<ProviderUsage<ID>>;
   /** Loads the fully resolved plugin configuration. */
   loadConfig: typeof loadConfig;
   /** Loads shared OpenCode provider authentication. */
@@ -26,7 +38,12 @@ export interface UsageLimitsTuiDependencies {
 }
 
 const productionDependencies: UsageLimitsTuiDependencies = {
-  fetchProvider,
+  fetchProvider: (id, config, auth, timeoutMs) =>
+    Effect.runPromise(
+      fetchProviderEffect(id, config, auth, timeoutMs).pipe(
+        Effect.provide(ProviderRuntimeLive)
+      )
+    ),
   loadConfig,
   loadOpenCodeAuth,
   now: () => new Date(),

@@ -12,21 +12,53 @@ const secret = Schema.RedactedFromValue(Schema.String, {
   label: "credential",
 });
 
-const providerConfigSchema = Schema.Struct({
+const commonProviderFields = {
+  enabled: Schema.optionalKey(Schema.Boolean),
+  label: Schema.optionalKey(Schema.String),
+};
+
+/** Schema for Codex provider configuration. */
+export const codexProviderConfigSchema = Schema.Struct({
+  ...commonProviderFields,
   apiKey: Schema.optionalKey(secret),
   authPath: Schema.optionalKey(Schema.String),
   authorizationScheme: Schema.optionalKey(Schema.Literals(["raw", "bearer"])),
   baseUrl: Schema.optionalKey(Schema.String),
-  enabled: Schema.optionalKey(Schema.Boolean),
-  label: Schema.optionalKey(Schema.String),
 });
 
+/** Schema for ZAI provider configuration. */
+export const zaiProviderConfigSchema = Schema.Struct({
+  ...commonProviderFields,
+  apiKey: Schema.optionalKey(secret),
+  authPath: Schema.optionalKey(Schema.String),
+  authorizationScheme: Schema.optionalKey(Schema.Literals(["raw", "bearer"])),
+});
+
+/** Schema for Synthetic provider configuration. */
+export const syntheticProviderConfigSchema = Schema.Struct({
+  ...commonProviderFields,
+  apiKey: Schema.optionalKey(secret),
+  authPath: Schema.optionalKey(Schema.String),
+  baseUrl: Schema.optionalKey(Schema.String),
+});
+
+/** Schema for MiniMax provider configuration. */
+export const minimaxProviderConfigSchema = Schema.Struct({
+  ...commonProviderFields,
+  apiKey: Schema.optionalKey(secret),
+  authPath: Schema.optionalKey(Schema.String),
+  baseUrl: Schema.optionalKey(Schema.String),
+});
+
+/** Schema for Qwen provider configuration. */
+export const qwenProviderConfigSchema = Schema.Struct(commonProviderFields);
+
 const providersSchema = Schema.Struct({
-  codex: Schema.optionalKey(providerConfigSchema),
-  minimax: Schema.optionalKey(providerConfigSchema),
-  qwen: Schema.optionalKey(providerConfigSchema),
-  synthetic: Schema.optionalKey(providerConfigSchema),
-  zai: Schema.optionalKey(providerConfigSchema),
+  codex: Schema.optionalKey(codexProviderConfigSchema),
+  minimax: Schema.optionalKey(minimaxProviderConfigSchema),
+  qwen: Schema.optionalKey(qwenProviderConfigSchema),
+  synthetic: Schema.optionalKey(syntheticProviderConfigSchema),
+  zai: Schema.optionalKey(zaiProviderConfigSchema),
 });
 
 const configSchema = Schema.Struct({
@@ -124,5 +156,9 @@ export const credentialValue = (credential: unknown): string | undefined => {
   const value = Redacted.isRedacted(credential)
     ? Redacted.value(credential)
     : credential;
-  return typeof value === "string" ? value : undefined;
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : trimmed;
 };

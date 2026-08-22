@@ -1,11 +1,19 @@
-import { Result } from "effect";
+import { Effect, Redacted, Result } from "effect";
 
-import { credentialValue } from "@/config-schema.ts";
-import { MissingProviderCredentialsError } from "@/errors.ts";
+import { zaiProviderConfigSchema } from "@/config-schema.ts";
+import {
+  MissingProviderCredentialsError,
+  ProviderResponseDecodeError,
+} from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
+import { ProviderClock } from "@/providers/runtime/clock.ts";
+import { ProviderEnvironment } from "@/providers/runtime/environment.ts";
+import { ProviderFileSystem } from "@/providers/runtime/filesystem.ts";
+import { ProviderHttpClient } from "@/providers/runtime/http.ts";
+import { ProviderRuntimeLive } from "@/providers/runtime/index.ts";
 import type {
   OpenCodeAuth,
-  ProviderConfig,
+  ZaiProviderConfig,
   ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
@@ -17,12 +25,9 @@ import {
   resetInstantOrNull,
   unknownQuota,
 } from "@/usage.ts";
-import {
-  fetchJson,
-  isRecord,
-  readJsonFile,
-  resolveEnvReference,
-} from "@/utils.ts";
+import { isRecord } from "@/utils.ts";
+
+/* eslint-disable no-shadow, require-await, unicorn/no-useless-undefined */
 
 /** ZAI Coding Plan quota endpoint used to fetch usage limits. */
 const ZAI_QUOTA_URL = "https://api.z.ai/api/monitor/usage/quota/limit";
@@ -83,31 +88,34 @@ const zaiQuota = (
  * @param value - Unknown auth payload to inspect.
  * @returns The first recognized API key.
  */
-const keyFromZaiAuth = (value: unknown): string | undefined => {
+const keyFromZaiAuth = (
+  value: unknown,
+  credential: (value: unknown) => Redacted.Redacted<string> | undefined
+): Redacted.Redacted<string> | undefined => {
   if (!isRecord(value)) {
     return undefined;
   }
 
-  const directKey = credentialValue(value.key);
+  const directKey = credential(value.key);
   if (directKey) {
     return directKey;
   }
 
-  const directApiKey = credentialValue(value.apiKey);
+  const directApiKey = credential(value.apiKey);
   if (directApiKey) {
     return directApiKey;
   }
 
   const zaiCodingPlan = value["zai-coding-plan"];
   if (isRecord(zaiCodingPlan)) {
-    const key = credentialValue(zaiCodingPlan.key);
+    const key = credential(zaiCodingPlan.key);
     if (key) {
       return key;
     }
   }
 
   if (isRecord(value.zai)) {
-    return credentialValue(value.zai.key);
+    return credential(value.zai.key);
   }
 
   return undefined;
@@ -122,18 +130,22 @@ const keyFromZaiAuth = (value: unknown): string | undefined => {
  * @param authPath - Optional auth file path.
  * @returns A ZAI API key when the file exists and contains one.
  */
-const readZaiAuthPathKey = async (
+const readZaiAuthPathKey = (
   authPath: string | undefined
-): Promise<string | undefined> => {
+): Effect.Effect<
+  Redacted.Redacted<string> | undefined,
+  never,
+  ProviderEnvironment | ProviderFileSystem
+> => {
   if (!authPath) {
-    return undefined;
+    return Effect.succeed(undefined);
   }
-
-  try {
-    return keyFromZaiAuth(await readJsonFile(authPath));
-  } catch {
-    return undefined;
-  }
+  return Effect.gen(function* readZaiAuthPathKey() {
+    const files = yield* ProviderFileSystem;
+    const environment = yield* ProviderEnvironment;
+    const auth = yield* files.readJson({ path: authPath, providerID: "zai" });
+    return keyFromZaiAuth(auth, environment.credential);
+  }).pipe(Effect.catchCause(() => Effect.succeed(undefined)));
 };
 
 /**
@@ -233,61 +245,99 @@ const parseZaiLimits = (
  * @returns Normalized ZAI usage data.
  * @throws {Error} When no API key is available or the provider response is invalid.
  */
-export const fetchZaiCodingPlanUsage = async (
-  config: ProviderConfig | undefined,
+const fetchZaiCodingPlanUsageEffect = (
+  config: ZaiProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-): Promise<ProviderUsage<"zai">> => {
-  const configuredKey = resolveEnvReference(credentialValue(config?.apiKey));
-  const apiKey =
-    (await readZaiAuthPathKey(config?.authPath)) ??
-    keyFromZaiAuth(openCodeAuth) ??
-    configuredKey;
-  if (!apiKey) {
-    throw new MissingProviderCredentialsError({
-      operation: "fetch-usage",
-      providerID: "zai",
-    });
-  }
+): ReturnType<ProviderDefinition<"zai">["fetch"]> =>
+  Effect.gen(function* fetchZaiCodingPlanUsageEffect() {
+    const environment = yield* ProviderEnvironment;
+    const http = yield* ProviderHttpClient;
+    const clock = yield* ProviderClock;
+    const apiKey =
+      (yield* readZaiAuthPathKey(config?.authPath)) ??
+      keyFromZaiAuth(openCodeAuth, environment.credential) ??
+      environment.resolveCredential(config?.apiKey);
+    if (!apiKey) {
+      return yield* new MissingProviderCredentialsError({
+        operation: "fetch-usage",
+        providerID: "zai",
+      });
+    }
 
-  const scheme = config?.authorizationScheme ?? "raw";
-  const payload = await fetchJson(
-    ZAI_QUOTA_URL,
-    {
+    const scheme = config?.authorizationScheme ?? "raw";
+    const rawKey = Redacted.value(apiKey);
+    const payload = yield* http.requestJson({
       headers: {
         "Accept-Language": "en-US,en",
-        Authorization: scheme === "bearer" ? `Bearer ${apiKey}` : apiKey,
+        Authorization: scheme === "bearer" ? `Bearer ${rawKey}` : rawKey,
         "Content-Type": "application/json",
       },
       method: "GET",
-    },
-    timeoutMs
+      providerID: "zai",
+      timeoutMs,
+      url: ZAI_QUOTA_URL,
+    });
+
+    if (
+      !isRecord(payload) ||
+      !isRecord(payload.data) ||
+      !Array.isArray(payload.data.limits)
+    ) {
+      return yield* new ProviderResponseDecodeError({
+        cause: "schema",
+        operation: "decode-response",
+        providerID: "zai",
+      });
+    }
+
+    const { limits } = payload.data;
+    const parsed = yield* Effect.try({
+      catch: () =>
+        new ProviderResponseDecodeError({
+          cause: "schema",
+          operation: "decode-response",
+          providerID: "zai",
+        }),
+      try: () => parseZaiLimits(limits),
+    });
+    const { promptTotal, windows } = parsed;
+    if (!windows.some((window) => window.kind === "rolling")) {
+      return yield* new ProviderResponseDecodeError({
+        cause: "schema",
+        operation: "decode-response",
+        providerID: "zai",
+      });
+    }
+
+    return {
+      capturedAt: yield* clock.now,
+      id: "zai",
+      label: config?.label ?? "ZAI",
+      tierName: inferZaiTier(promptTotal),
+      windows,
+    };
+  });
+
+/** Stable Promise export for direct consumers of the provider adapter. */
+export const fetchZaiCodingPlanUsage = async (
+  config: ZaiProviderConfig | undefined,
+  openCodeAuth: OpenCodeAuth,
+  timeoutMs: number
+): Promise<ProviderUsage<"zai">> =>
+  Effect.runPromise(
+    fetchZaiCodingPlanUsageEffect(config, openCodeAuth, timeoutMs).pipe(
+      Effect.provide(ProviderRuntimeLive)
+    )
   );
-
-  if (
-    !isRecord(payload) ||
-    !isRecord(payload.data) ||
-    !Array.isArray(payload.data.limits)
-  ) {
-    throw new Error("invalid ZAI usage");
-  }
-
-  const { promptTotal, windows } = parseZaiLimits(payload.data.limits);
-
-  return {
-    capturedAt: new Date(),
-    id: "zai",
-    label: config?.label ?? "ZAI",
-    tierName: inferZaiTier(promptTotal),
-    windows,
-  };
-};
 
 /** Plugin registration for the ZAI Coding Plan provider adapter. */
 export const zaiProvider = {
+  capabilities: { customBaseUrl: false, transport: "http" },
+  configSchema: zaiProviderConfigSchema,
   defaultLabel: "ZAI",
-  fetch: fetchZaiCodingPlanUsage,
-  footerWindowLabel: "5h",
+  fetch: fetchZaiCodingPlanUsageEffect,
+  footerWindowKind: "rolling",
   id: "zai",
   openCodeProviderIDs: ["zai-coding-plan"],
 } as const satisfies ProviderDefinition<"zai">;

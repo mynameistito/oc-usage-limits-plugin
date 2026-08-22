@@ -1,11 +1,19 @@
-import { Result } from "effect";
+import { Effect, Redacted, Result } from "effect";
 
-import { credentialValue } from "@/config-schema.ts";
-import { MissingProviderCredentialsError } from "@/errors.ts";
+import { minimaxProviderConfigSchema } from "@/config-schema.ts";
+import {
+  MissingProviderCredentialsError,
+  ProviderResponseDecodeError,
+} from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
+import { ProviderClock } from "@/providers/runtime/clock.ts";
+import { ProviderEnvironment } from "@/providers/runtime/environment.ts";
+import { ProviderFileSystem } from "@/providers/runtime/filesystem.ts";
+import { ProviderHttpClient } from "@/providers/runtime/http.ts";
+import { ProviderRuntimeLive } from "@/providers/runtime/index.ts";
 import type {
+  MiniMaxProviderConfig,
   OpenCodeAuth,
-  ProviderConfig,
   ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
@@ -14,13 +22,10 @@ import {
   percentageQuota,
   resetInstantOrNull,
 } from "@/usage.ts";
-import {
-  fetchJson,
-  isRecord,
-  readJsonFile,
-  resolveEnvReference,
-} from "@/utils.ts";
+import { isRecord } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
+
+/* eslint-disable no-shadow, require-await, unicorn/no-useless-undefined */
 
 /** Default MiniMax Token Plan base URL (international region). */
 const DEFAULT_MINIMAX_BASE_URL = "https://www.minimax.io";
@@ -37,28 +42,31 @@ const MINIMAX_TOKEN_PLAN_PATH = "/v1/token_plan/remains";
  * @param value - Unknown auth payload to inspect.
  * @returns The first recognized subscription key.
  */
-const keyFromMiniMaxAuth = (value: unknown): string | undefined => {
+const keyFromMiniMaxAuth = (
+  value: unknown,
+  credential: (value: unknown) => Redacted.Redacted<string> | undefined
+): Redacted.Redacted<string> | undefined => {
   if (!isRecord(value)) {
     return undefined;
   }
 
-  const directKey = credentialValue(value.key);
+  const directKey = credential(value.key);
   if (directKey) {
     return directKey;
   }
 
-  const directApiKey = credentialValue(value.apiKey);
+  const directApiKey = credential(value.apiKey);
   if (directApiKey) {
     return directApiKey;
   }
 
   const minimaxCodingPlan = value["minimax-coding-plan"];
   if (isRecord(minimaxCodingPlan)) {
-    const key = credentialValue(minimaxCodingPlan.key);
+    const key = credential(minimaxCodingPlan.key);
     if (key) {
       return key;
     }
-    const apiKey = credentialValue(minimaxCodingPlan.apiKey);
+    const apiKey = credential(minimaxCodingPlan.apiKey);
     if (apiKey) {
       return apiKey;
     }
@@ -66,11 +74,11 @@ const keyFromMiniMaxAuth = (value: unknown): string | undefined => {
 
   const { minimax } = value;
   if (isRecord(minimax)) {
-    const key = credentialValue(minimax.key);
+    const key = credential(minimax.key);
     if (key) {
       return key;
     }
-    const apiKey = credentialValue(minimax.apiKey);
+    const apiKey = credential(minimax.apiKey);
     if (apiKey) {
       return apiKey;
     }
@@ -78,11 +86,11 @@ const keyFromMiniMaxAuth = (value: unknown): string | undefined => {
 
   const minimaxTokenPlan = value["minimax-token-plan"];
   if (isRecord(minimaxTokenPlan)) {
-    const key = credentialValue(minimaxTokenPlan.key);
+    const key = credential(minimaxTokenPlan.key);
     if (key) {
       return key;
     }
-    const apiKey = credentialValue(minimaxTokenPlan.apiKey);
+    const apiKey = credential(minimaxTokenPlan.apiKey);
     if (apiKey) {
       return apiKey;
     }
@@ -100,18 +108,25 @@ const keyFromMiniMaxAuth = (value: unknown): string | undefined => {
  * @param authPath - Optional auth file path.
  * @returns A MiniMax subscription key when the file exists and contains one.
  */
-const readMiniMaxAuthPathKey = async (
+const readMiniMaxAuthPathKey = (
   authPath: string | undefined
-): Promise<string | undefined> => {
+): Effect.Effect<
+  Redacted.Redacted<string> | undefined,
+  never,
+  ProviderEnvironment | ProviderFileSystem
+> => {
   if (!authPath) {
-    return undefined;
+    return Effect.succeed(undefined);
   }
-
-  try {
-    return keyFromMiniMaxAuth(await readJsonFile(authPath));
-  } catch {
-    return undefined;
-  }
+  return Effect.gen(function* readMiniMaxAuthPathKey() {
+    const files = yield* ProviderFileSystem;
+    const environment = yield* ProviderEnvironment;
+    const auth = yield* files.readJson({
+      path: authPath,
+      providerID: "minimax",
+    });
+    return keyFromMiniMaxAuth(auth, environment.credential);
+  }).pipe(Effect.catchCause(() => Effect.succeed(undefined)));
 };
 
 /**
@@ -153,7 +168,8 @@ const selectMiniMaxEntry = (
  * @returns A normalized 5h window, or `null` when not reportable.
  */
 const minimaxFiveHourWindow = (
-  entry: Record<string, unknown>
+  entry: Record<string, unknown>,
+  now: Date
 ): UsageWindow | null => {
   if (entry.current_interval_status === 3) {
     return null;
@@ -170,7 +186,7 @@ const minimaxFiveHourWindow = (
   }
   const remainsMs = entry.remains_time;
   const resetsAt = resetInstantOrNull(
-    typeof remainsMs === "number" ? new Date(Date.now() + remainsMs) : null
+    typeof remainsMs === "number" ? new Date(now.getTime() + remainsMs) : null
   );
   return {
     kind: "rolling",
@@ -192,7 +208,8 @@ const minimaxFiveHourWindow = (
  * @returns A normalized weekly window, or `null` when not reportable.
  */
 const minimaxWeeklyWindow = (
-  entry: Record<string, unknown>
+  entry: Record<string, unknown>,
+  now: Date
 ): UsageWindow | null => {
   if (entry.current_weekly_status === 3) {
     return null;
@@ -209,7 +226,7 @@ const minimaxWeeklyWindow = (
   }
   const remainsMs = entry.weekly_remains_time;
   const resetsAt = resetInstantOrNull(
-    typeof remainsMs === "number" ? new Date(Date.now() + remainsMs) : null
+    typeof remainsMs === "number" ? new Date(now.getTime() + remainsMs) : null
   );
   return {
     kind: "weekly",
@@ -265,73 +282,111 @@ const parseMiniMaxModelRemains = (
  * @returns Normalized MiniMax Token Plan usage data.
  * @throws {Error} When no subscription key is available or the provider response is invalid.
  */
-export const fetchMiniMaxTokenPlanUsage = async (
-  config: ProviderConfig | undefined,
+const fetchMiniMaxTokenPlanUsageEffect = (
+  config: MiniMaxProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-): Promise<ProviderUsage<"minimax">> => {
-  const configuredKey = resolveEnvReference(credentialValue(config?.apiKey));
-  const apiKey =
-    (await readMiniMaxAuthPathKey(config?.authPath)) ??
-    keyFromMiniMaxAuth(openCodeAuth) ??
-    configuredKey;
-  if (!apiKey) {
-    throw new MissingProviderCredentialsError({
-      operation: "fetch-usage",
-      providerID: "minimax",
-    });
-  }
+): ReturnType<ProviderDefinition<"minimax">["fetch"]> =>
+  Effect.gen(function* fetchMiniMaxTokenPlanUsageEffect() {
+    const environment = yield* ProviderEnvironment;
+    const http = yield* ProviderHttpClient;
+    const clock = yield* ProviderClock;
+    const baseUrl = resolveHttpsBaseUrl(
+      config?.baseUrl,
+      DEFAULT_MINIMAX_BASE_URL
+    );
+    const officialHosts = new Set(["www.minimax.io", "api.minimaxi.com"]);
+    const isOfficialHost = officialHosts.has(new URL(baseUrl).hostname);
+    const configuredKey = environment.resolveCredential(config?.apiKey);
+    const configuredFileKey = yield* readMiniMaxAuthPathKey(config?.authPath);
+    const apiKey = isOfficialHost
+      ? (configuredFileKey ??
+        keyFromMiniMaxAuth(openCodeAuth, environment.credential) ??
+        configuredKey)
+      : (configuredFileKey ?? configuredKey);
+    if (!apiKey) {
+      return yield* new MissingProviderCredentialsError({
+        operation: "fetch-usage",
+        providerID: "minimax",
+      });
+    }
 
-  const baseUrl = resolveHttpsBaseUrl(
-    config?.baseUrl,
-    DEFAULT_MINIMAX_BASE_URL
-  );
-  const payload = await fetchJson(
-    `${baseUrl}${MINIMAX_TOKEN_PLAN_PATH}`,
-    {
+    const payload = yield* http.requestJson({
       headers: {
         Accept: "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${Redacted.value(apiKey)}`,
         "Content-Type": "application/json",
       },
       method: "GET",
-    },
-    timeoutMs
+      providerID: "minimax",
+      timeoutMs,
+      url: `${baseUrl}${MINIMAX_TOKEN_PLAN_PATH}`,
+    });
+
+    const entries = yield* Effect.try({
+      catch: () =>
+        new ProviderResponseDecodeError({
+          cause: "schema",
+          operation: "decode-response",
+          providerID: "minimax",
+        }),
+      try: () => parseMiniMaxModelRemains(payload),
+    });
+    const selected = selectMiniMaxEntry(entries);
+    if (!selected) {
+      return yield* new ProviderResponseDecodeError({
+        cause: "schema",
+        operation: "decode-response",
+        providerID: "minimax",
+      });
+    }
+
+    const capturedAt = yield* clock.now;
+    const windows: UsageWindow[] = [];
+    const fiveHour = minimaxFiveHourWindow(selected, capturedAt);
+    if (fiveHour) {
+      windows.push(fiveHour);
+    }
+    const weekly = minimaxWeeklyWindow(selected, capturedAt);
+    if (weekly) {
+      windows.push(weekly);
+    }
+
+    if (!fiveHour) {
+      return yield* new ProviderResponseDecodeError({
+        cause: "schema",
+        operation: "decode-response",
+        providerID: "minimax",
+      });
+    }
+
+    return {
+      capturedAt,
+      id: "minimax",
+      label: config?.label ?? "MiniMax",
+      windows,
+    };
+  });
+
+/** Stable Promise export for direct consumers of the provider adapter. */
+export const fetchMiniMaxTokenPlanUsage = async (
+  config: MiniMaxProviderConfig | undefined,
+  openCodeAuth: OpenCodeAuth,
+  timeoutMs: number
+): Promise<ProviderUsage<"minimax">> =>
+  Effect.runPromise(
+    fetchMiniMaxTokenPlanUsageEffect(config, openCodeAuth, timeoutMs).pipe(
+      Effect.provide(ProviderRuntimeLive)
+    )
   );
-
-  const entries = parseMiniMaxModelRemains(payload);
-  const selected = selectMiniMaxEntry(entries);
-  if (!selected) {
-    throw new Error("invalid MiniMax usage");
-  }
-
-  const windows: UsageWindow[] = [];
-  const fiveHour = minimaxFiveHourWindow(selected);
-  if (fiveHour) {
-    windows.push(fiveHour);
-  }
-  const weekly = minimaxWeeklyWindow(selected);
-  if (weekly) {
-    windows.push(weekly);
-  }
-
-  if (windows.length === 0) {
-    throw new Error("invalid MiniMax usage");
-  }
-
-  return {
-    capturedAt: new Date(),
-    id: "minimax",
-    label: config?.label ?? "MiniMax",
-    windows,
-  };
-};
 
 /** Plugin registration for the MiniMax Token Plan provider adapter. */
 export const minimaxProvider = {
+  capabilities: { customBaseUrl: true, transport: "http" },
+  configSchema: minimaxProviderConfigSchema,
   defaultLabel: "MiniMax",
-  fetch: fetchMiniMaxTokenPlanUsage,
-  footerWindowLabel: "5h",
+  fetch: fetchMiniMaxTokenPlanUsageEffect,
+  footerWindowKind: "rolling",
   id: "minimax",
   openCodeProviderIDs: ["minimax-coding-plan", "minimax"],
 } as const satisfies ProviderDefinition<"minimax">;

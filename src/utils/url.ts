@@ -44,6 +44,10 @@ export const resolveHttpsBaseUrl = (
     return fallback;
   }
 
+  if (parsed.username !== "" || parsed.password !== "") {
+    return fallback;
+  }
+
   const allowed =
     parsed.protocol === "https:" ||
     (isLoopbackHost(parsed.hostname) && parsed.protocol === "http:");

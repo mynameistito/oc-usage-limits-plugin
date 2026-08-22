@@ -1,16 +1,27 @@
+import type { Effect, Schema } from "effect";
+
+import type { ProviderError } from "@/errors.ts";
+import type { ProviderRuntime } from "@/providers/runtime/index.ts";
 import type {
   OpenCodeAuth,
-  ProviderConfig,
+  ProviderConfigMap,
   ProviderID,
   ProviderUsage,
 } from "@/types.ts";
+import type { UsageWindowKind } from "@/usage.ts";
 
 /** Fetches and normalizes usage for one provider adapter. */
 type ProviderFetch<ID extends ProviderID> = (
-  config: ProviderConfig | undefined,
+  config: ProviderConfigMap[ID] | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-) => Promise<ProviderUsage<ID>>;
+) => Effect.Effect<ProviderUsage<ID>, ProviderError, ProviderRuntime>;
+
+/** Provider runtime capabilities declared for registry introspection. */
+interface ProviderCapabilities {
+  readonly customBaseUrl: boolean;
+  readonly transport: "command" | "http";
+}
 
 /** Static metadata and adapter binding for one plugin provider. */
 export interface ProviderDefinition<ID extends ProviderID = ProviderID> {
@@ -18,6 +29,10 @@ export interface ProviderDefinition<ID extends ProviderID = ProviderID> {
   id: ID;
   /** Default sidebar label when config.label is omitted. */
   defaultLabel: string;
+  /** Schema for this provider's supported configuration fields. */
+  configSchema: Schema.Schema<ProviderConfigMap[ID]>;
+  /** Runtime behavior supported by this adapter. */
+  capabilities: ProviderCapabilities;
   /** Provider-specific usage fetch adapter. */
   fetch: ProviderFetch<ID>;
   /**
@@ -25,6 +40,6 @@ export interface ProviderDefinition<ID extends ProviderID = ProviderID> {
    * prompt footer. Empty means sidebar-only.
    */
   openCodeProviderIDs: readonly string[];
-  /** Preferred usage window label for the prompt footer. */
-  footerWindowLabel: string;
+  /** Preferred stable usage-window kind for the prompt footer. */
+  footerWindowKind: UsageWindowKind;
 }
