@@ -17,6 +17,25 @@ const expandHome = (value: string): string =>
     ? path.join(homedir(), value.slice(2))
     : value;
 
+const readFileContents = async (
+  file: Awaited<ReturnType<typeof open>>,
+  buffer: Buffer,
+  offset = 0
+): Promise<number> => {
+  if (offset >= buffer.byteLength) {
+    return offset;
+  }
+  const result = await file.read(
+    buffer,
+    offset,
+    buffer.byteLength - offset,
+    offset
+  );
+  return result.bytesRead === 0
+    ? offset
+    : readFileContents(file, buffer, offset + result.bytesRead);
+};
+
 /** Context supplied when reading provider-owned credential files. */
 export interface ProviderFileInput {
   readonly path: string;
@@ -58,7 +77,7 @@ const readText = (
         }
 
         const buffer = Buffer.alloc(MAX_AUTH_FILE_BYTES + 1);
-        const { bytesRead } = await file.read(buffer, 0, buffer.byteLength, 0);
+        const bytesRead = await readFileContents(file, buffer);
         return bytesRead > MAX_AUTH_FILE_BYTES
           ? null
           : buffer.subarray(0, bytesRead).toString("utf-8");

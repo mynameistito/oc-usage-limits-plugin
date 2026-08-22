@@ -48,6 +48,28 @@ describe("provider runtime services", () => {
     }
   });
 
+  test("reads the complete contents of a bounded provider auth file", async () => {
+    const file = path.join(
+      tmpdir(),
+      `oc-usage-limits-${crypto.randomUUID()}.json`
+    );
+    temporaryFiles.push(file);
+    const content = JSON.stringify({
+      accessToken: "token",
+      padding: "x".repeat(1024),
+    });
+    await Bun.write(file, content);
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* result() {
+        const files = yield* ProviderFileSystem;
+        return yield* files.readText({ path: file, providerID: "codex" });
+      }).pipe(Effect.provide(ProviderFileSystemLive))
+    );
+
+    expect(result).toBe(content);
+  });
+
   test("decodes bounded HTTP JSON and classifies malformed bodies", async () => {
     const layer = makeProviderHttpClient(() =>
       Promise.resolve(new Response("not-json", { status: 200 }))
@@ -70,6 +92,39 @@ describe("provider runtime services", () => {
     if (Exit.isFailure(result)) {
       expect(result.cause).toBeDefined();
     }
+  });
+
+  test("cancels a response rejected by its declared size", async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      cancel: () => {
+        cancelled = true;
+      },
+    });
+    const layer = makeProviderHttpClient(() =>
+      Promise.resolve(
+        new Response(body, {
+          headers: { "content-length": String(2 * 1024 * 1024 + 1) },
+          status: 200,
+        })
+      )
+    );
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* result() {
+        const http = yield* ProviderHttpClient;
+        return yield* http.requestJson({
+          headers: {},
+          method: "GET",
+          providerID: "codex",
+          timeoutMs: 1000,
+          url: "https://example.test/usage",
+        });
+      }).pipe(Effect.provide(layer), Effect.exit)
+    );
+
+    expect(Exit.isFailure(result)).toBe(true);
+    expect(cancelled).toBe(true);
   });
 
   test("uses the Effect clock for deterministic provider timestamps", async () => {
