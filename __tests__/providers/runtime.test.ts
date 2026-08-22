@@ -94,6 +94,39 @@ describe("provider runtime services", () => {
     }
   });
 
+  test("cancels a response rejected by its declared size", async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      cancel: () => {
+        cancelled = true;
+      },
+    });
+    const layer = makeProviderHttpClient(() =>
+      Promise.resolve(
+        new Response(body, {
+          headers: { "content-length": String(2 * 1024 * 1024 + 1) },
+          status: 200,
+        })
+      )
+    );
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* result() {
+        const http = yield* ProviderHttpClient;
+        return yield* http.requestJson({
+          headers: {},
+          method: "GET",
+          providerID: "codex",
+          timeoutMs: 1000,
+          url: "https://example.test/usage",
+        });
+      }).pipe(Effect.provide(layer), Effect.exit)
+    );
+
+    expect(Exit.isFailure(result)).toBe(true);
+    expect(cancelled).toBe(true);
+  });
+
   test("uses the Effect clock for deterministic provider timestamps", async () => {
     const now = await Effect.runPromise(
       ProviderClock.pipe(Effect.flatMap((clock) => clock.now)).pipe(

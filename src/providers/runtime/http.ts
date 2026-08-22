@@ -20,6 +20,14 @@ const cancelReader = async (
   }
 };
 
+const cancelBody = async (response: Response) => {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Cancellation is best-effort when the request is already complete.
+  }
+};
+
 const readChunks = async (
   reader: ReadableStreamDefaultReader<Uint8Array>,
   chunks: Uint8Array[],
@@ -80,6 +88,7 @@ const readBoundedBody = async (
 ): Promise<Uint8Array> => {
   const declaredLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_RESPONSE_BYTES) {
+    await cancelBody(response);
     throw new RangeError("response limit exceeded");
   }
   if (!response.body) {
