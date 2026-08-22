@@ -1,5 +1,4 @@
 /* @jsxImportSource @opentui/solid */
-import type { TuiThemeCurrent } from "@opencode-ai/plugin/tui";
 import type { RGBA } from "@opentui/core";
 import { createMemo, For, Show } from "solid-js";
 
@@ -21,9 +20,65 @@ import { quotaUsedPercent } from "@/usage.ts";
  * @param theme - Active OpenCode TUI theme.
  * @returns A theme color indicating healthy, warning, error, or unknown usage.
  */
-const dotColor = (usedPercent: number | null, theme: TuiThemeCurrent): RGBA => {
+interface V2Theme {
+  readonly text: {
+    readonly default: RGBA;
+    readonly subdued: RGBA;
+    readonly feedback: {
+      readonly warning: { readonly default: RGBA };
+      readonly error: { readonly default: RGBA };
+      readonly success: { readonly default: RGBA };
+    };
+  };
+}
+
+interface LegacyTheme {
+  readonly text: RGBA;
+  readonly textMuted: RGBA;
+  readonly warning: RGBA;
+  readonly error: RGBA;
+  readonly success: RGBA;
+}
+
+export type UsageTheme = V2Theme | LegacyTheme;
+
+interface ThemeColors {
+  readonly text: RGBA;
+  readonly subdued: RGBA;
+  readonly warning: RGBA;
+  readonly error: RGBA;
+  readonly success: RGBA;
+}
+
+/** Local boundary for v2 theme data while the v2 plugin package is unavailable. */
+const isV2Theme = (theme: UsageTheme): theme is V2Theme =>
+  typeof theme.text === "object" &&
+  theme.text !== null &&
+  "feedback" in theme.text;
+
+const resolveTheme = (theme: UsageTheme): ThemeColors => {
+  if (!isV2Theme(theme)) {
+    return {
+      error: theme.error,
+      subdued: theme.textMuted,
+      success: theme.success,
+      text: theme.text,
+      warning: theme.warning,
+    };
+  }
+
+  return {
+    error: theme.text.feedback.error.default,
+    subdued: theme.text.subdued,
+    success: theme.text.feedback.success.default,
+    text: theme.text.default,
+    warning: theme.text.feedback.warning.default,
+  };
+};
+
+const dotColor = (usedPercent: number | null, theme: ThemeColors): RGBA => {
   if (usedPercent === null) {
-    return theme.textMuted;
+    return theme.subdued;
   }
   if (usedPercent >= 90) {
     return theme.error;
@@ -35,24 +90,24 @@ const dotColor = (usedPercent: number | null, theme: TuiThemeCurrent): RGBA => {
 };
 
 const UsageWindowRows = (props: {
-  theme: TuiThemeCurrent;
+  theme: ThemeColors;
   windows: readonly UsageWindow[];
 }) => (
   <For each={props.windows}>
     {(window) => (
       <box flexDirection="column">
         <text>
-          <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
+          <span style={{ fg: props.theme.subdued }}>{"  "}</span>
           <span style={{ fg: props.theme.text }}>
             <b>{window.label}</b>
           </span>
-          <span style={{ fg: props.theme.textMuted }}>
+          <span style={{ fg: props.theme.subdued }}>
             {windowResetText(window)}
             {windowResetTime(window)}
           </span>
         </text>
         <text>
-          <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
+          <span style={{ fg: props.theme.subdued }}>{"  "}</span>
           <span
             style={{
               fg: dotColor(quotaUsedPercent(window.quota), props.theme),
@@ -103,9 +158,10 @@ export const shouldRenderProviderState = (
 export const UsageLimitsPanel = (props: {
   states: ProviderState[];
   showErrors: boolean;
-  theme: TuiThemeCurrent;
+  theme: UsageTheme;
   lastRefreshAt: Date | null;
 }) => {
+  const colors = resolveTheme(props.theme);
   const visibleStates = createMemo(() =>
     props.states.filter((state) =>
       shouldRenderProviderState(state, props.showErrors)
@@ -115,7 +171,7 @@ export const UsageLimitsPanel = (props: {
   return (
     <Show when={visibleStates().length > 0}>
       <box flexDirection="column">
-        <text fg={props.theme.text}>
+        <text fg={colors.text}>
           <b>Usage Limits</b>
         </text>
         <For each={visibleStates()}>
@@ -132,46 +188,46 @@ export const UsageLimitsPanel = (props: {
 
             return (
               <box flexDirection="column">
-                <text fg={props.theme.text}>
+                <text fg={colors.text}>
                   {state.label}
                   {tierName ? (
-                    <span style={{ fg: props.theme.textMuted }}>
+                    <span style={{ fg: colors.subdued }}>
                       {" ["}
                       {tierName}
                       {"]"}
                     </span>
                   ) : null}
                   {isStale ? (
-                    <span style={{ fg: props.theme.warning }}> stale</span>
+                    <span style={{ fg: colors.warning }}> stale</span>
                   ) : null}
                   {isCached ? (
-                    <span style={{ fg: props.theme.warning }}> cached</span>
+                    <span style={{ fg: colors.warning }}> cached</span>
                   ) : null}
                 </text>
                 {state.status === "loading" ? (
-                  <text fg={props.theme.textMuted}> loading...</text>
+                  <text fg={colors.subdued}> loading...</text>
                 ) : null}
                 {state.status === "ready" ? (
                   <UsageWindowRows
-                    theme={props.theme}
+                    theme={colors}
                     windows={state.data.windows}
                   />
                 ) : null}
                 {state.status === "error" && state.previous ? (
                   <UsageWindowRows
-                    theme={props.theme}
+                    theme={colors}
                     windows={state.previous.windows}
                   />
                 ) : null}
                 {state.status === "error" && props.showErrors ? (
-                  <text fg={props.theme.error}> {state.message}</text>
+                  <text fg={colors.error}> {state.message}</text>
                 ) : null}
               </box>
             );
           }}
         </For>
         {props.lastRefreshAt ? (
-          <text fg={props.theme.textMuted}>
+          <text fg={colors.subdued}>
             Updated {formatTimestamp(props.lastRefreshAt)}
           </text>
         ) : null}
@@ -188,29 +244,32 @@ export const UsageLimitsPanel = (props: {
  */
 export const BottomUsage = (props: {
   window: UsageWindow | null;
-  theme: TuiThemeCurrent;
-}) => (
-  <Show when={props.window}>
-    {(window) => (
-      <text>
-        <span
-          style={{
-            fg: dotColor(quotaUsedPercent(window().quota), props.theme),
-          }}
-        >
-          {percentBar(quotaUsedPercent(window().quota), 8)}
-        </span>
-        <span style={{ fg: props.theme.text }}>
-          {" "}
-          {bottomWindowMainText(window())}
-        </span>
-        <span style={{ fg: props.theme.textMuted }}>
-          {windowResetText(window())}
-        </span>
-      </text>
-    )}
-  </Show>
-);
+  theme: UsageTheme;
+}) => {
+  const colors = resolveTheme(props.theme);
+  return (
+    <Show when={props.window}>
+      {(window) => (
+        <text>
+          <span
+            style={{
+              fg: dotColor(quotaUsedPercent(window().quota), colors),
+            }}
+          >
+            {percentBar(quotaUsedPercent(window().quota), 8)}
+          </span>
+          <span style={{ fg: colors.text }}>
+            {" "}
+            {bottomWindowMainText(window())}
+          </span>
+          <span style={{ fg: colors.subdued }}>
+            {windowResetText(window())}
+          </span>
+        </text>
+      )}
+    </Show>
+  );
+};
 
 /**
  * Renders a compact single-line summary of all active providers.
@@ -220,8 +279,9 @@ export const BottomUsage = (props: {
  */
 export const CompactStatusLine = (props: {
   states: ProviderState[];
-  theme: TuiThemeCurrent;
+  theme: UsageTheme;
 }) => {
+  const colors = resolveTheme(props.theme);
   const activeProviders = props.states.filter((s) => s.status !== "disabled");
   if (activeProviders.length === 0) {
     return null;
@@ -240,7 +300,7 @@ export const CompactStatusLine = (props: {
       const [window] = data.windows;
       if (window) {
         parts.push({
-          color: dotColor(quotaUsedPercent(window.quota), props.theme),
+          color: dotColor(quotaUsedPercent(window.quota), colors),
           text: `${state.label} ${formatPercent(quotaUsedPercent(window.quota))}`,
         });
       }

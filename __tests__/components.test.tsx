@@ -1,7 +1,6 @@
 /* @jsxImportSource @opentui/solid */
 import { describe, expect, test } from "bun:test";
 
-import type { TuiThemeCurrent } from "@opencode-ai/plugin/tui";
 import { RGBA } from "@opentui/core";
 import { testRender } from "@opentui/solid";
 import { Result } from "effect";
@@ -12,60 +11,16 @@ import { parseUsagePercentage, percentageQuota } from "@/usage.ts";
 
 const color = RGBA.fromValues(1, 2, 3, 255);
 
-const theme: TuiThemeCurrent = {
-  accent: color,
-  background: color,
-  backgroundElement: color,
-  backgroundMenu: color,
-  backgroundPanel: color,
-  border: color,
-  borderActive: color,
-  borderSubtle: color,
-  diffAdded: color,
-  diffAddedBg: color,
-  diffAddedLineNumberBg: color,
-  diffContext: color,
-  diffContextBg: color,
-  diffHighlightAdded: color,
-  diffHighlightRemoved: color,
-  diffHunkHeader: color,
-  diffLineNumber: color,
-  diffRemoved: color,
-  diffRemovedBg: color,
-  diffRemovedLineNumberBg: color,
-  error: color,
-  info: color,
-  markdownBlockQuote: color,
-  markdownCode: color,
-  markdownCodeBlock: color,
-  markdownEmph: color,
-  markdownHeading: color,
-  markdownHorizontalRule: color,
-  markdownImage: color,
-  markdownImageText: color,
-  markdownLink: color,
-  markdownLinkText: color,
-  markdownListEnumeration: color,
-  markdownListItem: color,
-  markdownStrong: color,
-  markdownText: color,
-  primary: color,
-  secondary: color,
-  selectedListItemText: color,
-  success: color,
-  syntaxComment: color,
-  syntaxFunction: color,
-  syntaxKeyword: color,
-  syntaxNumber: color,
-  syntaxOperator: color,
-  syntaxPunctuation: color,
-  syntaxString: color,
-  syntaxType: color,
-  syntaxVariable: color,
-  text: color,
-  textMuted: color,
-  thinkingOpacity: 0.6,
-  warning: color,
+const theme = {
+  text: {
+    default: color,
+    feedback: {
+      error: { default: color },
+      success: { default: color },
+      warning: { default: color },
+    },
+    subdued: color,
+  },
 };
 
 const usageWindow = (overrides: Partial<UsageWindow> = {}): UsageWindow => ({

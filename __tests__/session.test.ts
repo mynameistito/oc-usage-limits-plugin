@@ -31,6 +31,37 @@ describe("session helpers", () => {
     );
   });
 
+  test("finds provider ids from v2 session message info", () => {
+    expect(
+      currentProviderID([
+        {
+          info: {
+            model: { modelID: "gpt", providerID: "openai" },
+            type: "user",
+          },
+        },
+        {
+          info: {
+            modelID: "glm",
+            providerID: "zai-coding-plan",
+            type: "assistant",
+          },
+        },
+      ])
+    ).toBe("zai-coding-plan");
+
+    expect(
+      currentProviderID([
+        {
+          info: {
+            model: { modelID: "gpt", providerID: "openai" },
+            type: "user",
+          },
+        },
+      ])
+    ).toBe("openai");
+  });
+
   test("ignores invalid message shapes", () => {
     expect(
       currentProviderID([null, [], { model: null }, { providerID: 1 }])

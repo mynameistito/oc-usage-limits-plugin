@@ -20,11 +20,11 @@ if (
   plugin === null ||
   !("id" in plugin) ||
   plugin.id !== expectedId ||
-  !("tui" in plugin) ||
-  typeof plugin.tui !== "function"
+  !("setup" in plugin) ||
+  typeof plugin.setup !== "function"
 ) {
   console.error(
-    `Package smoke test failed: expected default export ${expectedId} with callable tui`
+    `Package smoke test failed: expected default export ${expectedId} with callable setup`
   );
   process.exit(1);
 }

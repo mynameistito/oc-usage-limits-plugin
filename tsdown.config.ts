@@ -6,6 +6,10 @@ export default defineConfig({
     neverBundle: [
       "@opencode-ai/plugin",
       "@opencode-ai/plugin/tui",
+      "@opencode-ai/plugin/v2/effect",
+      "@opencode-ai/plugin/v2/effect/integration",
+      "@opencode-ai/plugin/v2/effect/plugin",
+      "@opencode-ai/plugin/v2/promise",
       "@opentui/core",
       "@opentui/solid",
       "@opentui/solid/jsx-runtime",

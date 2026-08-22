@@ -9,7 +9,7 @@
       },
       "devDependencies": {
         "@changesets/cli": "^3.0.1",
-        "@opencode-ai/plugin": "1.18.21",
+        "@opencode-ai/plugin": "0.0.0-tui-v2-202606261840",
         "@opentui/core": "0.5.6",
         "@opentui/keymap": "0.5.6",
         "@opentui/solid": "0.5.6",
@@ -163,9 +163,9 @@
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
-    "@opencode-ai/plugin": ["@opencode-ai/plugin@1.18.21", "", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@opencode-ai/sdk": "1.18.21", "effect": "4.0.0-beta.83", "zod": "4.1.8" }, "peerDependencies": { "@opentui/core": ">=0.4.5", "@opentui/keymap": ">=0.4.5", "@opentui/solid": ">=0.4.5" }, "optionalPeers": ["@opentui/core", "@opentui/keymap", "@opentui/solid"] }, "sha512-wQXMbSvg3pG75F8fYAiJxYuyr6Cl9Hd74lSCY2yznZnejpwa+ksd2kMphmgSo+/UgLhb2AId9KAI6dsRhprzTg=="],
+    "@opencode-ai/plugin": ["@opencode-ai/plugin@0.0.0-tui-v2-202606261840", "", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@opencode-ai/sdk": "0.0.0-tui-v2-202606261840", "effect": "4.0.0-beta.83", "zod": "4.1.8" }, "peerDependencies": { "@opentui/core": ">=0.3.4", "@opentui/keymap": ">=0.3.4", "@opentui/solid": ">=0.3.4" }, "optionalPeers": ["@opentui/core", "@opentui/keymap", "@opentui/solid"] }, "sha512-a5CXGIZfqwbQFVbNUSMe9KlScWNIJ540cCVM67TKxKfnofnZBOjh7GJd5ipJGaqb9UcKsY9jWoSYAEoeG3vsKg=="],
 
-    "@opencode-ai/sdk": ["@opencode-ai/sdk@1.18.21", "", { "dependencies": { "cross-spawn": "7.0.6" } }, "sha512-k6iHQ5C8wOPglk+LgFyYnst168cGMQYumgpbVoeXJ+iC1AtvwD5zmjuF8CxMze/y9G1K2bOeO6p9yRvA7eHZLA=="],
+    "@opencode-ai/sdk": ["@opencode-ai/sdk@0.0.0-tui-v2-202606261840", "", { "dependencies": { "cross-spawn": "7.0.6" } }, "sha512-gU/QISz9ryj7wrZNLJNQeoO/MVcParTKleMTmSUzc1OgXmpn0DU21nVmV6CQGwEEo+MxJ1uza2Gdst21zlko+Q=="],
 
     "@opentui/core": ["@opentui/core@0.5.6", "", { "dependencies": { "bun-ffi-structs": "0.3.1", "diff": "9.0.0", "marked": "17.0.1", "string-width": "7.2.0", "strip-ansi": "7.1.2" }, "optionalDependencies": { "@opentui/core-darwin-arm64": "0.5.6", "@opentui/core-darwin-x64": "0.5.6", "@opentui/core-linux-arm64": "0.5.6", "@opentui/core-linux-arm64-musl": "0.5.6", "@opentui/core-linux-x64": "0.5.6", "@opentui/core-linux-x64-musl": "0.5.6", "@opentui/core-win32-arm64": "0.5.6", "@opentui/core-win32-x64": "0.5.6" }, "peerDependencies": { "web-tree-sitter": "0.25.10" } }, "sha512-e38H1VceXoSSOEYmhUeHDE3F3LHXn/sFEZ6NhbXkbYdrkdV+1MMTgEkGZJ9I5fHhBlJdGJ1LDTPw8V0ZSUXSyQ=="],
 

@@ -14,7 +14,8 @@ import { isRecord } from "@/utils.ts";
  * Extracts an OpenCode provider identifier from a session message-like value.
  *
  * OpenCode message shapes have changed over time, so the provider may be present
- * either directly on the message or nested under `message.model`.
+ * either directly on the message, nested under `message.model`, or under the
+ * v2 session wrapper's `message.info` payload.
  *
  * @param message - Unknown message payload from OpenCode session state.
  * @returns The provider identifier when present.
@@ -22,6 +23,16 @@ import { isRecord } from "@/utils.ts";
 const getProviderFromMessage = (message: unknown): string | undefined => {
   if (!isRecord(message)) {
     return undefined;
+  }
+
+  const info = isRecord(message.info) ? message.info : message;
+
+  if (typeof info.providerID === "string") {
+    return info.providerID;
+  }
+
+  if (isRecord(info.model) && typeof info.model.providerID === "string") {
+    return info.model.providerID;
   }
 
   if (typeof message.providerID === "string") {

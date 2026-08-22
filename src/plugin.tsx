@@ -1,9 +1,10 @@
 /* @jsxImportSource @opentui/solid */
-import type { TuiPlugin } from "@opencode-ai/plugin/tui";
+import type { JSX } from "@opentui/solid";
 import { Effect, Fiber } from "effect";
 import { createSignal } from "solid-js";
 
 import { BottomUsage, UsageLimitsPanel } from "@/components.tsx";
+import type { UsageTheme } from "@/components.tsx";
 import { loadConfig, loadOpenCodeAuth } from "@/config.ts";
 import { usageCoordinator } from "@/coordinator.ts";
 import type { ProviderError } from "@/errors.ts";
@@ -17,6 +18,35 @@ import type {
   ProviderState,
   ProviderUsage,
 } from "@/types.ts";
+
+export interface UsageLimitsSlotContext {
+  sessionID?: string;
+  mode?: "normal" | "shell";
+}
+
+type UsageLimitsSlot = (context: UsageLimitsSlotContext) => JSX.Element | null;
+
+export interface UsageLimitsPluginContext {
+  ui: {
+    slot: (claim: {
+      append: "sidebar.content" | "prompt.footer.status";
+      render: UsageLimitsSlot;
+    }) => () => void;
+  };
+  theme: UsageTheme;
+  data: {
+    session: {
+      message: {
+        list: (sessionID: string) => readonly unknown[];
+      };
+    };
+  };
+}
+
+export interface UsageLimitsPlugin {
+  id: string;
+  setup: (context: UsageLimitsPluginContext) => () => void;
+}
 
 /** Runtime dependencies used by the usage-limits TUI lifecycle. */
 export interface UsageLimitsTuiDependencies {
@@ -55,38 +85,40 @@ const productionDependencies: UsageLimitsTuiDependencies = {
  * slots for both the sidebar panel and prompt-footer indicator.
  *
  * @param dependencies - Runtime loaders, provider fetcher, scheduler, and clock.
- * @returns The configured OpenCode TUI plugin.
+ * @returns The configured OpenCode v2 plugin setup function.
  */
-export const createUsageLimitsTui =
-  (dependencies: UsageLimitsTuiDependencies): TuiPlugin =>
-  (api) => {
+export const createUsageLimitsPlugin =
+  (dependencies: UsageLimitsTuiDependencies) =>
+  (context: UsageLimitsPluginContext): (() => void) => {
     const [states, setStates] = createSignal<ProviderState[]>([]);
     const [showErrors, setShowErrors] = createSignal(true);
     const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);
-    api.slots.register({
-      order: 101,
-      slots: {
-        session_prompt_right(ctx, props) {
-          const providerID = currentProviderID(
-            api.state.session.messages(props.session_id)
-          );
-          return (
-            <BottomUsage
-              theme={ctx.theme.current}
-              window={usageForProvider(states(), providerID)}
-            />
-          );
-        },
-        sidebar_content(ctx) {
-          return (
-            <UsageLimitsPanel
-              showErrors={showErrors()}
-              states={states()}
-              theme={ctx.theme.current}
-              lastRefreshAt={lastRefreshAt()}
-            />
-          );
-        },
+    const disposeSidebar = context.ui.slot({
+      append: "sidebar.content",
+      render: () => (
+        <UsageLimitsPanel
+          showErrors={showErrors()}
+          states={states()}
+          theme={context.theme}
+          lastRefreshAt={lastRefreshAt()}
+        />
+      ),
+    });
+    const disposeFooter = context.ui.slot({
+      append: "prompt.footer.status",
+      render: (slot) => {
+        if (!slot.sessionID || slot.mode === "shell") {
+          return null;
+        }
+        const providerID = currentProviderID(
+          context.data.session.message.list(slot.sessionID)
+        );
+        return (
+          <BottomUsage
+            theme={context.theme}
+            window={usageForProvider(states(), providerID)}
+          />
+        );
       },
     });
 
@@ -105,9 +137,14 @@ export const createUsageLimitsTui =
         dependencies.sleep?.(milliseconds) ?? Effect.sleep(milliseconds),
     });
     const fiber = Effect.runFork(Effect.scoped(coordinator));
-    api.lifecycle.onDispose(() => Effect.runPromise(Fiber.interrupt(fiber)));
-    return Promise.resolve();
+    return () => {
+      disposeSidebar();
+      disposeFooter();
+      Effect.runFork(Fiber.interrupt(fiber));
+    };
   };
 
-/** OpenCode TUI plugin entry point using production runtime dependencies. */
-export const tui: TuiPlugin = createUsageLimitsTui(productionDependencies);
+/** OpenCode v2 plugin setup using production runtime dependencies. */
+export const setupUsageLimitsPlugin = createUsageLimitsPlugin(
+  productionDependencies
+);
