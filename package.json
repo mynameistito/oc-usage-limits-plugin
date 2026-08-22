@@ -60,7 +60,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.1",
-    "@opencode-ai/plugin": "1.18.21",
+    "@opencode-ai/plugin": "0.0.0-tui-v2-202606261840",
     "@opentui/core": "0.5.6",
     "@opentui/keymap": "0.5.6",
     "@opentui/solid": "0.5.6",
