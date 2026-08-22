@@ -16,16 +16,7 @@ OpenCode TUI plugin that shows Codex, ZAI, Synthetic, MiniMax Token Plan, and Qw
 
 ## Install
 
-Add the TUI plugin to `~/.config/opencode/tui.json`:
-
-```jsonc
-{
-  "$schema": "https://opencode.ai/tui.json",
-  "plugin": ["oc-usage-limits-plugin"],
-}
-```
-
-Or install via the CLI, which writes the config for you:
+Install globally with the OpenCode CLI:
 
 ```bash
 opencode plugin oc-usage-limits-plugin -g
@@ -35,13 +26,46 @@ opencode plugin oc-usage-limits-plugin -g
 - Without `-g`, installs locally to `<project>/.opencode/tui.json` (requires a git worktree).
 - `--force` replaces an existing pinned version.
 
+The CLI installs the package and updates the TUI plugin config for you.
+
+To configure it manually instead, add the plugin to `~/.config/opencode/tui.json`:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/tui.json",
+  "plugin": ["oc-usage-limits-plugin"],
+}
+```
+
 OpenCode TUI plugins are configured in `tui.json`, not `opencode.jsonc`.
 
 Restart OpenCode after changing TUI plugin config.
 
 ### Troubleshooting
 
-- **Dependency conflicts involving `@opencode-ai/plugin`** usually mean OpenCode's package cache contains an older plugin API package. Update OpenCode, then retry the install. This package does not publish OpenCode runtime packages as peer dependencies.
+#### Reinstall or refresh the cached plugin
+
+If the plugin is stale, broken, or needs a clean reinstall, quit OpenCode and remove its cached package.
+
+PowerShell:
+
+```powershell
+Remove-Item -LiteralPath "$HOME\.cache\opencode\packages\oc-usage-limits-plugin@latest" -Recurse -Force
+```
+
+macOS/Linux:
+
+```bash
+rm -rf ~/.cache/opencode/packages/oc-usage-limits-plugin@latest
+```
+
+Start OpenCode again and it will reinstall the plugin from the existing `tui.json` entry. If the plugin is no longer configured, run the install command again:
+
+```bash
+opencode plugin oc-usage-limits-plugin -g
+```
+
+- **Dependency conflicts involving `@opencode-ai/plugin`** usually mean OpenCode's package cache contains an older plugin API package. Update OpenCode, clear the cached plugin as above, then retry the install. This package does not publish OpenCode runtime packages as peer dependencies.
 - **`No versions available`** right after a release means a supply-chain cooldown policy (e.g. `min-release-age`) is blocking the fresh version. Wait for the cooldown window to pass, or install a previously vetted version instead.
 
 ## Usage Config
