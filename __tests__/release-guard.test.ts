@@ -41,7 +41,6 @@ describe("validatePrereleaseMetadata", () => {
   test("accepts committed prerelease metadata shape", () => {
     expect(() =>
       validatePrereleaseMetadata({
-        changesets: [],
         mode: "pre",
         tag: "next",
       })
@@ -50,9 +49,8 @@ describe("validatePrereleaseMetadata", () => {
 
   test("rejects stable or incomplete metadata", () => {
     for (const metadata of [
-      { changesets: [], mode: "exit", tag: "next" },
-      { changesets: [], mode: "pre", tag: "latest" },
-      { mode: "pre", tag: "next" },
+      { mode: "exit", tag: "next" },
+      { mode: "pre", tag: "latest" },
     ]) {
       expect(() => validatePrereleaseMetadata(metadata)).toThrow();
     }

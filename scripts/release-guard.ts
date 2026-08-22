@@ -9,7 +9,6 @@ interface PreviewRelease {
 interface PrereleaseMetadata {
   mode?: unknown;
   tag?: unknown;
-  changesets?: unknown;
 }
 
 const previewVersionPattern = /^2\.0\.0-next\.\d+$/u;
@@ -17,11 +16,7 @@ const previewVersionPattern = /^2\.0\.0-next\.\d+$/u;
 export const validatePrereleaseMetadata = (
   metadata: PrereleaseMetadata
 ): void => {
-  if (
-    metadata.mode !== "pre" ||
-    metadata.tag !== "next" ||
-    !Array.isArray(metadata.changesets)
-  ) {
+  if (metadata.mode !== "pre" || metadata.tag !== "next") {
     throw new Error(
       "Preview releases require Changesets prerelease metadata with mode pre and tag next."
     );
