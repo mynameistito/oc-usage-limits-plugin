@@ -1,8 +1,8 @@
+/* oxlint-disable eslint/max-classes-per-file -- Tagged boundary failures are one cohesive, discoverable error vocabulary. */
+
 import { Schema } from "effect";
 
 /* eslint-disable class-methods-use-this, no-nested-ternary */
-
-/* eslint-disable max-classes-per-file -- Tagged boundary failures are one cohesive, discoverable error vocabulary. */
 
 const ProviderIDSchema = Schema.Literals([
   "codex",
