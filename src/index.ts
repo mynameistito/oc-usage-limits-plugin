@@ -1,9 +1,12 @@
-import type { TuiPluginModule } from "@opencode-ai/plugin/tui";
+import type { UsageLimitsPlugin } from "@/plugin.tsx";
+import { setupUsageLimitsPlugin } from "@/plugin.tsx";
 
-import { tui } from "@/plugin.tsx";
+/** Local seam for the v2 Plugin.define API until the host package exposes it. */
+const Plugin = {
+  define: <T extends UsageLimitsPlugin>(plugin: T): T => plugin,
+};
 
-/** OpenCode plugin module exported for the `oc-usage-limits-plugin/tui` entry. */
-export default {
+export default Plugin.define({
   id: "mynameistito.usage-limits",
-  tui,
-} satisfies TuiPluginModule & { id: string };
+  setup: setupUsageLimitsPlugin,
+} satisfies UsageLimitsPlugin);
