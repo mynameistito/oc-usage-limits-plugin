@@ -24,7 +24,7 @@ export interface UsageLimitsSlotContext {
   sessionID?: string;
 }
 
-export type UsageLimitsSlot = (context: UsageLimitsSlotContext) => JSX.Element;
+type UsageLimitsSlot = (context: UsageLimitsSlotContext) => JSX.Element;
 
 export interface UsageLimitsPluginContext {
   ui: {
