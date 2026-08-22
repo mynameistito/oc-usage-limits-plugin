@@ -69,6 +69,19 @@ opencode plugin oc-usage-limits-plugin -g
 - **Dependency conflicts involving `@opencode-ai/plugin`** usually mean OpenCode's package cache contains an older plugin API package. Update OpenCode, clear the cached plugin as above, then retry the install. This package does not publish OpenCode runtime packages as peer dependencies.
 - **`No versions available`** right after a release means a supply-chain cooldown policy (e.g. `min-release-age`) is blocking the fresh version. Wait for the cooldown window to pass, or install a previously vetted version instead.
 
+## Release Lanes
+
+Stable releases run from `main` and publish to npm's `latest` dist-tag with a GitHub release. v2 previews run only from the `v2` source branch and publish `2.0.0-next.N` to the `next` dist-tag; they never create GitHub releases or move `latest`.
+
+The v2 branch must be created from the post-stable `main` branch and must carry its own v2 Changesets prerelease metadata. The exact setup command is:
+
+```bash
+git switch -c v2 main
+bunx changeset pre enter next
+```
+
+Commit `.changeset/pre.json` and the v2 Changesets on that branch before pushing. Do not run prerelease mode on `main`, and do not copy the three stable Changesets into `v2`; the preview workflow refuses to run without the `v2` branch and committed prerelease metadata.
+
 ## Usage Config
 
 Create `~/.config/opencode/usage-limits.jsonc`. The same file lives at [`examples/usage-limits.jsonc`](examples/usage-limits.jsonc) and can be copied verbatim:
