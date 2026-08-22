@@ -20,7 +20,7 @@ describe("validatePreviewRelease", () => {
     const cases = [
       { branch: "main", distTag: "next", version: "2.0.0-next.0" },
       {
-        branch: "v2",
+        branch: "opencode-v2-preview",
         distTag: "next",
         version: "2.0.0-next.0",
       },
