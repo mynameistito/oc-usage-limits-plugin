@@ -52,6 +52,8 @@ interface ThemeColors {
 
 /** Local boundary for v2 theme data while the v2 plugin package is unavailable. */
 const isV2Theme = (theme: UsageTheme): theme is V2Theme =>
+  typeof theme.text === "object" &&
+  theme.text !== null &&
   "feedback" in theme.text;
 
 const resolveTheme = (theme: UsageTheme): ThemeColors => {
