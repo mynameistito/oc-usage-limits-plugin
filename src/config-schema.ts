@@ -53,9 +53,18 @@ export const minimaxProviderConfigSchema = Schema.Struct({
 /** Schema for Qwen provider configuration. */
 export const qwenProviderConfigSchema = Schema.Struct(commonProviderFields);
 
+/** Schema for OpenCode GO provider configuration. */
+export const openCodeGoProviderConfigSchema = Schema.Struct({
+  ...commonProviderFields,
+  apiKey: Schema.optionalKey(secret),
+  authPath: Schema.optionalKey(Schema.String),
+  baseUrl: Schema.optionalKey(Schema.String),
+});
+
 const providersSchema = Schema.Struct({
   codex: Schema.optionalKey(codexProviderConfigSchema),
   minimax: Schema.optionalKey(minimaxProviderConfigSchema),
+  "opencode-go": Schema.optionalKey(openCodeGoProviderConfigSchema),
   qwen: Schema.optionalKey(qwenProviderConfigSchema),
   synthetic: Schema.optionalKey(syntheticProviderConfigSchema),
   zai: Schema.optionalKey(zaiProviderConfigSchema),
@@ -139,6 +148,8 @@ export const parseOpenCodeAuth = (input: unknown): OpenCodeAuth => {
   const synthetic = parseAuthEntry(input.synthetic);
   const zai = parseAuthEntry(input.zai);
   const zaiCodingPlan = parseAuthEntry(input["zai-coding-plan"]);
+  const openCodeGo = parseAuthEntry(input["opencode-go"]);
+  const opencode = parseAuthEntry(input.opencode);
 
   return {
     ...(minimax ? { minimax } : {}),
@@ -148,6 +159,8 @@ export const parseOpenCodeAuth = (input: unknown): OpenCodeAuth => {
     ...(synthetic ? { synthetic } : {}),
     ...(zai ? { zai } : {}),
     ...(zaiCodingPlan ? { "zai-coding-plan": zaiCodingPlan } : {}),
+    ...(openCodeGo ? { "opencode-go": openCodeGo } : {}),
+    ...(opencode ? { opencode } : {}),
   };
 };
 

@@ -29,5 +29,10 @@
       "enabled": false,
       "label": "Qwen",
     },
+    "opencode-go": {
+      "enabled": true,
+      "label": "OpenCode GO",
+      "apiKey": "{env:OPENCODE_API_KEY}", // Optional fallback when OpenCode auth has no key
+    },
   },
 }

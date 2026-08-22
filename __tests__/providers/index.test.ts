@@ -48,6 +48,7 @@ describe("provider manifest", () => {
       "qwen"
     );
     expect(pluginProviderForOpenCode("qwen")).toBe("qwen");
+    expect(pluginProviderForOpenCode("opencode-go")).toBe("opencode-go");
     expect(pluginProviderForOpenCode("anthropic")).toBeNull();
   });
 

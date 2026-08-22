@@ -3,7 +3,13 @@ import type { Redacted } from "effect";
 import type { ResetInstant, UsageQuota, UsageWindowKind } from "@/usage.ts";
 
 /** Provider adapters supported by the usage-limits plugin. */
-export type ProviderID = "codex" | "zai" | "synthetic" | "minimax" | "qwen";
+export type ProviderID =
+  | "codex"
+  | "zai"
+  | "synthetic"
+  | "minimax"
+  | "qwen"
+  | "opencode-go";
 
 /** Sensitive string accepted by parsed config and legacy provider boundaries. */
 type Credential = Redacted.Redacted<string> | string;
@@ -114,6 +120,13 @@ export interface MiniMaxProviderConfig extends CommonProviderConfig {
 /** Qwen provider configuration. */
 export type QwenProviderConfig = CommonProviderConfig;
 
+/** OpenCode GO provider configuration. */
+export interface OpenCodeGoProviderConfig extends CommonProviderConfig {
+  readonly apiKey?: Credential;
+  readonly authPath?: string;
+  readonly baseUrl?: string;
+}
+
 /** Provider configuration indexed by literal provider ID. */
 export interface ProviderConfigMap {
   readonly codex: CodexProviderConfig;
@@ -121,6 +134,7 @@ export interface ProviderConfigMap {
   readonly qwen: QwenProviderConfig;
   readonly synthetic: SyntheticProviderConfig;
   readonly zai: ZaiProviderConfig;
+  readonly "opencode-go": OpenCodeGoProviderConfig;
 }
 
 /** Any provider-specific configuration. */
@@ -185,6 +199,20 @@ export interface OpenCodeAuth {
     /** MiniMax Token Plan subscription key. */
     readonly key?: Credential;
     /** MiniMax Token Plan subscription key (alternate field name). */
+    readonly apiKey?: Credential;
+  };
+  /** OpenCode GO credentials stored under the provider's catalog ID. */
+  "opencode-go"?: {
+    /** OpenCode GO API key. */
+    readonly key?: Credential;
+    /** OpenCode GO API key (alternate field name). */
+    readonly apiKey?: Credential;
+  };
+  /** OpenCode Zen credentials stored under the legacy provider ID. */
+  opencode?: {
+    /** OpenCode API key. */
+    readonly key?: Credential;
+    /** OpenCode API key (alternate field name). */
     readonly apiKey?: Credential;
   };
 }

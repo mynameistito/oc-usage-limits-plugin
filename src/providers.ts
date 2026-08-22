@@ -4,6 +4,7 @@ import type { ProviderError } from "@/errors.ts";
 import { codexProvider } from "@/providers/codex.ts";
 import { PROVIDER_ORDER } from "@/providers/index.ts";
 import { minimaxProvider } from "@/providers/minimax.ts";
+import { openCodeGoProvider } from "@/providers/opencode-go.ts";
 import { qwenProvider } from "@/providers/qwen.ts";
 import type { ProviderRuntime } from "@/providers/runtime/index.ts";
 import { ProviderRuntimeLive } from "@/providers/runtime/index.ts";
@@ -48,6 +49,13 @@ export const fetchProviderEffect = <ID extends ProviderID>(
       // SAFETY: The generic ID binds config to the matching ProviderConfigMap entry.
       return minimaxProvider.fetch(
         config as ProviderConfigMap["minimax"] | undefined,
+        openCodeAuth,
+        timeoutMs
+      ) as Effect.Effect<ProviderUsage<ID>, ProviderError, ProviderRuntime>;
+    }
+    case "opencode-go": {
+      return openCodeGoProvider.fetch(
+        config,
         openCodeAuth,
         timeoutMs
       ) as Effect.Effect<ProviderUsage<ID>, ProviderError, ProviderRuntime>;
