@@ -1,5 +1,16 @@
 # oc-usage-limits-plugin
 
+## 1.3.1
+
+### Patch Changes
+
+- cf69cae: Update dependencies to the latest compatible releases and align OpenTUI development peers.
+- 51bd775: Prepare the package for the Effect runtime migration with a direct runtime dependency and add a built-entrypoint smoke test.
+- 36de774: Parse plugin configuration strictly with redacted credentials and typed boundary errors.
+- e2fc561: Migrate provider runtime boundaries to interruptible, typed Effect services with bounded HTTP, filesystem, and command execution. Tighten provider payload validation and credential host handling, and expose Synthetic sessions in the footer.
+- 65026ca: Add internal runtime seams and characterization coverage while preserving plugin and Qwen provider behavior.
+- 7990812: Scope refresh orchestration under an interruptible Effect coordinator, register TUI slots before provider work starts, preserve cached usage on refresh errors, and keep sidebar/footer updates reactive through Solid.
+
 ## 1.3.0
 
 ### Minor Changes
