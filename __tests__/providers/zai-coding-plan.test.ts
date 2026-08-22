@@ -66,7 +66,13 @@ describe("ZAI provider", () => {
 
   test("uses configured environment references when auth does not contain a key", async () => {
     process.env.OC_USAGE_LIMITS_ZAI_KEY = "env-key";
-    const fetchMock = installFetchMock(Response.json({ data: { limits: [] } }));
+    const fetchMock = installFetchMock(
+      Response.json({
+        data: {
+          limits: [{ percentage: 50, type: "TOKENS_LIMIT", usage: 50 }],
+        },
+      })
+    );
 
     await fetchZaiCodingPlanUsage(
       { apiKey: "{env:OC_USAGE_LIMITS_ZAI_KEY}" },
@@ -92,6 +98,7 @@ describe("ZAI provider", () => {
           Response.json({
             data: {
               limits: [
+                { percentage: 50, type: "TOKENS_LIMIT", usage: 50 },
                 { percentage: 1, type: "TIME_LIMIT", usage: usageTotal },
               ],
             },
@@ -116,6 +123,7 @@ describe("ZAI provider", () => {
           Response.json({
             data: {
               limits: [
+                { percentage: 50, type: "TOKENS_LIMIT", usage: 50 },
                 { percentage: 1, type: "TIME_LIMIT", usage: usageTotal },
               ],
             },
@@ -140,6 +148,7 @@ describe("ZAI provider", () => {
           Response.json({
             data: {
               limits: [
+                { percentage: 50, type: "TOKENS_LIMIT", usage: 50 },
                 { percentage: 1, type: "TIME_LIMIT", usage: usageTotal },
               ],
             },
@@ -156,7 +165,10 @@ describe("ZAI provider", () => {
       installFetchMock(
         Response.json({
           data: {
-            limits: [{ percentage: 0, type: "TIME_LIMIT", usage: 0 }],
+            limits: [
+              { percentage: 50, type: "TOKENS_LIMIT", usage: 50 },
+              { percentage: 0, type: "TIME_LIMIT", usage: 0 },
+            ],
           },
         })
       );
@@ -170,7 +182,10 @@ describe("ZAI provider", () => {
       installFetchMock(
         Response.json({
           data: {
-            limits: [{ percentage: 1, type: "TIME_LIMIT" }],
+            limits: [
+              { percentage: 50, type: "TOKENS_LIMIT", usage: 50 },
+              { percentage: 1, type: "TIME_LIMIT" },
+            ],
           },
         })
       );

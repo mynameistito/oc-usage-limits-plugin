@@ -84,7 +84,9 @@ describe("Codex provider", () => {
       "https://chatgpt.com/backend-api/wham/usage",
     ],
   ] as const)("allows safe base URL %s", async (baseUrl, expectedUrl) => {
-    const fetchMock = installFetchMock(Response.json({ rate_limit: {} }));
+    const fetchMock = installFetchMock(
+      Response.json({ rate_limit: { primary_window: { used_percent: 0 } } })
+    );
 
     await fetchCodexUsage(
       { baseUrl },
@@ -102,7 +104,9 @@ describe("Codex provider", () => {
   ] as const)(
     "falls back from unsafe base URL %s",
     async (baseUrl, expectedUrl) => {
-      const fetchMock = installFetchMock(Response.json({ rate_limit: {} }));
+      const fetchMock = installFetchMock(
+        Response.json({ rate_limit: { primary_window: { used_percent: 0 } } })
+      );
 
       await fetchCodexUsage(
         { baseUrl },

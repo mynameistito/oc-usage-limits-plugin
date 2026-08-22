@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+/* eslint-disable class-methods-use-this, no-nested-ternary */
+
 /* eslint-disable max-classes-per-file -- Tagged boundary failures are one cohesive, discoverable error vocabulary. */
 
 const ProviderIDSchema = Schema.Literals([
@@ -32,11 +34,15 @@ const safeCause = {
       "command",
       "decode",
       "filesystem",
+      "forbidden",
+      "http",
       "network",
+      "output-limit",
       "rate-limit",
       "schema",
       "syntax",
       "timeout",
+      "unauthorized",
       "unknown",
     ])
   ),
@@ -87,14 +93,34 @@ export class MissingProviderCredentialsError extends Schema.TaggedErrorClass<Mis
 /** Provider transport failure without unsafe response content. */
 export class ProviderTransportError extends Schema.TaggedErrorClass<ProviderTransportError>()(
   "ProviderTransportError",
-  { ...providerContext, ...safeCause }
-) {}
+  {
+    ...providerContext,
+    ...safeCause,
+    status: Schema.optionalKey(Schema.Int),
+  }
+) {
+  override get message(): string {
+    if (this.cause === "unauthorized") {
+      return "provider credentials were rejected";
+    }
+    if (this.cause === "forbidden") {
+      return "provider access was forbidden";
+    }
+    return this.status === undefined
+      ? "provider request failed"
+      : `provider request failed (HTTP ${this.status})`;
+  }
+}
 
 /** Provider operation exceeded its configured timeout. */
 export class ProviderTimeoutError extends Schema.TaggedErrorClass<ProviderTimeoutError>()(
   "ProviderTimeoutError",
   { ...providerContext, ...safeCause, timeoutMs: NonNegativeFiniteSchema }
-) {}
+) {
+  override get message(): string {
+    return "provider operation timed out";
+  }
+}
 
 /** Provider rejected a request because its rate limit was reached. */
 export class ProviderRateLimitError extends Schema.TaggedErrorClass<ProviderRateLimitError>()(
@@ -103,13 +129,21 @@ export class ProviderRateLimitError extends Schema.TaggedErrorClass<ProviderRate
     ...providerContext,
     retryAfterMs: Schema.optionalKey(NonNegativeFiniteSchema),
   }
-) {}
+) {
+  override get message(): string {
+    return "provider rate limit reached";
+  }
+}
 
 /** Provider returned a payload that could not be decoded safely. */
 export class ProviderResponseDecodeError extends Schema.TaggedErrorClass<ProviderResponseDecodeError>()(
   "ProviderResponseDecodeError",
   { ...providerContext, ...safeCause }
-) {}
+) {
+  override get message(): string {
+    return `invalid ${this.providerID === "minimax" ? "MiniMax" : this.providerID === "zai" ? "ZAI" : this.providerID === "synthetic" ? "Synthetic" : this.providerID === "codex" ? "Codex" : "Qwen"} usage`;
+  }
+}
 
 /** Provider subprocess command failed without exposing stdout or stderr. */
 export class ProviderCommandError extends Schema.TaggedErrorClass<ProviderCommandError>()(
@@ -119,7 +153,13 @@ export class ProviderCommandError extends Schema.TaggedErrorClass<ProviderComman
     ...safeCause,
     exitCode: Schema.optionalKey(Schema.Int),
   }
-) {}
+) {
+  override get message(): string {
+    return this.exitCode === undefined
+      ? "provider command failed"
+      : `provider command failed (exit code ${this.exitCode})`;
+  }
+}
 
 /** Expected provider failures defined here for boundary adoption in Plan 004. */
 export type ProviderError =

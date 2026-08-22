@@ -105,9 +105,12 @@ export const usageForProvider = (
     if (!data) {
       return null;
     }
-    const { footerWindowLabel } = PROVIDER_REGISTRY[id];
+    const footerWindowKind = PROVIDER_REGISTRY[id]?.footerWindowKind;
+    const legacyLabel =
+      footerWindowKind === "rolling" ? "5h" : footerWindowKind;
     return (
-      data.windows.find((window) => window.label === footerWindowLabel) ??
+      data.windows.find((window) => window.label === legacyLabel) ??
+      data.windows.find((window) => window.kind === footerWindowKind) ??
       data.windows[0] ??
       null
     );

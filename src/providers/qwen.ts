@@ -1,12 +1,16 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { Effect, Result } from "effect";
 
-import { Result } from "effect";
-
+import { qwenProviderConfigSchema } from "@/config-schema.ts";
+import {
+  MissingProviderCredentialsError,
+  ProviderResponseDecodeError,
+} from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
+import { ProviderClock } from "@/providers/runtime/clock.ts";
+import { ProviderCommandExecutor } from "@/providers/runtime/command.ts";
 import type {
   OpenCodeAuth,
-  ProviderConfig,
+  QwenProviderConfig,
   ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
@@ -19,84 +23,23 @@ import {
 } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
 
-const execFileAsync = promisify(execFile);
+/* eslint-disable no-shadow, no-await-expression-member, require-await */
 
-/** Subprocess boundary used by the Qwen provider adapter. */
+/** Default CLI command used when no override is configured. */
+const DEFAULT_CLI = "qwencloud";
+
+/** Legacy injectable Qwen command boundary retained for direct consumers. */
 export type QwenCommandRunner = (
   cli: string,
   args: string[],
   timeoutMs: number
 ) => Promise<string>;
 
-const productionCommandRunner: QwenCommandRunner = async (
-  cli,
-  args,
-  timeoutMs
-) => {
-  const { stdout } = await execFileAsync(cli, args, {
-    encoding: "utf-8",
-    maxBuffer: 2 * 1024 * 1024,
-    timeout: timeoutMs,
-  });
-  return stdout;
-};
-
-/** Default CLI command used when no override is configured. */
-const DEFAULT_CLI = "qwencloud";
-
-const commandExitCode = (error: unknown): number | undefined => {
-  if (!isRecord(error)) {
-    return undefined;
-  }
-  return typeof error.code === "number" && Number.isFinite(error.code)
-    ? error.code
-    : undefined;
-};
-
-const commandStdout = (error: unknown): string | undefined =>
-  isRecord(error) && typeof error.stdout === "string"
-    ? error.stdout.trim()
-    : undefined;
-
-/**
- * Runs the QwenCloud CLI and captures stdout.
- *
- * Diagnostics written to stderr are ignored unless stdout is empty — the CLI
- * writes human-facing progress and warnings to stderr on normal runs.
- *
- * @param cli  - CLI binary or command name.
- * @param args - CLI arguments (without the program name).
- * @param timeoutMs - Maximum execution time in milliseconds.
- * @param allowNonZeroOutput - Whether stdout from a failed command is valid.
- * @returns The stdout output of the CLI.
- */
-const runQwencloud = async (
-  commandRunner: QwenCommandRunner,
-  cli: string,
-  args: string[],
-  timeoutMs: number,
-  allowNonZeroOutput = false
-): Promise<string> => {
-  try {
-    const output = await commandRunner(cli, args, timeoutMs);
-    return output.trim();
-  } catch (error) {
-    // execFile rejects on non-zero exit. The CLI writes usage/auth data to
-    // stdout even when returning exit code 2 (not authenticated) or 1 (usage
-    // error), so read stdout from the error object before re-throwing.
-    const exitCode = commandExitCode(error);
-    const out = commandStdout(error);
-    if (out && allowNonZeroOutput && exitCode !== undefined && exitCode !== 0) {
-      return out;
-    }
-    // CLI stderr can contain verbose diagnostics or response bodies, so never
-    // expose it in the user-facing error state.
-    const safeStatus =
-      exitCode === undefined ? "failed" : `exit code ${exitCode}`;
-    // oxlint-disable-next-line preserve-caught-error -- SECURITY: Subprocess errors can retain stdout, stderr, and response bodies.
-    throw new Error(`qwencloud CLI ${safeStatus}`);
-  }
-};
+/** Dependencies for constructing a direct Qwen adapter. */
+export interface QwenProviderDependencies {
+  readonly commandRunner: QwenCommandRunner;
+  readonly now: () => Date;
+}
 
 /**
  * Parses the JSON output of `qwencloud auth status --format json` and returns
@@ -221,100 +164,145 @@ const buildQwenWindow = (
   };
 };
 
-/** Dependencies for constructing a Qwen provider adapter. */
-export interface QwenProviderDependencies {
-  /** Runs a QwenCloud subprocess command. */
-  commandRunner: QwenCommandRunner;
-  /** Returns the current wall-clock time. */
-  now: () => Date;
-}
-
 /**
- * Creates a Qwen provider adapter with explicit subprocess and clock boundaries.
- *
- * @param dependencies - Runtime dependencies for CLI execution and timestamps.
- * @returns A Qwen provider definition.
+ * Fetches and normalizes Qwen Token Plan usage through the runtime command layer.
  */
-export const createQwenProvider = (
-  dependencies: QwenProviderDependencies
-): ProviderDefinition<"qwen"> => {
-  /** Fetches and normalizes Qwen Token Plan usage via the QwenCloud CLI. */
-  const fetchQwenTokenPlanUsage = async (
-    config: ProviderConfig | undefined,
+const fetchQwenTokenPlanUsage = (
+  config: QwenProviderConfig | undefined,
+  _openCodeAuth: OpenCodeAuth,
+  timeoutMs: number
+): ReturnType<ProviderDefinition<"qwen">["fetch"]> =>
+  Effect.gen(function* fetchQwenTokenPlanUsage() {
+    const commands = yield* ProviderCommandExecutor;
+    const clock = yield* ProviderClock;
+    const authRaw = yield* commands.execute({
+      acceptedExitCodes: new Set([2]),
+      args: ["auth", "status", "--format", "json"],
+      command: DEFAULT_CLI,
+      providerID: "qwen",
+      timeoutMs,
+    });
+    const authenticated = yield* Effect.try({
+      catch: () =>
+        new ProviderResponseDecodeError({
+          cause: "decode",
+          operation: "decode-response",
+          providerID: "qwen",
+        }),
+      try: () => parseAuthStatus(authRaw),
+    });
+    if (!authenticated) {
+      return yield* new MissingProviderCredentialsError({
+        operation: "run-command",
+        providerID: "qwen",
+      });
+    }
+
+    const usageRaw = yield* commands.execute({
+      args: ["usage", "summary", "--format", "json"],
+      command: DEFAULT_CLI,
+      providerID: "qwen",
+      timeoutMs,
+    });
+    const tokenPlan = yield* Effect.try({
+      catch: () =>
+        new ProviderResponseDecodeError({
+          cause: "decode",
+          operation: "decode-response",
+          providerID: "qwen",
+        }),
+      try: () => parseTokenPlan(usageRaw),
+    });
+    const window = buildQwenWindow(tokenPlan);
+    if (!tokenPlan.subscribed || !window) {
+      return yield* new ProviderResponseDecodeError({
+        cause: "schema",
+        operation: "decode-response",
+        providerID: "qwen",
+      });
+    }
+
+    return {
+      capturedAt: yield* clock.now,
+      id: "qwen",
+      label: config?.label ?? tokenPlan.planName ?? "Qwen Token Plan",
+      windows: [window],
+    };
+  });
+
+/** Stable injectable Promise adapter retained for existing direct consumers. */
+export const createQwenProvider = (dependencies: QwenProviderDependencies) => ({
+  fetch: async (
+    config: QwenProviderConfig | undefined,
     _openCodeAuth: OpenCodeAuth,
     timeoutMs: number
   ): Promise<ProviderUsage<"qwen">> => {
-    const cli = DEFAULT_CLI;
-
+    const run = async (
+      args: string[],
+      allowNonZero = false
+    ): Promise<string> => {
+      try {
+        return (
+          await dependencies.commandRunner(DEFAULT_CLI, args, timeoutMs)
+        ).trim();
+      } catch (error) {
+        const record = isRecord(error) ? error : {};
+        const { code } = record;
+        const stdout =
+          typeof record.stdout === "string" ? record.stdout.trim() : "";
+        if (allowNonZero && stdout && typeof code === "number" && code !== 0) {
+          return stdout;
+        }
+        const suffix =
+          typeof code === "number" ? `exit code ${code}` : "failed";
+        throw new Error(`qwencloud CLI ${suffix}`, { cause: error });
+      }
+    };
     let authRaw: string;
     try {
-      authRaw = await runQwencloud(
-        dependencies.commandRunner,
-        cli,
-        ["auth", "status", "--format", "json"],
-        timeoutMs,
-        true
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      // oxlint-disable-next-line preserve-caught-error -- SECURITY: Keep the classified message, not the subprocess cause graph.
-      throw new Error(
-        `qwencloud CLI not available (${msg}). Install: npm i -g @qwencloud/qwencloud-cli and run: qwencloud auth login`
-      );
+      authRaw = await run(["auth", "status", "--format", "json"], true);
+    } catch {
+      throw new Error("qwencloud CLI not available (qwencloud CLI failed)");
     }
-
-    if (!parseAuthStatus(authRaw)) {
+    const auth = parseAuthStatus(authRaw);
+    if (!auth) {
       throw new Error("Not authenticated. Run: qwencloud auth login");
     }
 
     let usageRaw: string;
     try {
-      usageRaw = await runQwencloud(
-        dependencies.commandRunner,
-        cli,
-        ["usage", "summary", "--format", "json"],
-        timeoutMs
-      );
+      usageRaw = await run(["usage", "summary", "--format", "json"]);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      // oxlint-disable-next-line preserve-caught-error -- SECURITY: Keep the classified message, not the subprocess cause graph.
-      throw new Error(
-        `qwencloud usage query failed (${msg}). Verify the CLI is authenticated and try again.`
-      );
+      const message = error instanceof Error ? error.message : "failed";
+      // eslint-disable-next-line preserve-caught-error -- Keep subprocess diagnostics out of user-facing errors.
+      throw new Error(`qwencloud usage query failed (${message})`);
     }
-    const tp = parseTokenPlan(usageRaw);
-
-    if (!tp.subscribed) {
+    const tokenPlan = parseTokenPlan(usageRaw);
+    if (!tokenPlan.subscribed) {
       throw new Error(
         "No subscription detected. Verify at home.qwencloud.com/billing"
       );
     }
-
-    const capturedAt = dependencies.now();
-    const window = buildQwenWindow(tp);
+    const window = buildQwenWindow(tokenPlan);
     if (!window) {
       throw new Error("invalid Qwen usage");
     }
-
     return {
-      capturedAt,
+      capturedAt: dependencies.now(),
       id: "qwen",
-      label: config?.label ?? tp.planName ?? "Qwen Token Plan",
+      label: config?.label ?? tokenPlan.planName ?? "Qwen Token Plan",
       windows: [window],
     };
-  };
-
-  return {
-    defaultLabel: "Qwen",
-    fetch: fetchQwenTokenPlanUsage,
-    footerWindowLabel: "credits",
-    id: "qwen",
-    openCodeProviderIDs: ["bailian-token-plan-personal", "qwen"],
-  };
-};
+  },
+});
 
 /** Plugin registration for the Qwen Token Plan provider adapter. */
-export const qwenProvider = createQwenProvider({
-  commandRunner: productionCommandRunner,
-  now: () => new Date(),
-});
+export const qwenProvider = {
+  capabilities: { customBaseUrl: false, transport: "command" },
+  configSchema: qwenProviderConfigSchema,
+  defaultLabel: "Qwen",
+  fetch: fetchQwenTokenPlanUsage,
+  footerWindowKind: "credits",
+  id: "qwen",
+  openCodeProviderIDs: ["bailian-token-plan-personal", "qwen"],
+} as const satisfies ProviderDefinition<"qwen">;

@@ -1,11 +1,19 @@
-import { Result } from "effect";
+import { Effect, Redacted, Result } from "effect";
 
-import { credentialValue } from "@/config-schema.ts";
-import { MissingProviderCredentialsError } from "@/errors.ts";
+import { syntheticProviderConfigSchema } from "@/config-schema.ts";
+import {
+  MissingProviderCredentialsError,
+  ProviderResponseDecodeError,
+} from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
+import { ProviderClock } from "@/providers/runtime/clock.ts";
+import { ProviderEnvironment } from "@/providers/runtime/environment.ts";
+import { ProviderFileSystem } from "@/providers/runtime/filesystem.ts";
+import { ProviderHttpClient } from "@/providers/runtime/http.ts";
+import { ProviderRuntimeLive } from "@/providers/runtime/index.ts";
 import type {
   OpenCodeAuth,
-  ProviderConfig,
+  SyntheticProviderConfig,
   ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
@@ -17,13 +25,10 @@ import {
   percentageQuota,
   resetInstantOrNull,
 } from "@/usage.ts";
-import {
-  fetchJson,
-  isRecord,
-  readJsonFile,
-  resolveEnvReference,
-} from "@/utils.ts";
+import { isRecord } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
+
+/* eslint-disable no-shadow, require-await, unicorn/no-useless-undefined */
 
 /** Default Synthetic API base URL. */
 const DEFAULT_SYNTHETIC_BASE_URL = "https://api.synthetic.new";
@@ -47,27 +52,30 @@ const countQuotaWhenIntegral = (
  * @param value - Unknown auth payload to inspect.
  * @returns The first recognized API key.
  */
-const keyFromSyntheticAuth = (value: unknown): string | undefined => {
+const keyFromSyntheticAuth = (
+  value: unknown,
+  credential: (value: unknown) => Redacted.Redacted<string> | undefined
+): Redacted.Redacted<string> | undefined => {
   if (!isRecord(value)) {
     return undefined;
   }
 
-  const directKey = credentialValue(value.key);
+  const directKey = credential(value.key);
   if (directKey) {
     return directKey;
   }
 
-  const directApiKey = credentialValue(value.apiKey);
+  const directApiKey = credential(value.apiKey);
   if (directApiKey) {
     return directApiKey;
   }
 
   if (isRecord(value.synthetic)) {
-    const key = credentialValue(value.synthetic.key);
+    const key = credential(value.synthetic.key);
     if (key) {
       return key;
     }
-    const apiKey = credentialValue(value.synthetic.apiKey);
+    const apiKey = credential(value.synthetic.apiKey);
     if (apiKey) {
       return apiKey;
     }
@@ -85,18 +93,25 @@ const keyFromSyntheticAuth = (value: unknown): string | undefined => {
  * @param authPath - Optional auth file path.
  * @returns A Synthetic API key when the file exists and contains one.
  */
-const readSyntheticAuthPathKey = async (
+const readSyntheticAuthPathKey = (
   authPath: string | undefined
-): Promise<string | undefined> => {
+): Effect.Effect<
+  Redacted.Redacted<string> | undefined,
+  never,
+  ProviderEnvironment | ProviderFileSystem
+> => {
   if (!authPath) {
-    return undefined;
+    return Effect.succeed(undefined);
   }
-
-  try {
-    return keyFromSyntheticAuth(await readJsonFile(authPath));
-  } catch {
-    return undefined;
-  }
+  return Effect.gen(function* readSyntheticAuthPathKey() {
+    const files = yield* ProviderFileSystem;
+    const environment = yield* ProviderEnvironment;
+    const auth = yield* files.readJson({
+      path: authPath,
+      providerID: "synthetic",
+    });
+    return keyFromSyntheticAuth(auth, environment.credential);
+  }).pipe(Effect.catchCause(() => Effect.succeed(undefined)));
 };
 
 /**
@@ -246,70 +261,98 @@ const syntheticWeeklyWindow = (
  * @returns Normalized Synthetic usage data.
  * @throws {Error} When no API key is available or the provider response is invalid.
  */
-export const fetchSyntheticUsage = async (
-  config: ProviderConfig | undefined,
+const fetchSyntheticUsageEffect = (
+  config: SyntheticProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-): Promise<ProviderUsage<"synthetic">> => {
-  const configuredKey = resolveEnvReference(credentialValue(config?.apiKey));
-  const apiKey =
-    (await readSyntheticAuthPathKey(config?.authPath)) ??
-    keyFromSyntheticAuth(openCodeAuth) ??
-    configuredKey;
-  if (!apiKey) {
-    throw new MissingProviderCredentialsError({
-      operation: "fetch-usage",
-      providerID: "synthetic",
-    });
-  }
+): ReturnType<ProviderDefinition<"synthetic">["fetch"]> =>
+  Effect.gen(function* fetchSyntheticUsageEffect() {
+    const environment = yield* ProviderEnvironment;
+    const http = yield* ProviderHttpClient;
+    const clock = yield* ProviderClock;
+    const baseUrl = resolveHttpsBaseUrl(
+      config?.baseUrl,
+      DEFAULT_SYNTHETIC_BASE_URL
+    );
+    const isOfficialHost = new URL(baseUrl).hostname === "api.synthetic.new";
+    const configuredKey = environment.resolveCredential(config?.apiKey);
+    const configuredFileKey = yield* readSyntheticAuthPathKey(config?.authPath);
+    const apiKey = isOfficialHost
+      ? (configuredFileKey ??
+        keyFromSyntheticAuth(openCodeAuth, environment.credential) ??
+        configuredKey)
+      : (configuredFileKey ?? configuredKey);
+    if (!apiKey) {
+      return yield* new MissingProviderCredentialsError({
+        operation: "fetch-usage",
+        providerID: "synthetic",
+      });
+    }
 
-  const baseUrl = resolveHttpsBaseUrl(
-    config?.baseUrl,
-    DEFAULT_SYNTHETIC_BASE_URL
-  );
-  const payload = await fetchJson(
-    `${baseUrl}/v2/quotas`,
-    {
+    const payload = yield* http.requestJson({
       headers: {
         Accept: "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${Redacted.value(apiKey)}`,
       },
       method: "GET",
-    },
-    timeoutMs
+      providerID: "synthetic",
+      timeoutMs,
+      url: `${baseUrl}/v2/quotas`,
+    });
+
+    if (!isRecord(payload)) {
+      return yield* new ProviderResponseDecodeError({
+        cause: "schema",
+        operation: "decode-response",
+        providerID: "synthetic",
+      });
+    }
+
+    const windows: UsageWindow[] = [];
+    const fiveHour = syntheticFiveHourWindow(payload);
+    if (fiveHour) {
+      windows.push(fiveHour);
+    }
+    const weekly = syntheticWeeklyWindow(payload);
+    if (weekly) {
+      windows.push(weekly);
+    }
+
+    if (!fiveHour) {
+      return yield* new ProviderResponseDecodeError({
+        cause: "schema",
+        operation: "decode-response",
+        providerID: "synthetic",
+      });
+    }
+
+    return {
+      capturedAt: yield* clock.now,
+      id: "synthetic",
+      label: config?.label ?? "Synthetic",
+      windows,
+    };
+  });
+
+/** Stable Promise export for direct consumers of the provider adapter. */
+export const fetchSyntheticUsage = async (
+  config: SyntheticProviderConfig | undefined,
+  openCodeAuth: OpenCodeAuth,
+  timeoutMs: number
+): Promise<ProviderUsage<"synthetic">> =>
+  Effect.runPromise(
+    fetchSyntheticUsageEffect(config, openCodeAuth, timeoutMs).pipe(
+      Effect.provide(ProviderRuntimeLive)
+    )
   );
-
-  if (!isRecord(payload)) {
-    throw new Error("invalid Synthetic usage");
-  }
-
-  const windows: UsageWindow[] = [];
-  const fiveHour = syntheticFiveHourWindow(payload);
-  if (fiveHour) {
-    windows.push(fiveHour);
-  }
-  const weekly = syntheticWeeklyWindow(payload);
-  if (weekly) {
-    windows.push(weekly);
-  }
-
-  if (windows.length === 0) {
-    throw new Error("invalid Synthetic usage");
-  }
-
-  return {
-    capturedAt: new Date(),
-    id: "synthetic",
-    label: config?.label ?? "Synthetic",
-    windows,
-  };
-};
 
 /** Plugin registration for the Synthetic provider adapter. */
 export const syntheticProvider = {
+  capabilities: { customBaseUrl: true, transport: "http" },
+  configSchema: syntheticProviderConfigSchema,
   defaultLabel: "Synthetic",
-  fetch: fetchSyntheticUsage,
-  footerWindowLabel: "5h",
+  fetch: fetchSyntheticUsageEffect,
+  footerWindowKind: "rolling",
   id: "synthetic",
-  openCodeProviderIDs: [],
+  openCodeProviderIDs: ["synthetic"],
 } as const satisfies ProviderDefinition<"synthetic">;

@@ -72,26 +72,64 @@ export type ProviderState =
       previous?: ProviderUsage;
     };
 
-/** Provider-specific configuration loaded from `usage-limits.jsonc`. */
-export interface ProviderConfig {
+/** Configuration fields shared by every provider. */
+interface CommonProviderConfig {
   /** Whether this provider should be fetched and displayed. */
   readonly enabled?: boolean;
   /** Optional provider display label override. */
   readonly label?: string;
-  /** Optional path to a provider auth file. Supports a leading `~`. */
+}
+
+/** Codex provider configuration. */
+export interface CodexProviderConfig extends CommonProviderConfig {
+  /** Optional path to a Codex auth file. Supports a leading `~`. */
   readonly authPath?: string;
-  /** Literal API key or `{env:NAME}` reference for providers that support it. */
+  /** Optional API base URL override for explicitly configured auth files. */
+  readonly baseUrl?: string;
   readonly apiKey?: Credential;
-  /** How the API key should be placed in the `Authorization` header. */
   readonly authorizationScheme?: "raw" | "bearer";
-  /** Optional API base URL override, primarily for testing or compatible APIs. */
+}
+
+/** ZAI provider configuration. */
+export interface ZaiProviderConfig extends CommonProviderConfig {
+  readonly apiKey?: Credential;
+  readonly authPath?: string;
+  readonly authorizationScheme?: "raw" | "bearer";
+}
+
+/** Synthetic provider configuration. */
+export interface SyntheticProviderConfig extends CommonProviderConfig {
+  readonly apiKey?: Credential;
+  readonly authPath?: string;
   readonly baseUrl?: string;
 }
+
+/** MiniMax provider configuration. */
+export interface MiniMaxProviderConfig extends CommonProviderConfig {
+  readonly apiKey?: Credential;
+  readonly authPath?: string;
+  readonly baseUrl?: string;
+}
+
+/** Qwen provider configuration. */
+export type QwenProviderConfig = CommonProviderConfig;
+
+/** Provider configuration indexed by literal provider ID. */
+export interface ProviderConfigMap {
+  readonly codex: CodexProviderConfig;
+  readonly minimax: MiniMaxProviderConfig;
+  readonly qwen: QwenProviderConfig;
+  readonly synthetic: SyntheticProviderConfig;
+  readonly zai: ZaiProviderConfig;
+}
+
+/** Any provider-specific configuration. */
+export type ProviderConfig = ProviderConfigMap[ProviderID];
 
 /** Fully resolved plugin configuration returned by the config parser. */
 export interface ResolvedUsageLimitsConfig {
   readonly enabled: boolean;
-  readonly providers: Readonly<Partial<Record<ProviderID, ProviderConfig>>>;
+  readonly providers: Readonly<Partial<ProviderConfigMap>>;
   readonly refreshIntervalSeconds: number;
   readonly requestTimeoutMs: number;
   readonly showErrors: boolean;

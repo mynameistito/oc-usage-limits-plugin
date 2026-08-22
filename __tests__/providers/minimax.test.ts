@@ -461,17 +461,9 @@ describe("MiniMax provider", () => {
         )
       );
 
-      const usage = await fetchMiniMaxTokenPlanUsage(
-        { apiKey: "mm-key" },
-        {},
-        1000
-      );
-
-      expect(usage.windows).toHaveLength(1);
-      expect(usage.windows[0]).toMatchObject({
-        label: "weekly",
-        quota: { remainingPercent: 80, usedPercent: 20 },
-      });
+      await expect(
+        fetchMiniMaxTokenPlanUsage({ apiKey: "mm-key" }, {}, 1000)
+      ).rejects.toThrow("invalid MiniMax usage");
     });
 
     test("non-general entry fallback", async () => {
