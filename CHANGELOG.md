@@ -1,5 +1,16 @@
 # oc-usage-limits-plugin
 
+## 1.4.0
+
+### Minor Changes
+
+- b48a34e: Add OpenCode GO usage limits as a provider.
+
+### Patch Changes
+
+- 42bc8b9: Fix partial provider auth reads and cancel oversized HTTP responses
+- f010871: Support Bun 1.4 and refresh all compatible dependencies. Effect remains on 4.0.0-beta.83 because the current OpenCode plugin requires that Effect v4 beta API.
+
 ## 1.3.1
 
 ### Patch Changes
