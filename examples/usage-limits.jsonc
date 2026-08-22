@@ -25,5 +25,9 @@
       "label": "MiniMax",
       "apiKey": "{env:OC_MINIMAX_TOKEN_PLAN_KEY}", // Optional fallback when OpenCode auth has no MiniMax key
     },
+    "qwen": {
+      "enabled": false,
+      "label": "Qwen",
+    },
   },
 }

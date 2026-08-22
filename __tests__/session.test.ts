@@ -108,4 +108,23 @@ describe("session helpers", () => {
       )
     ).toBeNull();
   });
+
+  test("retains the documented first-provider fallback when the session provider is unavailable", () => {
+    const states: ProviderState[] = [
+      {
+        data: {
+          capturedAt: new Date(),
+          id: "codex",
+          label: "Codex",
+          windows: [window("5h")],
+        },
+        id: "codex",
+        label: "Codex",
+        stale: false,
+        status: "ready",
+      },
+    ];
+
+    expect(usageForProvider(states, "anthropic")?.label).toBe("5h");
+  });
 });

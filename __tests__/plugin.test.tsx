@@ -9,9 +9,10 @@ import type {
 import { RGBA } from "@opentui/core";
 import { testRender } from "@opentui/solid";
 import type { JSX } from "@opentui/solid";
-import { Result } from "effect";
+import { Deferred, Effect, Result } from "effect";
 
 import { ConfigDecodeError } from "@/errors.ts";
+import type { ProviderError } from "@/errors.ts";
 import { createUsageLimitsTui } from "@/plugin.tsx";
 import type { UsageLimitsTuiDependencies } from "@/plugin.tsx";
 import type {
@@ -102,9 +103,9 @@ const createHarness = (initialConfig = config()) => {
     ) => {
       fetches.push(id);
       if (state.fetchError) {
-        return Promise.reject(state.fetchError);
+        return Effect.fail(state.fetchError as ProviderError);
       }
-      return Promise.resolve(usage(id));
+      return Effect.succeed(usage(id));
     },
     loadConfig: () =>
       Promise.resolve(
@@ -114,13 +115,23 @@ const createHarness = (initialConfig = config()) => {
       ),
     loadOpenCodeAuth: () => Promise.resolve(auth),
     now: () => NOW,
-    schedule: (callback, delayMs) => {
-      const scheduledRefresh = { callback, cancelled: false, delayMs };
-      scheduled.push(scheduledRefresh);
-      return () => {
-        scheduledRefresh.cancelled = true;
-      };
-    },
+    sleep: (delayMs) =>
+      Effect.gen(function* sleep() {
+        const deferred = yield* Deferred.make<boolean>();
+        const scheduledRefresh: ScheduledRefresh = {
+          callback: () =>
+            Effect.runPromise(Deferred.succeed(deferred, true)).then(() => {}),
+          cancelled: false,
+          delayMs,
+        };
+        scheduled.push(scheduledRefresh);
+        yield* Effect.ensuring(
+          Deferred.await(deferred).pipe(Effect.asVoid),
+          Effect.sync(() => {
+            scheduledRefresh.cancelled = true;
+          })
+        );
+      }),
   };
 
   const partialApi = {
@@ -183,6 +194,7 @@ const initialize = async (harness: ReturnType<typeof createHarness>) => {
     // SAFETY: Plugin metadata is not read by this plugin.
     {} as Parameters<ReturnType<typeof createUsageLimitsTui>>[2]
   );
+  await Bun.sleep(0);
   const registered = harness.getRegistered();
   if (!registered) {
     throw new Error("plugin did not register slots");
@@ -215,6 +227,7 @@ describe("usage-limits TUI lifecycle", () => {
     harness.state.fetchError = new Error("provider unavailable");
 
     await harness.scheduled[0]?.callback();
+    await Bun.sleep(0);
 
     const sidebar = await renderSlot(registered, "sidebar_content");
     expect(sidebar).toContain("Codex Work cached");
@@ -258,6 +271,7 @@ describe("usage-limits TUI lifecycle", () => {
     harness.state.config = config({ refreshIntervalSeconds: 45 });
 
     await harness.scheduled[0]?.callback();
+    await Bun.sleep(0);
 
     expect(harness.scheduled.map(({ delayMs }) => delayMs)).toEqual([
       20_000, 45_000,
