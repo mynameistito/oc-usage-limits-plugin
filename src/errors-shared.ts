@@ -6,11 +6,13 @@ export const ProviderIDSchema = Schema.Literals([
   "synthetic",
   "minimax",
   "qwen",
+  "opencode-go",
 ]);
 
 export const credentialMessages = {
   codex: "missing Codex auth",
   minimax: "missing MiniMax key",
+  "opencode-go": "missing OpenCode GO key",
   qwen: "missing Qwen credentials",
   synthetic: "missing Synthetic key",
   zai: "missing ZAI key",

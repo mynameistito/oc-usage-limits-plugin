@@ -14,6 +14,7 @@ export class ProviderResponseDecodeError extends Schema.TaggedErrorClass<Provide
     const labels = {
       codex: "Codex",
       minimax: "MiniMax",
+      "opencode-go": "OpenCode GO",
       qwen: "Qwen",
       synthetic: "Synthetic",
       zai: "ZAI",

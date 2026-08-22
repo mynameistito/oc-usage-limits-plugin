@@ -1,5 +1,6 @@
 import { codexProvider } from "@/providers/codex.ts";
 import { minimaxProvider } from "@/providers/minimax.ts";
+import { openCodeGoProvider } from "@/providers/opencode-go.ts";
 import { qwenProvider } from "@/providers/qwen.ts";
 import { syntheticProvider } from "@/providers/synthetic.ts";
 import { zaiProvider } from "@/providers/zai-coding-plan.ts";
@@ -12,6 +13,7 @@ export const PROVIDER_MANIFEST = [
   syntheticProvider,
   minimaxProvider,
   qwenProvider,
+  openCodeGoProvider,
 ] as const;
 
 /** Sidebar display order derived from the provider manifest. */
