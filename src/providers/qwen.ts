@@ -23,10 +23,18 @@ import {
 } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
 
-/* eslint-disable no-shadow, no-await-expression-member, require-await */
-
 /** Default CLI command used when no override is configured. */
 const DEFAULT_CLI = "qwencloud";
+
+const safeCommandCause = (error: unknown): Error => {
+  const record = isRecord(error) ? error : {};
+  const { code } = record;
+  const suffix =
+    typeof code === "number" || typeof code === "string"
+      ? `exit code ${code}`
+      : "failed";
+  return new Error(`qwencloud CLI ${suffix}`);
+};
 
 /** Legacy injectable Qwen command boundary retained for direct consumers. */
 export type QwenCommandRunner = (
@@ -172,7 +180,7 @@ const fetchQwenTokenPlanUsage = (
   _openCodeAuth: OpenCodeAuth,
   timeoutMs: number
 ): ReturnType<ProviderDefinition<"qwen">["fetch"]> =>
-  Effect.gen(function* fetchQwenTokenPlanUsage() {
+  Effect.gen(function* runFetchQwenTokenPlanUsage() {
     const commands = yield* ProviderCommandExecutor;
     const clock = yield* ProviderClock;
     const authRaw = yield* commands.execute({
@@ -242,9 +250,12 @@ export const createQwenProvider = (dependencies: QwenProviderDependencies) => ({
       allowNonZero = false
     ): Promise<string> => {
       try {
-        return (
-          await dependencies.commandRunner(DEFAULT_CLI, args, timeoutMs)
-        ).trim();
+        const output = await dependencies.commandRunner(
+          DEFAULT_CLI,
+          args,
+          timeoutMs
+        );
+        return output.trim();
       } catch (error) {
         const record = isRecord(error) ? error : {};
         const { code } = record;
@@ -253,16 +264,16 @@ export const createQwenProvider = (dependencies: QwenProviderDependencies) => ({
         if (allowNonZero && stdout && typeof code === "number" && code !== 0) {
           return stdout;
         }
-        const suffix =
-          typeof code === "number" ? `exit code ${code}` : "failed";
-        throw new Error(`qwencloud CLI ${suffix}`, { cause: error });
+        throw safeCommandCause(error);
       }
     };
     let authRaw: string;
     try {
       authRaw = await run(["auth", "status", "--format", "json"], true);
-    } catch {
-      throw new Error("qwencloud CLI not available (qwencloud CLI failed)");
+    } catch (error) {
+      throw new Error("qwencloud CLI not available (qwencloud CLI failed)", {
+        cause: error,
+      });
     }
     const auth = parseAuthStatus(authRaw);
     if (!auth) {
@@ -274,8 +285,9 @@ export const createQwenProvider = (dependencies: QwenProviderDependencies) => ({
       usageRaw = await run(["usage", "summary", "--format", "json"]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "failed";
-      // eslint-disable-next-line preserve-caught-error -- Keep subprocess diagnostics out of user-facing errors.
-      throw new Error(`qwencloud usage query failed (${message})`);
+      throw new Error(`qwencloud usage query failed (${message})`, {
+        cause: error,
+      });
     }
     const tokenPlan = parseTokenPlan(usageRaw);
     if (!tokenPlan.subscribed) {

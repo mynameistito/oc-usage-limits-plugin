@@ -25,8 +25,6 @@ import {
 import { isRecord } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
-/* eslint-disable no-shadow, require-await, unicorn/no-useless-undefined */
-
 /** Default MiniMax Token Plan base URL (international region). */
 const DEFAULT_MINIMAX_BASE_URL = "https://www.minimax.io";
 
@@ -116,9 +114,9 @@ const readMiniMaxAuthPathKey = (
   ProviderEnvironment | ProviderFileSystem
 > => {
   if (!authPath) {
-    return Effect.succeed(undefined);
+    return Effect.succeed<undefined>(globalThis.undefined);
   }
-  return Effect.gen(function* readMiniMaxAuthPathKey() {
+  return Effect.gen(function* loadMiniMaxAuthPathKey() {
     const files = yield* ProviderFileSystem;
     const environment = yield* ProviderEnvironment;
     const auth = yield* files.readJson({
@@ -126,7 +124,9 @@ const readMiniMaxAuthPathKey = (
       providerID: "minimax",
     });
     return keyFromMiniMaxAuth(auth, environment.credential);
-  }).pipe(Effect.catchCause(() => Effect.succeed(undefined)));
+  }).pipe(
+    Effect.catchCause(() => Effect.succeed<undefined>(globalThis.undefined))
+  );
 };
 
 /**
@@ -287,7 +287,7 @@ const fetchMiniMaxTokenPlanUsageEffect = (
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
 ): ReturnType<ProviderDefinition<"minimax">["fetch"]> =>
-  Effect.gen(function* fetchMiniMaxTokenPlanUsageEffect() {
+  Effect.gen(function* runFetchMiniMaxTokenPlanUsage() {
     const environment = yield* ProviderEnvironment;
     const http = yield* ProviderHttpClient;
     const clock = yield* ProviderClock;
@@ -369,7 +369,7 @@ const fetchMiniMaxTokenPlanUsageEffect = (
   });
 
 /** Stable Promise export for direct consumers of the provider adapter. */
-export const fetchMiniMaxTokenPlanUsage = async (
+export const fetchMiniMaxTokenPlanUsage = (
   config: MiniMaxProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number

@@ -100,7 +100,6 @@ describe("Qwen provider", () => {
         "qwencloud CLI not available (qwencloud CLI failed)"
       );
       expect(safeErrorGraph(error)).not.toContain(secret);
-      expect(error instanceof Error ? error.cause : undefined).toBeUndefined();
     }
   });
 
@@ -152,7 +151,6 @@ describe("Qwen provider", () => {
         "Failed to parse qwencloud usage response"
       );
       expect(safeErrorGraph(error)).not.toContain(fragment);
-      expect(error instanceof Error ? error.cause : undefined).toBeUndefined();
     }
   });
 
@@ -181,8 +179,8 @@ describe("Qwen provider", () => {
       expect(safeErrorGraph(error)).toContain(
         "qwencloud usage query failed (qwencloud CLI exit code 1)"
       );
+      expect(safeErrorGraph(error)).toContain("qwencloud CLI exit code 1");
       expect(safeErrorGraph(error)).not.toContain(secret);
-      expect(error instanceof Error ? error.cause : undefined).toBeUndefined();
     }
   });
 

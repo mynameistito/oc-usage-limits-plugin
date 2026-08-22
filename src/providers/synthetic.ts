@@ -28,8 +28,6 @@ import {
 import { isRecord } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
-/* eslint-disable no-shadow, require-await, unicorn/no-useless-undefined */
-
 /** Default Synthetic API base URL. */
 const DEFAULT_SYNTHETIC_BASE_URL = "https://api.synthetic.new";
 
@@ -101,9 +99,9 @@ const readSyntheticAuthPathKey = (
   ProviderEnvironment | ProviderFileSystem
 > => {
   if (!authPath) {
-    return Effect.succeed(undefined);
+    return Effect.succeed<undefined>(globalThis.undefined);
   }
-  return Effect.gen(function* readSyntheticAuthPathKey() {
+  return Effect.gen(function* loadSyntheticAuthPathKey() {
     const files = yield* ProviderFileSystem;
     const environment = yield* ProviderEnvironment;
     const auth = yield* files.readJson({
@@ -111,7 +109,9 @@ const readSyntheticAuthPathKey = (
       providerID: "synthetic",
     });
     return keyFromSyntheticAuth(auth, environment.credential);
-  }).pipe(Effect.catchCause(() => Effect.succeed(undefined)));
+  }).pipe(
+    Effect.catchCause(() => Effect.succeed<undefined>(globalThis.undefined))
+  );
 };
 
 /**
@@ -266,7 +266,7 @@ const fetchSyntheticUsageEffect = (
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
 ): ReturnType<ProviderDefinition<"synthetic">["fetch"]> =>
-  Effect.gen(function* fetchSyntheticUsageEffect() {
+  Effect.gen(function* runFetchSyntheticUsage() {
     const environment = yield* ProviderEnvironment;
     const http = yield* ProviderHttpClient;
     const clock = yield* ProviderClock;
@@ -335,7 +335,7 @@ const fetchSyntheticUsageEffect = (
   });
 
 /** Stable Promise export for direct consumers of the provider adapter. */
-export const fetchSyntheticUsage = async (
+export const fetchSyntheticUsage = (
   config: SyntheticProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
