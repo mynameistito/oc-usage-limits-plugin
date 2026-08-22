@@ -1,11 +1,6 @@
 /* @jsxImportSource @opentui/solid */
 import { describe, expect, test } from "bun:test";
 
-import type {
-  TuiDispose,
-  TuiPluginApi,
-  TuiSlotContext,
-} from "@opencode-ai/plugin/tui";
 import { RGBA } from "@opentui/core";
 import { testRender } from "@opentui/solid";
 import type { JSX } from "@opentui/solid";
@@ -13,8 +8,11 @@ import { Deferred, Effect, Result } from "effect";
 
 import { ConfigDecodeError } from "@/errors.ts";
 import type { ProviderError } from "@/errors.ts";
-import { createUsageLimitsTui } from "@/plugin.tsx";
-import type { UsageLimitsTuiDependencies } from "@/plugin.tsx";
+import { createUsageLimitsPlugin } from "@/plugin.tsx";
+import type {
+  UsageLimitsSlotContext,
+  UsageLimitsTuiDependencies,
+} from "@/plugin.tsx";
 import type {
   OpenCodeAuth,
   ProviderConfig,
@@ -35,21 +33,12 @@ const context = {
       { get: (target, key) => Reflect.get(target, key) ?? color }
     ),
   },
-} as TuiSlotContext;
+};
 
-interface CharacterizedSlots {
-  order?: number;
-  slots: {
-    session_prompt_right: (
-      context: TuiSlotContext,
-      props: { session_id: string }
-    ) => JSX.Element;
-    sidebar_content: (
-      context: TuiSlotContext,
-      props: { session_id: string }
-    ) => JSX.Element;
-  };
-}
+type CharacterizedSlots = Record<
+  "sidebar.content" | "prompt.footer.status",
+  (context: UsageLimitsSlotContext) => JSX.Element
+>;
 
 interface ScheduledRefresh {
   callback: () => Promise<void>;
@@ -91,8 +80,9 @@ const createHarness = (initialConfig = config()) => {
     configError: ConfigDecodeError | null;
     fetchError: Error | null;
   } = { config: initialConfig, configError: null, fetchError: null };
-  let dispose: TuiDispose | undefined;
-  let registered: CharacterizedSlots | undefined;
+  let dispose: (() => void) | undefined;
+  let slotDisposals = 0;
+  let registered: Partial<CharacterizedSlots> | undefined;
 
   const dependencies: UsageLimitsTuiDependencies = {
     fetchProvider: <ID extends ProviderID>(
@@ -136,37 +126,33 @@ const createHarness = (initialConfig = config()) => {
   };
 
   const partialApi = {
+    data: { session: { message: { list: () => [{ providerID: "openai" }] } } },
     lifecycle: {
-      onDispose: (...args: [TuiDispose]) => {
-        const [callback] = args;
-        dispose = callback;
+      onDispose: (cleanup: () => void) => {
+        dispose = cleanup;
+      },
+    },
+    ui: {
+      slot: (
+        name: "sidebar.content" | "prompt.footer.status",
+        render: CharacterizedSlots[typeof name]
+      ) => {
+        registered = { ...registered, [name]: render };
         return () => {
-          dispose = undefined;
+          slotDisposals += 1;
         };
       },
-      signal: new AbortController().signal,
-    },
-    slots: {
-      register: (plugin: CharacterizedSlots) => {
-        registered = plugin;
-        return "usage-limits-test";
-      },
-    },
-    state: {
-      session: { messages: () => [{ providerID: "openai" }] },
     },
   };
 
-  // SAFETY: The plugin only reads lifecycle, slots, and session.messages from
-  // this focused test adapter; each used member has the production API shape.
-  const api = partialApi as unknown as TuiPluginApi;
-
+  // SAFETY: The adapter implements the focused v2 host seam used by this test.
   return {
-    api,
+    context: partialApi,
     dependencies,
     fetches,
     getDispose: () => dispose,
     getRegistered: () => registered,
+    getSlotDisposals: () => slotDisposals,
     scheduled,
     state,
   };
@@ -174,10 +160,10 @@ const createHarness = (initialConfig = config()) => {
 
 const renderSlot = async (
   registered: CharacterizedSlots,
-  name: "session_prompt_right" | "sidebar_content"
+  name: "prompt.footer.status" | "sidebar.content"
 ): Promise<string> => {
   const setup = await testRender(
-    () => registered.slots[name](context, { session_id: "session-1" }),
+    () => registered[name](context as unknown as UsageLimitsSlotContext),
     { height: 12, width: 80 }
   );
   try {
@@ -189,18 +175,16 @@ const renderSlot = async (
 };
 
 const initialize = async (harness: ReturnType<typeof createHarness>) => {
-  await createUsageLimitsTui(harness.dependencies)(
-    harness.api,
-    undefined,
-    // SAFETY: Plugin metadata is not read by this plugin.
-    {} as Parameters<ReturnType<typeof createUsageLimitsTui>>[2]
-  );
+  createUsageLimitsPlugin(harness.dependencies)(harness.context);
   await Bun.sleep(0);
   const registered = harness.getRegistered();
   if (!registered) {
     throw new Error("plugin did not register slots");
   }
-  return registered;
+  if (!registered["sidebar.content"] || !registered["prompt.footer.status"]) {
+    throw new Error("plugin did not register both slots");
+  }
+  return registered as CharacterizedSlots;
 };
 
 describe("usage-limits TUI lifecycle", () => {
@@ -208,16 +192,15 @@ describe("usage-limits TUI lifecycle", () => {
     const harness = createHarness();
     const registered = await initialize(harness);
 
-    expect(registered.order).toBe(101);
     expect(harness.fetches).toEqual(["codex"]);
     expect(harness.scheduled[0]?.delayMs).toBe(20_000);
-    expect(await renderSlot(registered, "sidebar_content")).toContain(
+    expect(await renderSlot(registered, "sidebar.content")).toContain(
       "Codex Work"
     );
-    expect(await renderSlot(registered, "sidebar_content")).toContain(
+    expect(await renderSlot(registered, "sidebar.content")).toContain(
       "Updated 12:34"
     );
-    expect(await renderSlot(registered, "session_prompt_right")).toContain(
+    expect(await renderSlot(registered, "prompt.footer.status")).toContain(
       "42%"
     );
   });
@@ -230,10 +213,10 @@ describe("usage-limits TUI lifecycle", () => {
     await harness.scheduled[0]?.callback();
     await Bun.sleep(0);
 
-    const sidebar = await renderSlot(registered, "sidebar_content");
+    const sidebar = await renderSlot(registered, "sidebar.content");
     expect(sidebar).toContain("Codex Work cached");
     expect(sidebar).toContain("provider unavailable");
-    expect(await renderSlot(registered, "session_prompt_right")).toContain(
+    expect(await renderSlot(registered, "prompt.footer.status")).toContain(
       "42%"
     );
   });
@@ -243,10 +226,10 @@ describe("usage-limits TUI lifecycle", () => {
     const registered = await initialize(harness);
 
     expect(harness.fetches).toEqual([]);
-    expect(await renderSlot(registered, "sidebar_content")).not.toContain(
+    expect(await renderSlot(registered, "sidebar.content")).not.toContain(
       "Usage Limits"
     );
-    expect(await renderSlot(registered, "session_prompt_right")).not.toContain(
+    expect(await renderSlot(registered, "prompt.footer.status")).not.toContain(
       "%"
     );
   });
@@ -261,7 +244,7 @@ describe("usage-limits TUI lifecycle", () => {
 
     expect(harness.fetches).toEqual([]);
     expect(harness.scheduled[0]?.delayMs).toBe(60_000);
-    expect(await renderSlot(registered, "sidebar_content")).not.toContain(
+    expect(await renderSlot(registered, "sidebar.content")).not.toContain(
       "Usage Limits"
     );
   });
@@ -287,9 +270,11 @@ describe("usage-limits TUI lifecycle", () => {
       throw new Error("plugin did not register disposal");
     }
 
-    await dispose();
+    dispose();
+    await Bun.sleep(0);
 
     expect(harness.scheduled[0]?.cancelled).toBe(true);
+    expect(harness.getSlotDisposals()).toBe(2);
     expect(harness.fetches).toEqual(["codex"]);
   });
 });
