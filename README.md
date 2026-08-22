@@ -17,7 +17,7 @@ OpenCode TUI plugin that shows Codex, OpenCode GO, ZAI, Synthetic, MiniMax Token
 
 ## Install
 
-Install globally with the OpenCode CLI:
+Standard OpenCode uses the stable package from npm's `latest` dist-tag. Install it globally with:
 
 ```bash
 opencode plugin oc-usage-limits-plugin -g
@@ -27,7 +27,15 @@ opencode plugin oc-usage-limits-plugin -g
 - Without `-g`, installs locally to `<project>/.opencode/tui.json` (requires a git worktree).
 - `--force` replaces an existing pinned version.
 
-The CLI installs the package and updates the TUI plugin config for you.
+The CLI installs the `latest` package and updates the TUI plugin config for you. The package entrypoint is `oc-usage-limits-plugin/tui`.
+
+OpenCode v2 uses the preview package from npm's `next` dist-tag. Install it globally with OpenCode v2 only:
+
+```bash
+opencode plugin oc-usage-limits-plugin@next -g
+```
+
+The v2 package is built and released from the `opencode-v2` branch. It is preview/beta software until validation against the v2 host is complete. Do not use `@next` with standard OpenCode, and do not use the stable package with OpenCode v2.
 
 To configure it manually instead, add the plugin to `~/.config/opencode/tui.json`:
 
@@ -46,7 +54,9 @@ Restart OpenCode after changing TUI plugin config.
 
 #### Reinstall or refresh the cached plugin
 
-If the plugin is stale, broken, or needs a clean reinstall, quit OpenCode and remove its cached package.
+If the plugin is stale, broken, or needs a clean reinstall, quit OpenCode and remove the cache for the lane you installed. OpenCode caches immutable package versions, so clearing the cache is required when a `tui.json` entry still resolves to an older version.
+
+For standard OpenCode (`@latest`):
 
 PowerShell:
 
@@ -60,6 +70,20 @@ macOS/Linux:
 rm -rf ~/.cache/opencode/packages/oc-usage-limits-plugin@latest
 ```
 
+For OpenCode v2 (`@next`):
+
+PowerShell:
+
+```powershell
+Remove-Item -LiteralPath "$HOME\.cache\opencode\packages\oc-usage-limits-plugin@next" -Recurse -Force
+```
+
+macOS/Linux:
+
+```bash
+rm -rf ~/.cache/opencode/packages/oc-usage-limits-plugin@next
+```
+
 Start OpenCode again and it will reinstall the plugin from the existing `tui.json` entry. If the plugin is no longer configured, run the install command again:
 
 ```bash
@@ -68,6 +92,14 @@ opencode plugin oc-usage-limits-plugin -g
 
 - **Dependency conflicts involving `@opencode-ai/plugin`** usually mean OpenCode's package cache contains an older plugin API package. Update OpenCode, clear the cached plugin as above, then retry the install. This package does not publish OpenCode runtime packages as peer dependencies.
 - **`No versions available`** right after a release means a supply-chain cooldown policy (e.g. `min-release-age`) is blocking the fresh version. Wait for the cooldown window to pass, or install a previously vetted version instead.
+
+## Release Lanes
+
+- Stable releases come from `main`, use the `latest` npm dist-tag, and are intended for standard OpenCode.
+- OpenCode v2 previews come from `opencode-v2`, use the `next` npm dist-tag, and are intended only for OpenCode v2.
+- Both lanes use the same package name and `oc-usage-limits-plugin/tui` entrypoint.
+- Releases are staged on npm for manual approval before publication. Stable releases create normal GitHub releases; v2 previews create GitHub prerelease tags/releases.
+- The v2 lane remains preview/beta until the package has been validated against the v2 host.
 
 ## Usage Config
 
