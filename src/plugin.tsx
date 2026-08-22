@@ -1,4 +1,5 @@
 /* @jsxImportSource @opentui/solid */
+import type { TuiThemeCurrent } from "@opencode-ai/plugin/tui";
 import type { JSX } from "@opentui/solid";
 import { Effect, Fiber } from "effect";
 import { createSignal } from "solid-js";
@@ -19,7 +20,7 @@ import type {
 } from "@/types.ts";
 
 export interface UsageLimitsSlotContext {
-  theme: Parameters<typeof UsageLimitsPanel>[0]["theme"];
+  theme: TuiThemeCurrent;
   sessionID?: string;
 }
 
@@ -39,14 +40,11 @@ export interface UsageLimitsPluginContext {
       };
     };
   };
-  lifecycle: {
-    onDispose: (cleanup: () => void) => void;
-  };
 }
 
 export interface UsageLimitsPlugin {
   id: string;
-  setup: (context: UsageLimitsPluginContext) => void;
+  setup: (context: UsageLimitsPluginContext) => () => void;
 }
 
 /** Runtime dependencies used by the usage-limits TUI lifecycle. */
@@ -90,7 +88,7 @@ const productionDependencies: UsageLimitsTuiDependencies = {
  */
 export const createUsageLimitsPlugin =
   (dependencies: UsageLimitsTuiDependencies) =>
-  (context: UsageLimitsPluginContext): void => {
+  (context: UsageLimitsPluginContext): (() => void) => {
     const [states, setStates] = createSignal<ProviderState[]>([]);
     const [showErrors, setShowErrors] = createSignal(true);
     const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);
@@ -129,11 +127,11 @@ export const createUsageLimitsPlugin =
         dependencies.sleep?.(milliseconds) ?? Effect.sleep(milliseconds),
     });
     const fiber = Effect.runFork(Effect.scoped(coordinator));
-    context.lifecycle.onDispose(() => {
+    return () => {
       disposeSidebar();
       disposeFooter();
       Effect.runFork(Fiber.interrupt(fiber));
-    });
+    };
   };
 
 /** OpenCode v2 plugin setup using production runtime dependencies. */

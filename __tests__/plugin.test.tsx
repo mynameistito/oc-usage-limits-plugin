@@ -127,11 +127,6 @@ const createHarness = (initialConfig = config()) => {
 
   const partialApi = {
     data: { session: { message: { list: () => [{ providerID: "openai" }] } } },
-    lifecycle: {
-      onDispose: (cleanup: () => void) => {
-        dispose = cleanup;
-      },
-    },
     ui: {
       slot: (
         name: "sidebar.content" | "prompt.footer.status",
@@ -154,6 +149,9 @@ const createHarness = (initialConfig = config()) => {
     getRegistered: () => registered,
     getSlotDisposals: () => slotDisposals,
     scheduled,
+    setDispose: (cleanup: () => void) => {
+      dispose = cleanup;
+    },
     state,
   };
 };
@@ -175,7 +173,9 @@ const renderSlot = async (
 };
 
 const initialize = async (harness: ReturnType<typeof createHarness>) => {
-  createUsageLimitsPlugin(harness.dependencies)(harness.context);
+  harness.setDispose(
+    createUsageLimitsPlugin(harness.dependencies)(harness.context)
+  );
   await Bun.sleep(0);
   const registered = harness.getRegistered();
   if (!registered) {
