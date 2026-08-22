@@ -192,5 +192,75 @@ jobs:
             --version "$package_version" \
             --dist-tag next
 
-      - name: Publish v2 preview to npm
-        run: npm stage publish --access public --tag next --provenance
+      - name: Stage v2 preview package on npm
+        env:
+          PACKAGE_NAME: oc-usage-limits-plugin
+        run: |
+          package_version=$(node --print "require('./package.json').version")
+          package_spec="$PACKAGE_NAME@$package_version"
+
+          if npm view "$package_spec" version >/dev/null 2>&1; then
+            echo "$package_spec is already published"
+            exit 0
+          fi
+
+          set +e
+          stage_output=$(npm stage publish --access public --tag next --provenance 2>&1)
+          stage_status=$?
+          set -e
+
+          printf '%s\n' "$stage_output"
+
+          if [ "$stage_status" -ne 0 ]; then
+            case "$stage_output" in
+              *"Cannot stage previously published version"*|*"already staged"*)
+                echo "$package_spec is already published or staged"
+                exit 0
+                ;;
+              *)
+                exit "$stage_status"
+                ;;
+            esac
+          fi
+
+      - name: Create v2 GitHub prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE_NAME: oc-usage-limits-plugin
+        run: |
+          package_version=$(node --print "require('./package.json').version")
+          release_tag="v$package_version"
+          export PACKAGE_VERSION="$package_version"
+
+          if gh release view "$release_tag" >/dev/null 2>&1; then
+            echo "GitHub release $release_tag already exists"
+            exit 0
+          fi
+
+          node --input-type=module <<'EOF' > release-notes.md
+          import { readFile } from "node:fs/promises";
+
+          const version = process.env.PACKAGE_VERSION;
+          const fallback = `Release ${process.env.PACKAGE_NAME}@${version}`;
+
+          try {
+            const changelog = await readFile("CHANGELOG.md", "utf8");
+            const heading = `## ${version}`;
+            const start = changelog.indexOf(heading);
+            const bodyStart = start === -1 ? -1 : changelog.indexOf("\n", start) + 1;
+            const nextHeading = bodyStart === -1 ? -1 : changelog.indexOf("\n## ", bodyStart);
+            const notes = bodyStart === -1
+              ? fallback
+              : changelog.slice(bodyStart, nextHeading === -1 ? undefined : nextHeading).trim();
+
+            console.log(notes || fallback);
+          } catch {
+            console.log(fallback);
+          }
+          EOF
+
+          gh release create "$release_tag" \
+            --target "$GITHUB_SHA" \
+            --title "$PACKAGE_NAME@$package_version" \
+            --notes-file release-notes.md \
+            --prerelease
