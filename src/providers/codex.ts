@@ -156,12 +156,7 @@ const fetchCodexUsageEffect = (
       openCodeAuth.openai?.accountId
     );
     const configuredAccess = environment.resolveCredential(config?.apiKey);
-    if (
-      !isOfficialHost &&
-      !config?.authPath &&
-      !configuredAccess &&
-      !(openCodeAccess && openCodeAccountId)
-    ) {
+    if (!isOfficialHost && !config?.authPath && !configuredAccess) {
       return yield* new MissingProviderCredentialsError({
         operation: "fetch-usage",
         providerID: "codex",
@@ -170,18 +165,16 @@ const fetchCodexUsageEffect = (
     const credentials =
       isOfficialHost && openCodeAccess && openCodeAccountId
         ? { access: openCodeAccess, accountId: openCodeAccountId }
-        : openCodeAccess && openCodeAccountId
-          ? { access: openCodeAccess, accountId: openCodeAccountId }
-          : config?.authPath
-            ? yield* readCodexAuthFile(config.authPath)
-            : configuredAccess
-              ? {
-                  access: configuredAccess,
-                  accountId:
-                    environment.credential(openCodeAuth.openai?.accountId) ??
-                    Redacted.make("configured"),
-                }
-              : yield* readCodexAuthFile(undefined);
+        : config?.authPath
+          ? yield* readCodexAuthFile(config.authPath)
+          : configuredAccess
+            ? {
+                access: configuredAccess,
+                accountId: isOfficialHost
+                  ? (openCodeAccountId ?? Redacted.make("configured"))
+                  : Redacted.make("configured"),
+              }
+            : yield* readCodexAuthFile(undefined);
 
     const payload = yield* http.requestJson({
       headers: {

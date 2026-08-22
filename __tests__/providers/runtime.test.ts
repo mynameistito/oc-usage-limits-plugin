@@ -1,14 +1,53 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { Effect, Exit } from "effect";
 
 import { ProviderClock, ProviderClockLive } from "@/providers/runtime/clock.ts";
+import {
+  ProviderFileSystem,
+  ProviderFileSystemLive,
+} from "@/providers/runtime/filesystem.ts";
 import {
   makeProviderHttpClient,
   ProviderHttpClient,
 } from "@/providers/runtime/http.ts";
 
 describe("provider runtime services", () => {
+  const temporaryFiles: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(
+      temporaryFiles.splice(0).map((file) => rm(file, { force: true }))
+    );
+  });
+
+  test("rejects oversized provider auth files before reading their contents", async () => {
+    const file = path.join(
+      tmpdir(),
+      `oc-usage-limits-${crypto.randomUUID()}.json`
+    );
+    temporaryFiles.push(file);
+    await Bun.write(file, "x".repeat(1024 * 1024 + 1));
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* result() {
+        const files = yield* ProviderFileSystem;
+        return yield* files.readText({ path: file, providerID: "codex" });
+      }).pipe(Effect.provide(ProviderFileSystemLive), Effect.exit)
+    );
+
+    expect(Exit.isFailure(result)).toBe(true);
+    if (Exit.isFailure(result)) {
+      const serializedCause = JSON.stringify(result.cause);
+      expect(serializedCause).toContain('"_tag":"ProviderTransportError"');
+      expect(serializedCause).toContain('"cause":"output-limit"');
+      expect(serializedCause).toContain('"operation":"read-auth"');
+    }
+  });
+
   test("decodes bounded HTTP JSON and classifies malformed bodies", async () => {
     const layer = makeProviderHttpClient(() =>
       Promise.resolve(new Response("not-json", { status: 200 }))

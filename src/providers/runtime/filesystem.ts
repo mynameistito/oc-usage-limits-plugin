@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -49,18 +49,34 @@ const readText = (
         operation: "read-auth",
         providerID: input.providerID,
       }),
-    try: () => readFile(expandHome(input.path), "utf-8"),
+    try: async () => {
+      const file = await open(expandHome(input.path), "r");
+      try {
+        const stats = await file.stat();
+        if (stats.size > MAX_AUTH_FILE_BYTES) {
+          return null;
+        }
+
+        const buffer = Buffer.alloc(MAX_AUTH_FILE_BYTES + 1);
+        const { bytesRead } = await file.read(buffer, 0, buffer.byteLength, 0);
+        return bytesRead > MAX_AUTH_FILE_BYTES
+          ? null
+          : buffer.subarray(0, bytesRead).toString("utf-8");
+      } finally {
+        await file.close();
+      }
+    },
   }).pipe(
     Effect.flatMap((text) =>
-      Buffer.byteLength(text, "utf-8") <= MAX_AUTH_FILE_BYTES
-        ? Effect.succeed(text)
-        : Effect.fail(
+      text === null
+        ? Effect.fail(
             new ProviderTransportError({
               cause: "output-limit",
               operation: "read-auth",
               providerID: input.providerID,
             })
           )
+        : Effect.succeed(text)
     )
   );
 
