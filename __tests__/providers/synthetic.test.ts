@@ -46,19 +46,20 @@ describe("Synthetic provider", () => {
     expect(usage).toMatchObject({ id: "synthetic", label: "Syn" });
     expect(usage.windows).toHaveLength(2);
     expect(usage.windows[0]).toMatchObject({
-      current: 60,
       label: "5h",
-      remainingPercent: 40,
-      total: 100,
-      usedPercent: 60,
+      quota: {
+        current: 60,
+        remainingPercent: 40,
+        total: 100,
+        usedPercent: 60,
+      },
     });
     expect(usage.windows[1]).toMatchObject({
       label: "weekly",
-      remainingPercent: 75,
-      usedPercent: 25,
+      quota: { remainingPercent: 75, usedPercent: 25 },
     });
-    expect(usage.windows[0]?.resetAfterSeconds).toBeGreaterThan(0);
-    expect(usage.windows[1]?.resetAfterSeconds).toBeGreaterThan(0);
+    expect(usage.windows[0]?.resetsAt?.getTime()).toBeGreaterThan(Date.now());
+    expect(usage.windows[1]?.resetsAt?.getTime()).toBeGreaterThan(Date.now());
     expect(usage.windows[0]?.resetsAt?.toISOString()).toBe(nextTickAt);
     expect(usage.windows[1]?.resetsAt?.toISOString()).toBe(nextRegenAt);
   });
@@ -97,11 +98,13 @@ describe("Synthetic provider", () => {
 
     expect(usage.windows).toHaveLength(1);
     expect(usage.windows[0]).toMatchObject({
-      current: 50,
       label: "5h",
-      remainingPercent: 75,
-      total: 200,
-      usedPercent: 25,
+      quota: {
+        current: 50,
+        remainingPercent: 75,
+        total: 200,
+        usedPercent: 25,
+      },
     });
     expect(usage.windows[0]?.resetsAt?.toISOString()).toBe(renewsAt);
   });
@@ -133,17 +136,18 @@ describe("Synthetic provider", () => {
 
     expect(usage.windows).toHaveLength(2);
     expect(usage.windows[0]).toMatchObject({
-      current: 100,
       label: "5h",
-      remainingPercent: 50,
-      total: 200,
-      usedPercent: 50,
+      quota: {
+        current: 100,
+        remainingPercent: 50,
+        total: 200,
+        usedPercent: 50,
+      },
     });
     expect(usage.windows[0]?.resetsAt?.toISOString()).toBe(nextTickAt);
     expect(usage.windows[1]).toMatchObject({
       label: "weekly",
-      remainingPercent: 50,
-      usedPercent: 50,
+      quota: { remainingPercent: 50, usedPercent: 50 },
     });
   });
 
@@ -174,13 +178,11 @@ describe("Synthetic provider", () => {
     expect(usage.windows).toHaveLength(2);
     expect(usage.windows[0]).toMatchObject({
       label: "5h",
-      remainingPercent: 12.5,
-      usedPercent: 87.5,
+      quota: { remainingPercent: 12.5, usedPercent: 87.5 },
     });
     expect(usage.windows[1]).toMatchObject({
       label: "weekly",
-      remainingPercent: 90,
-      usedPercent: 10,
+      quota: { remainingPercent: 90, usedPercent: 10 },
     });
   });
 
@@ -226,6 +228,18 @@ describe("Synthetic provider", () => {
     ).rejects.toThrow("invalid Synthetic usage");
   });
 
+  test.each([
+    { max: Number.POSITIVE_INFINITY, remaining: 10 },
+    { max: 100, remaining: Number.NaN },
+    { max: 100, remaining: -1 },
+  ])("rejects invalid required counts %o", async (rollingFiveHourLimit) => {
+    installFetchMock(Response.json({ rollingFiveHourLimit }));
+
+    await expect(
+      fetchSyntheticUsage({ apiKey: "syn-key" }, {}, 1000)
+    ).rejects.toThrow("invalid Synthetic usage");
+  });
+
   describe("window variants", () => {
     test("v3 rollingFiveHourLimit only (no weeklyTokenLimit)", async () => {
       installFetchMock(
@@ -245,8 +259,7 @@ describe("Synthetic provider", () => {
       expect(usage.windows).toHaveLength(1);
       expect(usage.windows[0]).toMatchObject({
         label: "5h",
-        remainingPercent: 40,
-        usedPercent: 60,
+        quota: { remainingPercent: 40, usedPercent: 60 },
       });
     });
 
@@ -272,13 +285,11 @@ describe("Synthetic provider", () => {
       expect(usage.windows).toHaveLength(2);
       expect(usage.windows[0]).toMatchObject({
         label: "5h",
-        remainingPercent: 40,
-        usedPercent: 60,
+        quota: { remainingPercent: 40, usedPercent: 60 },
       });
       expect(usage.windows[1]).toMatchObject({
         label: "weekly",
-        remainingPercent: 75,
-        usedPercent: 25,
+        quota: { remainingPercent: 75, usedPercent: 25 },
       });
     });
 
@@ -299,8 +310,7 @@ describe("Synthetic provider", () => {
       expect(usage.windows).toHaveLength(1);
       expect(usage.windows[0]).toMatchObject({
         label: "5h",
-        remainingPercent: 75,
-        usedPercent: 25,
+        quota: { remainingPercent: 75, usedPercent: 25 },
       });
     });
 
@@ -331,11 +341,13 @@ describe("Synthetic provider", () => {
 
       expect(usage.windows).toHaveLength(2);
       expect(usage.windows[0]).toMatchObject({
-        current: 100,
         label: "5h",
-        remainingPercent: 50,
-        total: 200,
-        usedPercent: 50,
+        quota: {
+          current: 100,
+          remainingPercent: 50,
+          total: 200,
+          usedPercent: 50,
+        },
       });
       expect(usage.windows[0]?.resetsAt?.toISOString()).toBe(nextTickAt);
     });
@@ -357,11 +369,13 @@ describe("Synthetic provider", () => {
 
       expect(usage.windows).toHaveLength(1);
       expect(usage.windows[0]).toMatchObject({
-        current: 100,
         label: "5h",
-        remainingPercent: 0,
-        total: 100,
-        usedPercent: 100,
+        quota: {
+          current: 100,
+          remainingPercent: 0,
+          total: 100,
+          usedPercent: 100,
+        },
       });
     });
 
@@ -382,12 +396,33 @@ describe("Synthetic provider", () => {
 
       expect(usage.windows).toHaveLength(1);
       expect(usage.windows[0]).toMatchObject({
-        current: 105,
         label: "5h",
-        remainingPercent: 30,
-        total: 150,
-        usedPercent: 70,
+        quota: {
+          current: 105,
+          remainingPercent: 30,
+          total: 150,
+          usedPercent: 70,
+        },
       });
+    });
+
+    test("keeps fractional counts as accurate percentage-only usage", async () => {
+      installFetchMock(
+        Response.json({
+          rollingFiveHourLimit: {
+            max: 0.6,
+            remaining: 0,
+          },
+        })
+      );
+
+      const usage = await fetchSyntheticUsage({ apiKey: "syn-key" }, {}, 1000);
+      const quota = usage.windows[0]?.quota;
+
+      expect(quota?._tag).toBe("Percentage");
+      expect(
+        Number(quota?._tag === "Percentage" ? quota.usedPercent : null)
+      ).toBe(100);
     });
   });
 });

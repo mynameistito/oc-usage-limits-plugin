@@ -1,5 +1,12 @@
+import type { Redacted } from "effect";
+
+import type { ResetInstant, UsageQuota, UsageWindowKind } from "@/usage.ts";
+
 /** Provider adapters supported by the usage-limits plugin. */
 export type ProviderID = "codex" | "zai" | "synthetic" | "minimax" | "qwen";
+
+/** Sensitive string accepted by parsed config and legacy provider boundaries. */
+type Credential = Redacted.Redacted<string> | string;
 
 /**
  * Normalized usage information for one provider quota window.
@@ -9,36 +16,32 @@ export type ProviderID = "codex" | "zai" | "synthetic" | "minimax" | "qwen";
  * report counts without a reliable percentage.
  */
 export interface UsageWindow {
+  /** Stable semantic window kind independent of its display label. */
+  readonly kind: UsageWindowKind;
   /** Human-readable window label displayed in the TUI. */
-  label: string;
-  /** Percentage of the quota already consumed, clamped to `0..100`. */
-  usedPercent: number | null;
-  /** Percentage of quota remaining, or `null` when usage is unknown. */
-  remainingPercent: number | null;
-  /** Absolute reset time when reported by the provider. */
-  resetsAt: Date | null;
-  /** Seconds until reset when reported or derivable, otherwise `null`. */
-  resetAfterSeconds: number | null;
-  /** Current consumed count for count-based quotas. */
-  current?: number;
-  /** Total available count for count-based quotas. */
-  total?: number;
+  readonly label: string;
+  /** Explicit percentage, count, or unknown quota representation. */
+  readonly quota: UsageQuota;
+  /** Canonical absolute reset instant when reported by the provider. */
+  readonly resetsAt: ResetInstant | null;
 }
 
 /** Normalized usage payload returned by each provider adapter. */
-export interface ProviderUsage {
+export interface ProviderUsage<ID extends ProviderID = ProviderID> {
   /** Provider adapter that produced the data. */
-  id: ProviderID;
+  readonly id: ID;
   /** Display label for the provider. */
-  label: string;
+  readonly label: string;
   /** Optional plan or tier name inferred from provider data. */
-  tierName?: string;
+  readonly tierName?: string;
   /** Time at which this usage snapshot was captured. */
-  capturedAt: Date;
+  readonly capturedAt: Date;
   /** Quota windows exposed by the provider. */
-  windows: UsageWindow[];
+  readonly windows: readonly UsageWindow[];
   /** Provider-specific values useful for display or diagnostics. */
-  metadata?: Record<string, string | number | boolean | null>;
+  readonly metadata?: Readonly<
+    Record<string, string | number | boolean | null>
+  >;
 }
 
 /** Structured provider error categories used by UI behavior. */
@@ -72,31 +75,26 @@ export type ProviderState =
 /** Provider-specific configuration loaded from `usage-limits.jsonc`. */
 export interface ProviderConfig {
   /** Whether this provider should be fetched and displayed. */
-  enabled?: boolean;
+  readonly enabled?: boolean;
   /** Optional provider display label override. */
-  label?: string;
+  readonly label?: string;
   /** Optional path to a provider auth file. Supports a leading `~`. */
-  authPath?: string;
+  readonly authPath?: string;
   /** Literal API key or `{env:NAME}` reference for providers that support it. */
-  apiKey?: string;
+  readonly apiKey?: Credential;
   /** How the API key should be placed in the `Authorization` header. */
-  authorizationScheme?: "raw" | "bearer";
+  readonly authorizationScheme?: "raw" | "bearer";
   /** Optional API base URL override, primarily for testing or compatible APIs. */
-  baseUrl?: string;
+  readonly baseUrl?: string;
 }
 
-/** Top-level usage-limits plugin configuration. */
-export interface UsageLimitsConfig {
-  /** Enables or disables the entire plugin. Defaults to `true`. */
-  enabled?: boolean;
-  /** Provider refresh cadence in seconds. Defaults to `60`. */
-  refreshIntervalSeconds?: number;
-  /** HTTP request timeout in milliseconds. Defaults to `10000`. */
-  requestTimeoutMs?: number;
-  /** Whether provider fetch errors should be rendered in the sidebar. */
-  showErrors?: boolean;
-  /** Per-provider configuration keyed by plugin provider ID. */
-  providers?: Partial<Record<ProviderID, ProviderConfig>>;
+/** Fully resolved plugin configuration returned by the config parser. */
+export interface ResolvedUsageLimitsConfig {
+  readonly enabled: boolean;
+  readonly providers: Readonly<Partial<Record<ProviderID, ProviderConfig>>>;
+  readonly refreshIntervalSeconds: number;
+  readonly requestTimeoutMs: number;
+  readonly showErrors: boolean;
 }
 
 /**
@@ -109,46 +107,46 @@ export interface OpenCodeAuth {
   /** OpenAI/Codex credentials stored by OpenCode. */
   openai?: {
     /** Bearer access token for ChatGPT backend requests. */
-    access?: string;
+    readonly access?: Credential;
     /** ChatGPT account identifier required by Codex usage requests. */
-    accountId?: string;
+    readonly accountId?: Credential;
   };
   /** ZAI Coding Plan credentials stored under OpenCode's provider ID. */
   "zai-coding-plan"?: {
     /** ZAI API key. */
-    key?: string;
+    readonly key?: Credential;
   };
   /** ZAI credentials stored under the plugin's normalized provider ID. */
   zai?: {
     /** ZAI API key. */
-    key?: string;
+    readonly key?: Credential;
   };
   /** Synthetic credentials stored under OpenCode's provider ID. */
   synthetic?: {
     /** Synthetic API key. */
-    key?: string;
+    readonly key?: Credential;
     /** Synthetic API key (alternate field name). */
-    apiKey?: string;
+    readonly apiKey?: Credential;
   };
   /** MiniMax Token Plan credentials stored under the plugin's provider ID. */
   minimax?: {
     /** MiniMax Token Plan subscription key. */
-    key?: string;
+    readonly key?: Credential;
     /** MiniMax Token Plan subscription key (alternate field name). */
-    apiKey?: string;
+    readonly apiKey?: Credential;
   };
   /** MiniMax Token Plan credentials stored under the OpenCode convention ID. */
   "minimax-coding-plan"?: {
     /** MiniMax Token Plan subscription key. */
-    key?: string;
+    readonly key?: Credential;
     /** MiniMax Token Plan subscription key (alternate field name). */
-    apiKey?: string;
+    readonly apiKey?: Credential;
   };
   /** MiniMax Token Plan credentials stored under an alternate OpenCode ID. */
   "minimax-token-plan"?: {
     /** MiniMax Token Plan subscription key. */
-    key?: string;
+    readonly key?: Credential;
     /** MiniMax Token Plan subscription key (alternate field name). */
-    apiKey?: string;
+    readonly apiKey?: Credential;
   };
 }

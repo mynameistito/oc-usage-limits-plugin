@@ -1,9 +1,10 @@
 /* @jsxImportSource @opentui/solid */
 import type { TuiPlugin } from "@opencode-ai/plugin/tui";
+import { Result } from "effect";
 import { createSignal } from "solid-js";
 
 import { BottomUsage, UsageLimitsPanel } from "@/components.tsx";
-import { loadConfig, loadOpenCodeAuth } from "@/config.ts";
+import { DEFAULT_CONFIG, loadConfig, loadOpenCodeAuth } from "@/config.ts";
 import { MissingProviderCredentialsError } from "@/errors.ts";
 import { fetchProvider, getProviderConfigs } from "@/providers.ts";
 import { defaultLabelFor } from "@/providers/index.ts";
@@ -62,7 +63,12 @@ export const createUsageLimitsTui =
      * can still show stale usage alongside the error message.
      */
     const refresh = async () => {
-      const config = await dependencies.loadConfig();
+      const configResult = await dependencies.loadConfig();
+      // Plan 005 will render typed config failures. Keep the current safe
+      // fallback at this coordinator boundary until that UI path exists.
+      const config = Result.isFailure(configResult)
+        ? DEFAULT_CONFIG
+        : configResult.success;
       setShowErrors(config.showErrors);
       ({ refreshIntervalSeconds } = config);
 

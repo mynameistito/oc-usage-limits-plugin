@@ -53,13 +53,15 @@ describe("ZAI provider", () => {
     });
     expect(usage.windows).toHaveLength(1);
     expect(usage.windows[0]).toMatchObject({
-      current: 4440,
       label: "5h",
-      remainingPercent: 55.6,
-      total: 10_000,
-      usedPercent: 44.4,
+      quota: {
+        current: 4440,
+        remainingPercent: 55.6,
+        total: 10_000,
+        usedPercent: 44.4,
+      },
     });
-    expect(usage.windows[0]?.resetAfterSeconds).toBeGreaterThan(0);
+    expect(usage.windows[0]?.resetsAt?.getTime()).toBeGreaterThan(Date.now());
   });
 
   test("uses configured environment references when auth does not contain a key", async () => {
@@ -188,5 +190,39 @@ describe("ZAI provider", () => {
     await expect(
       fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000)
     ).rejects.toThrow("invalid ZAI usage");
+  });
+
+  test.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects invalid required token percentage %s",
+    async (percentage) => {
+      installFetchMock(
+        Response.json({
+          data: { limits: [{ percentage, type: "TOKENS_LIMIT" }] },
+        })
+      );
+
+      await expect(
+        fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000)
+      ).rejects.toThrow("invalid ZAI usage");
+    }
+  );
+
+  test("downgrades invalid optional counts to percentage usage", async () => {
+    installFetchMock(
+      Response.json({
+        data: {
+          limits: [
+            {
+              currentValue: -10,
+              percentage: 25,
+              type: "TOKENS_LIMIT",
+            },
+          ],
+        },
+      })
+    );
+
+    const usage = await fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000);
+    expect(usage.windows[0]?.quota._tag).toBe("Percentage");
   });
 });

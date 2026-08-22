@@ -59,16 +59,14 @@ describe("MiniMax provider", () => {
     expect(usage.windows).toHaveLength(2);
     expect(usage.windows[0]).toMatchObject({
       label: "5h",
-      remainingPercent: 60,
-      usedPercent: 40,
+      quota: { remainingPercent: 60, usedPercent: 40 },
     });
     expect(usage.windows[1]).toMatchObject({
       label: "weekly",
-      remainingPercent: 40,
-      usedPercent: 60,
+      quota: { remainingPercent: 40, usedPercent: 60 },
     });
-    expect(usage.windows[0]?.resetAfterSeconds).toBeGreaterThan(0);
-    expect(usage.windows[1]?.resetAfterSeconds).toBeGreaterThan(0);
+    expect(usage.windows[0]?.resetsAt?.getTime()).toBeGreaterThan(Date.now());
+    expect(usage.windows[1]?.resetsAt?.getTime()).toBeGreaterThan(Date.now());
     expect(usage.windows[0]?.resetsAt?.getTime()).toBeGreaterThan(
       Date.now() + fiveHourRemains - 5000
     );
@@ -227,8 +225,7 @@ describe("MiniMax provider", () => {
     expect(usage.windows).toHaveLength(1);
     expect(usage.windows[0]).toMatchObject({
       label: "5h",
-      remainingPercent: 50,
-      usedPercent: 50,
+      quota: { remainingPercent: 50, usedPercent: 50 },
     });
   });
 
@@ -260,13 +257,11 @@ describe("MiniMax provider", () => {
     expect(usage.windows).toHaveLength(2);
     expect(usage.windows[0]).toMatchObject({
       label: "5h",
-      remainingPercent: 70,
-      usedPercent: 30,
+      quota: { remainingPercent: 70, usedPercent: 30 },
     });
     expect(usage.windows[1]).toMatchObject({
       label: "weekly",
-      remainingPercent: 80,
-      usedPercent: 20,
+      quota: { remainingPercent: 80, usedPercent: 20 },
     });
   });
 
@@ -315,6 +310,26 @@ describe("MiniMax provider", () => {
     ).rejects.toThrow("invalid MiniMax usage");
   });
 
+  test.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects invalid remaining percentage %s",
+    async (remainingPercent) => {
+      installFetchMock(
+        Response.json(
+          successEnvelope([
+            {
+              current_interval_remaining_percent: remainingPercent,
+              model_name: "general",
+            },
+          ])
+        )
+      );
+
+      await expect(
+        fetchMiniMaxTokenPlanUsage({ apiKey: "mm-key" }, {}, 1000)
+      ).rejects.toThrow("invalid MiniMax usage");
+    }
+  );
+
   test("rejects envelopes whose base_resp status_code is non-zero", async () => {
     installFetchMock(
       Response.json({
@@ -360,8 +375,7 @@ describe("MiniMax provider", () => {
     expect(usage.windows).toHaveLength(1);
     expect(usage.windows[0]).toMatchObject({
       label: "5h",
-      remainingPercent: 91,
-      usedPercent: 9,
+      quota: { remainingPercent: 91, usedPercent: 9 },
     });
   });
 
@@ -392,13 +406,11 @@ describe("MiniMax provider", () => {
       expect(usage.windows).toHaveLength(2);
       expect(usage.windows[0]).toMatchObject({
         label: "5h",
-        remainingPercent: 60,
-        usedPercent: 40,
+        quota: { remainingPercent: 60, usedPercent: 40 },
       });
       expect(usage.windows[1]).toMatchObject({
         label: "weekly",
-        remainingPercent: 40,
-        usedPercent: 60,
+        quota: { remainingPercent: 40, usedPercent: 60 },
       });
     });
 
@@ -428,8 +440,7 @@ describe("MiniMax provider", () => {
       expect(usage.windows).toHaveLength(1);
       expect(usage.windows[0]).toMatchObject({
         label: "5h",
-        remainingPercent: 75,
-        usedPercent: 25,
+        quota: { remainingPercent: 75, usedPercent: 25 },
       });
     });
 
@@ -459,8 +470,7 @@ describe("MiniMax provider", () => {
       expect(usage.windows).toHaveLength(1);
       expect(usage.windows[0]).toMatchObject({
         label: "weekly",
-        remainingPercent: 80,
-        usedPercent: 20,
+        quota: { remainingPercent: 80, usedPercent: 20 },
       });
     });
 
@@ -493,13 +503,11 @@ describe("MiniMax provider", () => {
       expect(usage.windows).toHaveLength(2);
       expect(usage.windows[0]).toMatchObject({
         label: "5h",
-        remainingPercent: 70,
-        usedPercent: 30,
+        quota: { remainingPercent: 70, usedPercent: 30 },
       });
       expect(usage.windows[1]).toMatchObject({
         label: "weekly",
-        remainingPercent: 80,
-        usedPercent: 20,
+        quota: { remainingPercent: 80, usedPercent: 20 },
       });
     });
   });

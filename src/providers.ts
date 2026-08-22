@@ -4,7 +4,7 @@ import type {
   ProviderConfig,
   ProviderID,
   ProviderUsage,
-  UsageLimitsConfig,
+  ResolvedUsageLimitsConfig,
 } from "@/types.ts";
 
 /**
@@ -19,16 +19,17 @@ import type {
  * @param timeoutMs - Request timeout in milliseconds.
  * @returns Normalized provider usage data.
  */
-export const fetchProvider = (
-  id: ProviderID,
+export const fetchProvider = <ID extends ProviderID>(
+  id: ID,
   config: ProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-): Promise<ProviderUsage> => {
-  if (!(id in PROVIDER_REGISTRY)) {
+): Promise<ProviderUsage<ID>> => {
+  const provider = PROVIDER_REGISTRY[id];
+  if (!provider) {
     throw new Error(`unknown provider: ${id}`);
   }
-  return PROVIDER_REGISTRY[id].fetch(config, openCodeAuth, timeoutMs);
+  return provider.fetch(config, openCodeAuth, timeoutMs);
 };
 
 /**
@@ -41,7 +42,7 @@ export const fetchProvider = (
  * @returns Tuples of provider IDs and their config objects.
  */
 export const getProviderConfigs = (
-  config: Required<UsageLimitsConfig>
+  config: ResolvedUsageLimitsConfig
 ): [ProviderID, ProviderConfig][] =>
   PROVIDER_ORDER.flatMap((id) => {
     const provider = config.providers[id];

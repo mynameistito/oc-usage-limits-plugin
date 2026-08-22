@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import { fetchProvider, getProviderConfigs } from "@/providers.ts";
+import { codexProvider } from "@/providers/codex.ts";
+import type { ProviderDefinition } from "@/providers/definition.ts";
 import {
   defaultLabelFor,
   pluginProviderForOpenCode,
@@ -8,16 +10,27 @@ import {
   PROVIDER_REGISTRY,
   PROVIDERS,
 } from "@/providers/index.ts";
+import type { ProviderUsage } from "@/types.ts";
 
 import { installFetchMock } from "./helpers.ts";
 
 describe("provider manifest", () => {
-  test("defines every provider in display order", () => {
-    expect(PROVIDER_ORDER).toEqual(PROVIDERS.map((provider) => provider.id));
+  test("binds each fetch result to its definition ID", () => {
+    const definition: ProviderDefinition<"codex"> = codexProvider;
+    const fetch: (
+      ...args: Parameters<typeof definition.fetch>
+    ) => Promise<ProviderUsage<"codex">> = definition.fetch;
 
-    for (const provider of PROVIDERS) {
-      expect(PROVIDER_REGISTRY[provider.id]).toBe(provider);
-      expect(defaultLabelFor(provider.id)).toEqual(provider.defaultLabel);
+    expect(fetch).toBe(codexProvider.fetch);
+  });
+  test("defines every provider in display order", () => {
+    expect(PROVIDERS.map((provider) => provider.id)).toEqual([
+      ...PROVIDER_ORDER,
+    ]);
+
+    for (const id of PROVIDER_ORDER) {
+      expect(PROVIDER_REGISTRY[id].id).toBe(id);
+      expect(defaultLabelFor(id)).toEqual(PROVIDER_REGISTRY[id].defaultLabel);
     }
   });
 
@@ -65,14 +78,13 @@ describe("provider manifest", () => {
       })
     );
 
-    await expect(
-      fetchProvider(
-        "codex",
-        { enabled: true },
-        { openai: { access: "token", accountId: "account" } },
-        1000
-      )
-    ).resolves.toMatchObject({ id: "codex" });
+    const result: Promise<ProviderUsage<"codex">> = fetchProvider(
+      "codex",
+      { enabled: true },
+      { openai: { access: "token", accountId: "account" } },
+      1000
+    );
+    await expect(result).resolves.toMatchObject({ id: "codex" });
   });
 
   test("rejects unknown provider ids", () => {

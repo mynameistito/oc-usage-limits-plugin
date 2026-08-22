@@ -1,3 +1,6 @@
+import { Result } from "effect";
+
+import { credentialValue } from "@/config-schema.ts";
 import { MissingProviderCredentialsError } from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import type {
@@ -7,7 +10,11 @@ import type {
   UsageWindow,
 } from "@/types.ts";
 import {
-  clampPercent,
+  parseUsagePercentage,
+  percentageQuota,
+  resetInstantOrNull,
+} from "@/usage.ts";
+import {
   fetchJson,
   isRecord,
   readJsonFile,
@@ -35,41 +42,49 @@ const keyFromMiniMaxAuth = (value: unknown): string | undefined => {
     return undefined;
   }
 
-  if (typeof value.key === "string") {
-    return value.key;
+  const directKey = credentialValue(value.key);
+  if (directKey) {
+    return directKey;
   }
 
-  if (typeof value.apiKey === "string") {
-    return value.apiKey;
+  const directApiKey = credentialValue(value.apiKey);
+  if (directApiKey) {
+    return directApiKey;
   }
 
   const minimaxCodingPlan = value["minimax-coding-plan"];
   if (isRecord(minimaxCodingPlan)) {
-    if (typeof minimaxCodingPlan.key === "string") {
-      return minimaxCodingPlan.key;
+    const key = credentialValue(minimaxCodingPlan.key);
+    if (key) {
+      return key;
     }
-    if (typeof minimaxCodingPlan.apiKey === "string") {
-      return minimaxCodingPlan.apiKey;
+    const apiKey = credentialValue(minimaxCodingPlan.apiKey);
+    if (apiKey) {
+      return apiKey;
     }
   }
 
   const { minimax } = value;
   if (isRecord(minimax)) {
-    if (typeof minimax.key === "string") {
-      return minimax.key;
+    const key = credentialValue(minimax.key);
+    if (key) {
+      return key;
     }
-    if (typeof minimax.apiKey === "string") {
-      return minimax.apiKey;
+    const apiKey = credentialValue(minimax.apiKey);
+    if (apiKey) {
+      return apiKey;
     }
   }
 
   const minimaxTokenPlan = value["minimax-token-plan"];
   if (isRecord(minimaxTokenPlan)) {
-    if (typeof minimaxTokenPlan.key === "string") {
-      return minimaxTokenPlan.key;
+    const key = credentialValue(minimaxTokenPlan.key);
+    if (key) {
+      return key;
     }
-    if (typeof minimaxTokenPlan.apiKey === "string") {
-      return minimaxTokenPlan.apiKey;
+    const apiKey = credentialValue(minimaxTokenPlan.apiKey);
+    if (apiKey) {
+      return apiKey;
     }
   }
 
@@ -93,7 +108,7 @@ const readMiniMaxAuthPathKey = async (
   }
 
   try {
-    return keyFromMiniMaxAuth(await readJsonFile<unknown>(authPath));
+    return keyFromMiniMaxAuth(await readJsonFile(authPath));
   } catch {
     return undefined;
   }
@@ -144,23 +159,24 @@ const minimaxFiveHourWindow = (
     return null;
   }
   const remainingPercent = entry.current_interval_remaining_percent;
-  if (typeof remainingPercent !== "number") {
+  const parsedRemaining = parseUsagePercentage(remainingPercent);
+  if (Result.isFailure(parsedRemaining)) {
     return null;
   }
 
-  const used = clampPercent(100 - remainingPercent);
+  const parsedUsed = parseUsagePercentage(100 - parsedRemaining.success);
+  if (Result.isFailure(parsedUsed)) {
+    return null;
+  }
   const remainsMs = entry.remains_time;
-  const resetsAt =
-    typeof remainsMs === "number" ? new Date(Date.now() + remainsMs) : null;
+  const resetsAt = resetInstantOrNull(
+    typeof remainsMs === "number" ? new Date(Date.now() + remainsMs) : null
+  );
   return {
+    kind: "rolling",
     label: "5h",
-    remainingPercent: 100 - used,
-    resetAfterSeconds:
-      typeof remainsMs === "number"
-        ? Math.max(0, Math.ceil(remainsMs / 1000))
-        : null,
+    quota: percentageQuota(parsedUsed.success),
     resetsAt,
-    usedPercent: used,
   };
 };
 
@@ -182,23 +198,24 @@ const minimaxWeeklyWindow = (
     return null;
   }
   const remainingPercent = entry.current_weekly_remaining_percent;
-  if (typeof remainingPercent !== "number") {
+  const parsedRemaining = parseUsagePercentage(remainingPercent);
+  if (Result.isFailure(parsedRemaining)) {
     return null;
   }
 
-  const used = clampPercent(100 - remainingPercent);
+  const parsedUsed = parseUsagePercentage(100 - parsedRemaining.success);
+  if (Result.isFailure(parsedUsed)) {
+    return null;
+  }
   const remainsMs = entry.weekly_remains_time;
-  const resetsAt =
-    typeof remainsMs === "number" ? new Date(Date.now() + remainsMs) : null;
+  const resetsAt = resetInstantOrNull(
+    typeof remainsMs === "number" ? new Date(Date.now() + remainsMs) : null
+  );
   return {
+    kind: "weekly",
     label: "weekly",
-    remainingPercent: 100 - used,
-    resetAfterSeconds:
-      typeof remainsMs === "number"
-        ? Math.max(0, Math.ceil(remainsMs / 1000))
-        : null,
+    quota: percentageQuota(parsedUsed.success),
     resetsAt,
-    usedPercent: used,
   };
 };
 
@@ -252,14 +269,17 @@ export const fetchMiniMaxTokenPlanUsage = async (
   config: ProviderConfig | undefined,
   openCodeAuth: OpenCodeAuth,
   timeoutMs: number
-): Promise<ProviderUsage> => {
-  const configuredKey = resolveEnvReference(config?.apiKey);
+): Promise<ProviderUsage<"minimax">> => {
+  const configuredKey = resolveEnvReference(credentialValue(config?.apiKey));
   const apiKey =
     (await readMiniMaxAuthPathKey(config?.authPath)) ??
     keyFromMiniMaxAuth(openCodeAuth) ??
     configuredKey;
   if (!apiKey) {
-    throw new MissingProviderCredentialsError("minimax", "missing MiniMax key");
+    throw new MissingProviderCredentialsError({
+      operation: "fetch-usage",
+      providerID: "minimax",
+    });
   }
 
   const baseUrl = resolveHttpsBaseUrl(

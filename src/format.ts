@@ -1,4 +1,5 @@
 import type { UsageWindow } from "@/types.ts";
+import { quotaUsedPercent } from "@/usage.ts";
 
 /**
  * Formats a positive duration in seconds into the compact label used by the TUI.
@@ -54,7 +55,7 @@ export const formatPercent = (value: number | null): string =>
  * @returns A label and percentage pair such as `daily: 42% used`.
  */
 export const windowMainText = (window: UsageWindow): string =>
-  `${window.label}: ${formatPercent(window.usedPercent)}`;
+  `${window.label}: ${formatPercent(quotaUsedPercent(window.quota))}`;
 
 /**
  * Builds the compact prompt-footer text for the active provider's primary window.
@@ -63,7 +64,7 @@ export const windowMainText = (window: UsageWindow): string =>
  * @returns A compact percentage label such as `daily 42%`.
  */
 export const bottomWindowMainText = (window: UsageWindow): string =>
-  `${window.label} ${formatPercent(window.usedPercent)}`;
+  `${window.label} ${formatPercent(quotaUsedPercent(window.quota))}`;
 
 /**
  * Formats the reset suffix for a usage window.
@@ -72,10 +73,15 @@ export const bottomWindowMainText = (window: UsageWindow): string =>
  * @returns A leading-space suffix such as ` resets 12m`, or an empty string when
  *   the provider did not report a reset countdown.
  */
-export const windowResetText = (window: UsageWindow): string =>
-  window.resetAfterSeconds === null
+export const windowResetText = (
+  window: UsageWindow,
+  now: Date = new Date()
+): string =>
+  window.resetsAt === null
     ? ""
-    : ` · ${duration(window.resetAfterSeconds)}`;
+    : ` · ${duration(
+        Math.ceil((window.resetsAt.getTime() - now.getTime()) / 1000)
+      )}`;
 
 /**
  * Renders a Unicode block progress bar for usage percentage.
@@ -148,8 +154,8 @@ export const windowResetTime = (window: UsageWindow): string =>
  * @returns A suffix such as ` (1.5K/15K)`, or an empty string when counts are missing.
  */
 export const tokenCountText = (window: UsageWindow): string => {
-  if (window.current !== undefined && window.total !== undefined) {
-    return ` (${formatTokenCount(window.current)}/${formatTokenCount(window.total)})`;
+  if (window.quota._tag === "Count") {
+    return ` (${formatTokenCount(window.quota.current)}/${formatTokenCount(window.quota.total)})`;
   }
   return "";
 };

@@ -12,6 +12,7 @@ import {
   windowResetTime,
 } from "@/format.ts";
 import type { ProviderState, UsageWindow } from "@/types.ts";
+import { quotaUsedPercent } from "@/usage.ts";
 
 /**
  * Chooses the status-dot color for a usage percentage.
@@ -35,7 +36,7 @@ const dotColor = (usedPercent: number | null, theme: TuiThemeCurrent): RGBA => {
 
 const UsageWindowRows = (props: {
   theme: TuiThemeCurrent;
-  windows: UsageWindow[];
+  windows: readonly UsageWindow[];
 }) => (
   <For each={props.windows}>
     {(window) => (
@@ -52,12 +53,20 @@ const UsageWindowRows = (props: {
         </text>
         <text>
           <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
-          <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
-            {percentBar(window.usedPercent, 12)}
+          <span
+            style={{
+              fg: dotColor(quotaUsedPercent(window.quota), props.theme),
+            }}
+          >
+            {percentBar(quotaUsedPercent(window.quota), 12)}
           </span>
-          <span style={{ fg: dotColor(window.usedPercent, props.theme) }}>
+          <span
+            style={{
+              fg: dotColor(quotaUsedPercent(window.quota), props.theme),
+            }}
+          >
             {" "}
-            {formatPercent(window.usedPercent)} used
+            {formatPercent(quotaUsedPercent(window.quota))} used
           </span>
         </text>
       </box>
@@ -186,8 +195,12 @@ export const BottomUsage = (props: {
   <Show when={props.window}>
     {(window) => (
       <text>
-        <span style={{ fg: dotColor(window().usedPercent, props.theme) }}>
-          {percentBar(window().usedPercent, 8)}
+        <span
+          style={{
+            fg: dotColor(quotaUsedPercent(window().quota), props.theme),
+          }}
+        >
+          {percentBar(quotaUsedPercent(window().quota), 8)}
         </span>
         <span style={{ fg: props.theme.text }}>
           {" "}
@@ -229,8 +242,8 @@ export const CompactStatusLine = (props: {
       const [window] = data.windows;
       if (window) {
         parts.push({
-          color: dotColor(window.usedPercent, props.theme),
-          text: `${state.label} ${formatPercent(window.usedPercent)}`,
+          color: dotColor(quotaUsedPercent(window.quota), props.theme),
+          text: `${state.label} ${formatPercent(quotaUsedPercent(window.quota))}`,
         });
       }
     }

@@ -9,7 +9,9 @@ import type {
 import { RGBA } from "@opentui/core";
 import { testRender } from "@opentui/solid";
 import type { JSX } from "@opentui/solid";
+import { Result } from "effect";
 
+import { ConfigDecodeError } from "@/errors.ts";
 import { createUsageLimitsTui } from "@/plugin.tsx";
 import type { UsageLimitsTuiDependencies } from "@/plugin.tsx";
 import type {
@@ -17,8 +19,9 @@ import type {
   ProviderConfig,
   ProviderID,
   ProviderUsage,
-  UsageLimitsConfig,
+  ResolvedUsageLimitsConfig,
 } from "@/types.ts";
+import { parseUsagePercentage, percentageQuota } from "@/usage.ts";
 
 const NOW = new Date("2026-08-14T12:34:00.000Z");
 const color = RGBA.fromValues(1, 2, 3, 255);
@@ -54,8 +57,8 @@ interface ScheduledRefresh {
 }
 
 const config = (
-  overrides: Partial<Required<UsageLimitsConfig>> = {}
-): Required<UsageLimitsConfig> => ({
+  overrides: Partial<ResolvedUsageLimitsConfig> = {}
+): ResolvedUsageLimitsConfig => ({
   enabled: true,
   providers: { codex: { enabled: true, label: "Codex Work" } },
   refreshIntervalSeconds: 20,
@@ -64,17 +67,16 @@ const config = (
   ...overrides,
 });
 
-const usage = (): ProviderUsage => ({
+const usage = <ID extends ProviderID>(id: ID): ProviderUsage<ID> => ({
   capturedAt: NOW,
-  id: "codex",
+  id,
   label: "Codex Work",
   windows: [
     {
+      kind: "rolling",
       label: "5h",
-      remainingPercent: 58,
-      resetAfterSeconds: 3600,
+      quota: percentageQuota(Result.getOrThrow(parseUsagePercentage(42))),
       resetsAt: new Date("2026-08-14T13:34:00.000Z"),
-      usedPercent: 42,
     },
   ],
 });
@@ -83,13 +85,17 @@ const createHarness = (initialConfig = config()) => {
   const scheduled: ScheduledRefresh[] = [];
   const fetches: ProviderID[] = [];
   const auth: OpenCodeAuth = {};
-  const state = { config: initialConfig, fetchError: null as Error | null };
+  const state: {
+    config: ResolvedUsageLimitsConfig;
+    configError: ConfigDecodeError | null;
+    fetchError: Error | null;
+  } = { config: initialConfig, configError: null, fetchError: null };
   let dispose: TuiDispose | undefined;
   let registered: CharacterizedSlots | undefined;
 
   const dependencies: UsageLimitsTuiDependencies = {
-    fetchProvider: (
-      id: ProviderID,
+    fetchProvider: <ID extends ProviderID>(
+      id: ID,
       _providerConfig: ProviderConfig | undefined,
       _openCodeAuth: OpenCodeAuth,
       _timeoutMs: number
@@ -98,9 +104,14 @@ const createHarness = (initialConfig = config()) => {
       if (state.fetchError) {
         return Promise.reject(state.fetchError);
       }
-      return Promise.resolve(usage());
+      return Promise.resolve(usage(id));
     },
-    loadConfig: () => Promise.resolve(state.config),
+    loadConfig: () =>
+      Promise.resolve(
+        state.configError
+          ? Result.fail(state.configError)
+          : Result.succeed(state.config)
+      ),
     loadOpenCodeAuth: () => Promise.resolve(auth),
     now: () => NOW,
     schedule: (callback, delayMs) => {
@@ -223,6 +234,21 @@ describe("usage-limits TUI lifecycle", () => {
     );
     expect(await renderSlot(registered, "session_prompt_right")).not.toContain(
       "%"
+    );
+  });
+
+  test("uses safe defaults when typed config parsing fails", async () => {
+    const harness = createHarness();
+    harness.state.configError = new ConfigDecodeError({
+      cause: "schema",
+      operation: "parse-config",
+    });
+    const registered = await initialize(harness);
+
+    expect(harness.fetches).toEqual([]);
+    expect(harness.scheduled[0]?.delayMs).toBe(60_000);
+    expect(await renderSlot(registered, "sidebar_content")).not.toContain(
+      "Usage Limits"
     );
   });
 

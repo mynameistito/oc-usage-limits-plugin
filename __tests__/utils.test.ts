@@ -80,6 +80,20 @@ describe("utility helpers", () => {
     }
   });
 
+  test.each([
+    ['{"value":"unterminated}', "unterminated string"],
+    ['{"value":1} /* unterminated', "unterminated block comment"],
+  ])("rejects malformed JSONC with an %s", async (input) => {
+    const directory = await mkdtemp(path.join(tmpdir(), "oc-usage-limits-"));
+    const filePath = path.join(directory, "config.jsonc");
+    try {
+      await writeFile(filePath, input, "utf-8");
+      await expect(readJsonFile(filePath)).rejects.toBeInstanceOf(SyntaxError);
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
   test("resolves environment variable references only when the full value matches", () => {
     process.env.OC_USAGE_LIMITS_TEST_KEY = "secret";
 
