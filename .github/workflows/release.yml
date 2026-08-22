@@ -193,4 +193,4 @@ jobs:
             --dist-tag next
 
       - name: Publish v2 preview to npm
-        run: npm publish --access public --tag next --provenance
+        run: npm stage publish --access public --tag next --provenance
