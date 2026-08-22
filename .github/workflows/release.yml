@@ -148,7 +148,7 @@ jobs:
             --notes-file release-notes.md
 
   preview:
-    if: github.ref == 'refs/heads/opencode-v2' && github.ref != 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/opencode-v2'
     name: Publish v2 preview
     runs-on: ubuntu-latest
     steps:
