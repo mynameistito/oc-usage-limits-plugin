@@ -69,7 +69,7 @@ jobs:
 
       - name: Stage package on npm
         id: package
-        if: steps.changesets.outputs.hasChangesets == 'false'
+        if: steps.changesets.outputs.has-changesets == 'false'
         run: |
           package_name=$(node --print "require('./package.json').name")
           package_version=$(node --print "require('./package.json').version")
