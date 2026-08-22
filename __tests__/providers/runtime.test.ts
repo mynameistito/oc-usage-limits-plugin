@@ -48,6 +48,28 @@ describe("provider runtime services", () => {
     }
   });
 
+  test("reads the complete contents of a bounded provider auth file", async () => {
+    const file = path.join(
+      tmpdir(),
+      `oc-usage-limits-${crypto.randomUUID()}.json`
+    );
+    temporaryFiles.push(file);
+    const content = JSON.stringify({
+      accessToken: "token",
+      padding: "x".repeat(1024),
+    });
+    await Bun.write(file, content);
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* result() {
+        const files = yield* ProviderFileSystem;
+        return yield* files.readText({ path: file, providerID: "codex" });
+      }).pipe(Effect.provide(ProviderFileSystemLive))
+    );
+
+    expect(result).toBe(content);
+  });
+
   test("decodes bounded HTTP JSON and classifies malformed bodies", async () => {
     const layer = makeProviderHttpClient(() =>
       Promise.resolve(new Response("not-json", { status: 200 }))
