@@ -3,13 +3,16 @@
   "enabled": true,
   "refreshIntervalSeconds": 60,
   "requestTimeoutMs": 10000,
+  "show": true,
   "showSidebar": true,
   "showFooter": true,
+  "sidebarWindow": "all",
   "showErrors": true,
   "providers": {
     "codex": {
       "enabled": true,
       "label": "Codex",
+      "footerWindow": "auto",
     },
     "zai": {
       "enabled": true,

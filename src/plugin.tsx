@@ -11,11 +11,13 @@ import { fetchProviderEffect } from "@/providers.ts";
 import { ProviderRuntimeLive } from "@/providers/runtime/index.ts";
 import { currentProviderID, usageForProvider } from "@/session.ts";
 import type {
+  FooterWindow,
   ProviderID,
   OpenCodeAuth,
   ProviderConfigMap,
   ProviderState,
   ProviderUsage,
+  SidebarWindow,
 } from "@/types.ts";
 
 /** Runtime dependencies used by the usage-limits TUI lifecycle. */
@@ -61,26 +63,38 @@ export const createUsageLimitsPlugin =
   (dependencies: UsageLimitsTuiDependencies) =>
   (context: Context): (() => void) => {
     const [states, setStates] = createSignal<ProviderState[]>([]);
+    const [show, setShow] = createSignal(true);
     const [showSidebar, setShowSidebar] = createSignal(true);
     const [showFooter, setShowFooter] = createSignal(true);
+    const [sidebarWindow, setSidebarWindow] =
+      createSignal<SidebarWindow>("all");
+    const [footerWindows, setFooterWindows] = createSignal<
+      Readonly<Partial<Record<ProviderID, FooterWindow>>>
+    >({});
     const [showErrors, setShowErrors] = createSignal(true);
     const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);
     const disposeSidebar = context.ui.slot({
       append: "sidebar.content",
       render: () =>
-        showSidebar() ? (
+        show() && showSidebar() ? (
           <UsageLimitsPanel
             showErrors={showErrors()}
             states={states()}
             theme={context.theme}
             lastRefreshAt={lastRefreshAt()}
+            sidebarWindow={sidebarWindow()}
           />
         ) : null,
     });
     const disposeFooter = context.ui.slot({
       append: "prompt.footer.status",
       render: (slot) => {
-        if (!showFooter() || !slot.sessionID || slot.mode === "shell") {
+        if (
+          !show() ||
+          !showFooter() ||
+          !slot.sessionID ||
+          slot.mode === "shell"
+        ) {
           return null;
         }
         const providerID = currentProviderID(
@@ -89,7 +103,7 @@ export const createUsageLimitsPlugin =
         return (
           <BottomUsage
             theme={context.theme}
-            window={usageForProvider(states(), providerID)}
+            window={usageForProvider(states(), providerID, footerWindows())}
           />
         );
       },
@@ -102,8 +116,11 @@ export const createUsageLimitsPlugin =
       now: Effect.sync(dependencies.now),
       publish: (snapshot) =>
         Effect.sync(() => {
+          setShow(snapshot.show);
+          setFooterWindows(snapshot.footerWindows);
           setShowSidebar(snapshot.showSidebar);
           setShowFooter(snapshot.showFooter);
+          setSidebarWindow(snapshot.sidebarWindow);
           setShowErrors(snapshot.showErrors);
           setStates([...snapshot.states]);
           setLastRefreshAt(snapshot.lastRefreshAt);

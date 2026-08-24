@@ -8,16 +8,21 @@ import { defaultLabelFor } from "@/providers/index.ts";
 import type {
   OpenCodeAuth,
   ProviderConfigMap,
+  FooterWindow,
   ProviderID,
   ProviderState,
   ProviderUsage,
   ResolvedUsageLimitsConfig,
+  SidebarWindow,
 } from "@/types.ts";
 
 export interface CoordinatorSnapshot {
   readonly states: readonly ProviderState[];
+  readonly footerWindows: Readonly<Partial<Record<ProviderID, FooterWindow>>>;
+  readonly show: boolean;
   readonly showSidebar: boolean;
   readonly showFooter: boolean;
+  readonly sidebarWindow: SidebarWindow;
   readonly showErrors: boolean;
   readonly lastRefreshAt: Date | null;
 }
@@ -56,6 +61,13 @@ const loadingState = (
   status: "loading",
 });
 
+const footerWindowsFor = (
+  providers: readonly (readonly [ProviderID, ProviderConfigMap[ProviderID]])[]
+): Partial<Record<ProviderID, FooterWindow>> =>
+  Object.fromEntries(
+    providers.map(([id, provider]) => [id, provider.footerWindow ?? "auto"])
+  );
+
 export const usageCoordinator = (
   dependencies: UsageCoordinatorDependencies
 ): Effect.Effect<void> =>
@@ -74,10 +86,13 @@ export const usageCoordinator = (
       intervalMs = intervalMilliseconds(config.refreshIntervalSeconds);
       const providers = config.enabled ? getProviderConfigs(config) : [];
       yield* dependencies.publish({
+        footerWindows: footerWindowsFor(providers),
         lastRefreshAt: null,
+        show: config.show,
         showErrors: config.showErrors,
         showFooter: config.showFooter,
         showSidebar: config.showSidebar,
+        sidebarWindow: config.sidebarWindow,
         states: providers.map(([id, provider]) => loadingState(id, provider)),
       });
 
@@ -126,10 +141,13 @@ export const usageCoordinator = (
         const now = yield* dependencies.now;
         const staleAfterMs = intervalMs * 2;
         yield* dependencies.publish({
+          footerWindows: footerWindowsFor(providers),
           lastRefreshAt: now,
+          show: config.show,
           showErrors: config.showErrors,
           showFooter: config.showFooter,
           showSidebar: config.showSidebar,
+          sidebarWindow: config.sidebarWindow,
           states: terminalStates.map((state) =>
             state.status === "ready"
               ? {
@@ -143,10 +161,13 @@ export const usageCoordinator = (
         });
       } else {
         yield* dependencies.publish({
+          footerWindows: {},
           lastRefreshAt: null,
+          show: config.show,
           showErrors: config.showErrors,
           showFooter: config.showFooter,
           showSidebar: config.showSidebar,
+          sidebarWindow: config.sidebarWindow,
           states: [],
         });
       }

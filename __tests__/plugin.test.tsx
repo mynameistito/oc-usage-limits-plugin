@@ -58,9 +58,11 @@ const config = (
   providers: { codex: { enabled: true, label: "Codex Work" } },
   refreshIntervalSeconds: 20,
   requestTimeoutMs: 5000,
+  show: true,
   showErrors: true,
   showFooter: true,
   showSidebar: true,
+  sidebarWindow: "all",
   ...overrides,
 });
 
@@ -242,6 +244,19 @@ describe("usage-limits TUI lifecycle", () => {
     );
     expect(await renderSlot(registered, "prompt.footer.status")).not.toContain(
       "%"
+    );
+  });
+
+  test("hides both displays without stopping provider refreshes", async () => {
+    const harness = createHarness(config({ show: false }));
+    const registered = await initialize(harness);
+
+    expect(harness.fetches).toEqual(["codex"]);
+    expect(await renderSlot(registered, "sidebar.content")).not.toContain(
+      "Usage Limits"
+    );
+    expect(await renderSlot(registered, "prompt.footer.status")).not.toContain(
+      "42%"
     );
   });
 

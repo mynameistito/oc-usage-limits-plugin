@@ -29,9 +29,11 @@ describe("configuration parsing", () => {
       providers: {},
       refreshIntervalSeconds: 15,
       requestTimeoutMs: 1000,
+      show: false,
       showErrors: false,
       showFooter: true,
       showSidebar: false,
+      sidebarWindow: "weekly",
     });
 
     expect(Result.isSuccess(result)).toBe(true);
@@ -41,9 +43,11 @@ describe("configuration parsing", () => {
         providers: {},
         refreshIntervalSeconds: 15,
         requestTimeoutMs: 1000,
+        show: false,
         showErrors: false,
         showFooter: true,
         showSidebar: false,
+        sidebarWindow: "weekly",
       });
     }
   });
@@ -57,6 +61,7 @@ describe("configuration parsing", () => {
           authorizationScheme: "bearer",
           baseUrl: "https://example.com",
           enabled: true,
+          footerWindow: "weekly",
           label: "Work",
         },
       },
@@ -72,6 +77,7 @@ describe("configuration parsing", () => {
         authorizationScheme: "bearer",
         baseUrl: "https://example.com",
         enabled: true,
+        footerWindow: "weekly",
         label: "Work",
       });
     }

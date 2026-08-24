@@ -42,7 +42,8 @@ const usage = (overrides: Partial<ProviderUsage> = {}): ProviderUsage => ({
 const renderPanelText = async (
   states: ProviderState[],
   showErrors: boolean,
-  lastRefreshAt: Date | null = null
+  lastRefreshAt: Date | null = null,
+  sidebarWindow: "all" | "weekly" = "all"
 ): Promise<string> => {
   const setup = await testRender(
     () => (
@@ -51,6 +52,7 @@ const renderPanelText = async (
         states={states}
         theme={theme}
         lastRefreshAt={lastRefreshAt}
+        sidebarWindow={sidebarWindow}
       />
     ),
     { height: 12, width: 80 }
@@ -84,6 +86,31 @@ describe("UsageLimitsPanel", () => {
     expect(text).toContain("5h");
     expect(text).toContain("42%");
     expect(text).toContain("[█████░░░░░░░]");
+  });
+
+  test("filters windows by the global sidebar window", async () => {
+    const text = await renderPanelText(
+      [
+        {
+          data: usage({
+            windows: [
+              usageWindow(),
+              usageWindow({ kind: "weekly", label: "weekly" }),
+            ],
+          }),
+          id: "codex",
+          label: "Codex",
+          stale: false,
+          status: "ready",
+        },
+      ],
+      true,
+      null,
+      "weekly"
+    );
+
+    expect(text).toContain("weekly");
+    expect(text).not.toContain("5h");
   });
 
   test("renders previous windows and error text when errors are visible", async () => {

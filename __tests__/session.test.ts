@@ -130,6 +130,30 @@ describe("session helpers", () => {
     expect(Number(usage ? quotaUsedPercent(usage.quota) : null)).toBe(88);
   });
 
+  test("selects a requested footer window and falls back to auto", () => {
+    const states: ProviderState[] = [
+      {
+        data: {
+          capturedAt: new Date(),
+          id: "codex",
+          label: "Codex",
+          windows: [window("5h", 75), window("weekly", 88)],
+        },
+        id: "codex",
+        label: "Codex",
+        stale: false,
+        status: "ready",
+      },
+    ];
+
+    expect(usageForProvider(states, "openai", { codex: "weekly" })?.label).toBe(
+      "weekly"
+    );
+    expect(
+      usageForProvider(states, "openai", { codex: "monthly" })?.label
+    ).toBe("5h");
+  });
+
   test("returns null for unknown providers or unavailable data", () => {
     expect(usageForProvider([], "anthropic")).toBeNull();
     expect(

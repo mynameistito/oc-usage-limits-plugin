@@ -2,6 +2,12 @@ import type { Redacted } from "effect";
 
 import type { ResetInstant, UsageQuota, UsageWindowKind } from "@/usage.ts";
 
+/** Requested sidebar window filter, or all available windows. */
+export type SidebarWindow = "all" | UsageWindowKind;
+
+/** Requested provider footer window, or the provider's automatic choice. */
+export type FooterWindow = "auto" | UsageWindowKind;
+
 /** Provider adapters supported by the usage-limits plugin. */
 export type ProviderID =
   | "codex"
@@ -84,6 +90,8 @@ interface CommonProviderConfig {
   readonly enabled?: boolean;
   /** Optional provider display label override. */
   readonly label?: string;
+  /** Preferred usage window for this provider's prompt footer. */
+  readonly footerWindow?: FooterWindow;
 }
 
 /** Codex provider configuration. */
@@ -146,8 +154,10 @@ export interface ResolvedUsageLimitsConfig {
   readonly providers: Readonly<Partial<ProviderConfigMap>>;
   readonly refreshIntervalSeconds: number;
   readonly requestTimeoutMs: number;
+  readonly show: boolean;
   readonly showSidebar: boolean;
   readonly showFooter: boolean;
+  readonly sidebarWindow: SidebarWindow;
   readonly showErrors: boolean;
 }
 
