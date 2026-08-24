@@ -7,8 +7,16 @@ import {
   ProviderTransportError,
 } from "@/errors.ts";
 import type { ProviderID } from "@/types.ts";
+import type { JsonValue } from "@/utils.ts";
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+const FETCH_OPERATION = "fetch-usage";
+
+type ProviderHttpError =
+  | ProviderRateLimitError
+  | ProviderResponseDecodeError
+  | ProviderTimeoutError
+  | ProviderTransportError;
 
 const cancelReader = async (
   reader: ReadableStreamDefaultReader<Uint8Array>
@@ -67,13 +75,7 @@ export class ProviderHttpClient extends Context.Service<
   {
     readonly requestJson: (
       request: ProviderHttpRequest
-    ) => Effect.Effect<
-      unknown,
-      | ProviderTransportError
-      | ProviderTimeoutError
-      | ProviderRateLimitError
-      | ProviderResponseDecodeError
-    >;
+    ) => Effect.Effect<JsonValue, ProviderHttpError>;
   }
 >()("oc-usage-limits/ProviderHttpClient") {}
 
@@ -138,7 +140,7 @@ export const makeProviderHttpClient = (fetchImplementation: ProviderFetch) =>
               })
             : new ProviderTransportError({
                 cause: "network",
-                operation: "fetch-usage",
+                operation: FETCH_OPERATION,
                 providerID: request.providerID,
               });
         },
@@ -150,7 +152,7 @@ export const makeProviderHttpClient = (fetchImplementation: ProviderFetch) =>
           });
           if (response.status === 429) {
             throw new ProviderRateLimitError({
-              operation: "fetch-usage",
+              operation: FETCH_OPERATION,
               providerID: request.providerID,
               retryAfterMs: retryAfterMilliseconds(response),
             });
@@ -171,7 +173,8 @@ export const makeProviderHttpClient = (fetchImplementation: ProviderFetch) =>
           }
           const body = await readBoundedBody(response, signal);
           try {
-            return JSON.parse(new TextDecoder().decode(body)) as unknown;
+            // SAFETY: The transport only accepts JSON values at this boundary.
+            return JSON.parse(new TextDecoder().decode(body)) as JsonValue;
           } catch {
             throw new ProviderResponseDecodeError({
               cause: "decode",
@@ -189,7 +192,7 @@ export const makeProviderHttpClient = (fetchImplementation: ProviderFetch) =>
             Effect.fail(
               new ProviderTimeoutError({
                 cause: "timeout",
-                operation: "fetch-usage",
+                operation: FETCH_OPERATION,
                 providerID: request.providerID,
                 timeoutMs: request.timeoutMs,
               })

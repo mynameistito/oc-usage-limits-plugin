@@ -8,6 +8,7 @@ import {
 import type { ProviderTransportError } from "@/errors.ts";
 import { limitLabelForWindow } from "@/format.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
+import { isJsonNumber, isJsonString } from "@/providers/json.ts";
 import { ProviderClock } from "@/providers/runtime/clock.ts";
 import { ProviderEnvironment } from "@/providers/runtime/environment.ts";
 import { ProviderFileSystem } from "@/providers/runtime/filesystem.ts";
@@ -25,11 +26,95 @@ import {
   resetInstantOrNull,
   unknownQuota,
 } from "@/usage.ts";
+import type { JsonObject, JsonValue } from "@/utils.ts";
 import { isRecord } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
 /** Default ChatGPT backend base URL used for Codex usage requests. */
 const DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api";
+
+interface CodexRateLimitWindow {
+  readonly used_percent?: number;
+  readonly limit_window_seconds?: number;
+  readonly reset_at?: number;
+}
+
+interface CodexRateLimit {
+  readonly primary_window?: CodexRateLimitWindow;
+  readonly secondary_window?: CodexRateLimitWindow;
+}
+
+interface CodexPayload {
+  readonly rate_limit?: CodexRateLimit;
+  readonly rate_limit_reset_credits?: { readonly available_count?: number };
+  readonly plan_type?: string;
+}
+
+interface CodexAuthPayload {
+  readonly tokens: {
+    readonly access_token?: JsonValue;
+    readonly account_id?: JsonValue;
+  };
+}
+
+const parseCodexAuth = (value: JsonObject): CodexAuthPayload | null => {
+  if (!isRecord(value.tokens)) {
+    return null;
+  }
+  return {
+    tokens: {
+      access_token: value.tokens.access_token,
+      account_id: value.tokens.account_id,
+    },
+  };
+};
+
+const parseCodexWindow = (window: JsonObject): CodexRateLimitWindow | null => {
+  if (window.used_percent !== undefined && !isJsonNumber(window.used_percent)) {
+    return null;
+  }
+  return {
+    limit_window_seconds: isJsonNumber(window.limit_window_seconds)
+      ? window.limit_window_seconds
+      : undefined,
+    reset_at: isJsonNumber(window.reset_at) ? window.reset_at : undefined,
+    used_percent: isJsonNumber(window.used_percent)
+      ? window.used_percent
+      : undefined,
+  };
+};
+
+const parseCodexPayload = (value: JsonObject): CodexPayload => {
+  const rateLimit = isRecord(value.rate_limit) ? value.rate_limit : undefined;
+  return {
+    plan_type: isJsonString(value.plan_type) ? value.plan_type : undefined,
+    rate_limit: rateLimit
+      ? {
+          primary_window: isRecord(rateLimit.primary_window)
+            ? (parseCodexWindow(rateLimit.primary_window) ?? undefined)
+            : undefined,
+          secondary_window: isRecord(rateLimit.secondary_window)
+            ? (parseCodexWindow(rateLimit.secondary_window) ?? undefined)
+            : undefined,
+        }
+      : undefined,
+    rate_limit_reset_credits:
+      isRecord(value.rate_limit_reset_credits) &&
+      isJsonNumber(value.rate_limit_reset_credits.available_count)
+        ? { available_count: value.rate_limit_reset_credits.available_count }
+        : undefined,
+  };
+};
+
+const resetCreditsFromPayload = (payload: CodexPayload): number | null => {
+  const credits = payload.rate_limit_reset_credits;
+  const availableCount = credits?.available_count;
+  return availableCount !== undefined &&
+    Number.isFinite(availableCount) &&
+    availableCount >= 0
+    ? availableCount
+    : null;
+};
 
 /**
  * Reads Codex credentials from the Codex CLI auth file.
@@ -58,14 +143,15 @@ const readCodexAuthFile = (
       path: authPath ?? "~/.codex/auth.json",
       providerID: "codex",
     });
-    if (!isRecord(auth) || !isRecord(auth.tokens)) {
+    const parsedAuth = isRecord(auth) ? parseCodexAuth(auth) : null;
+    if (!parsedAuth) {
       return yield* new MissingProviderCredentialsError({
         operation: "read-auth",
         providerID: "codex",
       });
     }
-    const access = environment.credential(auth.tokens.access_token);
-    const accountId = environment.credential(auth.tokens.account_id);
+    const access = environment.credential(parsedAuth.tokens.access_token);
+    const accountId = environment.credential(parsedAuth.tokens.account_id);
     if (!access || !accountId) {
       return yield* new MissingProviderCredentialsError({
         operation: "read-auth",
@@ -114,8 +200,11 @@ const loadCodexCredentials = (
  *   length.
  * @returns A normalized usage window, or `null` for invalid payloads.
  */
-const codexWindow = (value: unknown, fallback: string): UsageWindow | null => {
-  if (!isRecord(value)) {
+const codexWindow = (
+  value: CodexRateLimitWindow | undefined,
+  fallback: string
+): UsageWindow | null => {
+  if (!value) {
     return null;
   }
 
@@ -124,12 +213,9 @@ const codexWindow = (value: unknown, fallback: string): UsageWindow | null => {
     return null;
   }
   const used = Result.isSuccess(parsedUsed) ? parsedUsed.success : null;
-  const windowSeconds =
-    typeof value.limit_window_seconds === "number"
-      ? value.limit_window_seconds
-      : 0;
+  const windowSeconds = value.limit_window_seconds ?? 0;
   const resetAt = resetInstantOrNull(
-    typeof value.reset_at === "number" && value.reset_at > 0
+    value.reset_at !== undefined && value.reset_at > 0
       ? new Date(value.reset_at * 1000)
       : null
   );
@@ -146,7 +232,7 @@ const codexWindow = (value: unknown, fallback: string): UsageWindow | null => {
 };
 
 const reportedWindowsAreInvalid = (
-  rateLimit: Record<string, unknown> | undefined,
+  rateLimit: CodexRateLimit | undefined,
   windows: readonly UsageWindow[]
 ): boolean =>
   rateLimit !== undefined &&
@@ -206,7 +292,8 @@ const fetchCodexUsageEffect = (
       url: `${baseUrl}/wham/usage`,
     });
 
-    if (!isRecord(payload)) {
+    const parsedPayload = isRecord(payload) ? parseCodexPayload(payload) : null;
+    if (!parsedPayload) {
       return yield* new ProviderResponseDecodeError({
         cause: "schema",
         operation: "decode-response",
@@ -214,9 +301,7 @@ const fetchCodexUsageEffect = (
       });
     }
 
-    const rateLimit = isRecord(payload.rate_limit)
-      ? payload.rate_limit
-      : undefined;
+    const rateLimit = parsedPayload.rate_limit;
     const primaryWindow = codexWindow(rateLimit?.primary_window, "usage");
     const windows = [
       primaryWindow,
@@ -229,21 +314,14 @@ const fetchCodexUsageEffect = (
         providerID: "codex",
       });
     }
-    const resetCredits =
-      isRecord(payload.rate_limit_reset_credits) &&
-      typeof payload.rate_limit_reset_credits.available_count === "number" &&
-      Number.isFinite(payload.rate_limit_reset_credits.available_count) &&
-      payload.rate_limit_reset_credits.available_count >= 0
-        ? payload.rate_limit_reset_credits.available_count
-        : null;
+    const resetCredits = resetCreditsFromPayload(parsedPayload);
 
     return {
       capturedAt: yield* clock.now,
       id: "codex",
       label: config?.label ?? "Codex",
       metadata: { resetCredits },
-      tierName:
-        typeof payload.plan_type === "string" ? payload.plan_type : undefined,
+      tierName: parsedPayload.plan_type,
       windows,
     };
   });

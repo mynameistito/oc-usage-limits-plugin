@@ -19,7 +19,10 @@ type FetchMock = (
 
 const installFetchMock = (response: Response) => {
   const fetchMock = mock<FetchMock>(() => Promise.resolve(response));
-  globalThis.fetch = fetchMock as unknown as typeof fetch;
+  // SAFETY: Bun's mock function has the same call signature as global fetch.
+  globalThis.fetch = Object.assign(fetchMock, {
+    preconnect: originalFetch.preconnect,
+  });
   return fetchMock;
 };
 

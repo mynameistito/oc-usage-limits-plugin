@@ -38,8 +38,10 @@ const dependencies = (
   return {
     dependencies: {
       fetchProvider: <ID extends ProviderID>(id: ID) =>
+        // SAFETY: The test dispatcher returns the usage type selected by ID.
         fetchProvider(id) as Effect.Effect<ProviderUsage<ID>, ProviderError>,
       loadConfig: Effect.succeed(Result.succeed(config)),
+      // SAFETY: An empty auth object is a valid parsed OpenCode auth value.
       loadOpenCodeAuth: Effect.succeed({} as OpenCodeAuth),
       now: Effect.succeed(new Date("2026-08-14T12:01:00.000Z")),
       publish: (snapshot: CoordinatorSnapshot) =>

@@ -11,7 +11,8 @@ import type {
   UsageWindow,
 } from "@/types.ts";
 import type { UsageWindowKind } from "@/usage.ts";
-import { isRecord } from "@/utils.ts";
+import { isRecord, isString } from "@/utils.ts";
+import type { JsonValue } from "@/utils.ts";
 
 /**
  * Extracts an OpenCode provider identifier from a session message-like value.
@@ -23,26 +24,26 @@ import { isRecord } from "@/utils.ts";
  * @param message - Unknown message payload from OpenCode session state.
  * @returns The provider identifier when present.
  */
-const getProviderFromMessage = (message: unknown): string | undefined => {
+const getProviderFromMessage = (message: JsonValue): string | undefined => {
   if (!isRecord(message)) {
     return undefined;
   }
 
   const info = isRecord(message.info) ? message.info : message;
 
-  if (typeof info.providerID === "string") {
+  if (isString(info.providerID)) {
     return info.providerID;
   }
 
-  if (isRecord(info.model) && typeof info.model.providerID === "string") {
+  if (isRecord(info.model) && isString(info.model.providerID)) {
     return info.model.providerID;
   }
 
-  if (typeof message.providerID === "string") {
+  if (isString(message.providerID)) {
     return message.providerID;
   }
 
-  if (isRecord(message.model) && typeof message.model.providerID === "string") {
+  if (isRecord(message.model) && isString(message.model.providerID)) {
     return message.model.providerID;
   }
 
@@ -59,7 +60,7 @@ const getProviderFromMessage = (message: unknown): string | undefined => {
  * @returns The latest provider identifier, or `undefined` when unavailable.
  */
 export const currentProviderID = (
-  messages: readonly unknown[]
+  messages: readonly JsonValue[]
 ): string | undefined => {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const providerID = getProviderFromMessage(messages[index]);
@@ -112,9 +113,7 @@ export const usageForProvider = (
     Partial<Record<ProviderID, ProviderDisplayConfig>>
   > = {}
 ): UsageWindow | null => {
-  const usageID = providerID
-    ? (pluginProviderForOpenCode(providerID) as ProviderID | null)
-    : null;
+  const usageID = providerID ? pluginProviderForOpenCode(providerID) : null;
 
   const resolveWindow = (id: ProviderID): UsageWindow | null => {
     const state = states.find((item) => item.id === id);
@@ -140,12 +139,17 @@ export const usageForProvider = (
     };
     const requestedKind =
       requestedWindow === "auto" ? footerWindowKind : requestedWindow;
-    return (
-      findForKind(requestedKind) ??
-      (requestedWindow === "auto" ? null : findForKind(footerWindowKind)) ??
-      data.windows[0] ??
-      null
-    );
+    const requested = findForKind(requestedKind);
+    if (requested) {
+      return requested;
+    }
+    if (requestedWindow !== "auto") {
+      const footer = findForKind(footerWindowKind);
+      if (footer) {
+        return footer;
+      }
+    }
+    return data.windows[0] ?? null;
   };
 
   if (usageID) {

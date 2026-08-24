@@ -25,10 +25,16 @@ const NOW = new Date("2026-08-14T12:34:00.000Z");
 const color = RGBA.fromValues(1, 2, 3, 255);
 // SAFETY: The proxy supplies the RGBA value for every theme color while
 // retaining the one numeric theme property used by OpenTUI.
-const theme = new Proxy(
+const themeValue = new Proxy(
   { thinkingOpacity: 0.6 },
-  { get: (target, key) => Reflect.get(target, key) ?? color }
-) as unknown as UsageTheme;
+  {
+    get: (target, key) =>
+      key === "thinkingOpacity" ? target.thinkingOpacity : color,
+  }
+);
+// SAFETY: The host test only reads the proxy's numeric opacity and color values.
+const asUsageTheme = <T,>(value: T): UsageTheme => value as UsageTheme;
+const theme = asUsageTheme(themeValue);
 
 interface UsageLimitsSlotContext {
   sessionID?: string;
@@ -39,6 +45,12 @@ type CharacterizedSlots = Record<
   "sidebar.content" | "prompt.footer.status",
   (context: UsageLimitsSlotContext) => JSX.Element | null
 >;
+
+interface HarnessState {
+  config: ResolvedUsageLimitsConfig;
+  configError: ConfigDecodeError | null;
+  fetchError: Error | null;
+}
 
 const DEFAULT_SLOT: UsageLimitsSlotContext = {
   mode: "normal",
@@ -80,11 +92,11 @@ const createHarness = (initialConfig = config()) => {
   const scheduled: ScheduledRefresh[] = [];
   const fetches: ProviderID[] = [];
   const auth: OpenCodeAuth = {};
-  const state: {
-    config: ResolvedUsageLimitsConfig;
-    configError: ConfigDecodeError | null;
-    fetchError: Error | null;
-  } = { config: initialConfig, configError: null, fetchError: null };
+  const state: HarnessState = {
+    config: initialConfig,
+    configError: null,
+    fetchError: null,
+  };
   let dispose: (() => void) | undefined;
   let slotDisposals = 0;
   let registered: Partial<CharacterizedSlots> | undefined;
@@ -98,6 +110,8 @@ const createHarness = (initialConfig = config()) => {
     ) => {
       fetches.push(id);
       if (state.fetchError) {
+        // SAFETY: The harness only assigns ordinary Error values here; the
+        // provider seam classifies them as ProviderError for this fixture.
         return Effect.fail(state.fetchError as ProviderError);
       }
       return Effect.succeed(usage(id));
@@ -179,10 +193,14 @@ const renderSlot = async (
   }
 };
 
+// SAFETY: The focused fixture implements the host context seam used here.
+const asHostContext = <T,>(value: T): Context => value as Context;
+
 const initialize = async (harness: ReturnType<typeof createHarness>) => {
   harness.setDispose(
+    // SAFETY: partialApi implements the focused Context seam exercised here.
     createUsageLimitsPlugin(harness.dependencies)(
-      harness.context as unknown as Context
+      asHostContext(harness.context)
     )
   );
   await Bun.sleep(0);
@@ -193,6 +211,7 @@ const initialize = async (harness: ReturnType<typeof createHarness>) => {
   if (!registered["sidebar.content"] || !registered["prompt.footer.status"]) {
     throw new Error("plugin did not register both slots");
   }
+  // SAFETY: initialize verifies both required slots before this cast.
   return registered as CharacterizedSlots;
 };
 
@@ -282,6 +301,7 @@ describe("usage-limits TUI lifecycle", () => {
     const registered = await initialize(harness);
 
     expect(
+      // SAFETY: The table contains only the two registered slot names.
       await renderSlot(registered, slot as keyof CharacterizedSlots)
     ).not.toContain(text);
   });

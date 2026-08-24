@@ -86,5 +86,11 @@
     "js-yaml": "5.2.3",
     "read-yaml-file": "3.0.0",
     "seroval": "1.6.2"
+  },
+  "knip": {
+    "ignoreDependencies": [
+      "eslint-plugin-github",
+      "eslint-plugin-sonarjs"
+    ]
   }
 }

@@ -33,7 +33,7 @@ export const DEFAULT_CONFIG: ResolvedUsageLimitsConfig = {
   showErrors: true,
 };
 
-const isMissingFile = (error: unknown): boolean =>
+const isMissingFile = (error: Error): boolean =>
   error instanceof Error && "code" in error && error.code === "ENOENT";
 
 /** Loads and parses the usage-limits plugin configuration. */
@@ -43,7 +43,7 @@ export const loadConfig = async (): Promise<
   try {
     return parseUsageLimitsConfig(await readJsonFile(CONFIG_PATH));
   } catch (error) {
-    if (isMissingFile(error)) {
+    if (error instanceof Error && isMissingFile(error)) {
       return Result.succeed(DEFAULT_CONFIG);
     }
     if (error instanceof SyntaxError) {

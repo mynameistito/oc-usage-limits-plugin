@@ -6,6 +6,7 @@ import {
   ProviderResponseDecodeError,
 } from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
+import { isJsonNumber, isJsonString } from "@/providers/json.ts";
 import { ProviderClock } from "@/providers/runtime/clock.ts";
 import { ProviderEnvironment } from "@/providers/runtime/environment.ts";
 import { ProviderFileSystem } from "@/providers/runtime/filesystem.ts";
@@ -26,10 +27,79 @@ import {
   resetInstantOrNull,
 } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
+import type { JsonObject, JsonValue } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
 /** Default Synthetic API base URL. */
 const DEFAULT_SYNTHETIC_BASE_URL = "https://api.synthetic.new";
+
+interface SyntheticRollingLimit {
+  readonly remaining?: number;
+  readonly max?: number;
+  readonly nextTickAt?: string;
+}
+interface SyntheticSubscription {
+  readonly limit?: number;
+  readonly requests?: number;
+  readonly renewsAt?: string;
+}
+interface SyntheticWeeklyLimit {
+  readonly percentRemaining?: number;
+  readonly nextRegenAt?: string;
+}
+interface SyntheticPayload {
+  readonly rollingFiveHourLimit?: SyntheticRollingLimit;
+  readonly subscription?: SyntheticSubscription;
+  readonly weeklyTokenLimit?: SyntheticWeeklyLimit;
+}
+
+const parseSyntheticRolling = (
+  value: JsonValue | undefined
+): SyntheticRollingLimit | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  return {
+    max: isJsonNumber(value.max) ? value.max : undefined,
+    nextTickAt: isJsonString(value.nextTickAt) ? value.nextTickAt : undefined,
+    remaining: isJsonNumber(value.remaining) ? value.remaining : undefined,
+  };
+};
+
+const parseSyntheticSubscription = (
+  value: JsonValue | undefined
+): SyntheticSubscription | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  return {
+    limit: isJsonNumber(value.limit) ? value.limit : undefined,
+    renewsAt: isJsonString(value.renewsAt) ? value.renewsAt : undefined,
+    requests: isJsonNumber(value.requests) ? value.requests : undefined,
+  };
+};
+
+const parseSyntheticWeekly = (
+  value: JsonValue | undefined
+): SyntheticWeeklyLimit | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  return {
+    nextRegenAt: isJsonString(value.nextRegenAt)
+      ? value.nextRegenAt
+      : undefined,
+    percentRemaining: isJsonNumber(value.percentRemaining)
+      ? value.percentRemaining
+      : undefined,
+  };
+};
+
+const parseSyntheticPayload = (value: JsonObject): SyntheticPayload => ({
+  rollingFiveHourLimit: parseSyntheticRolling(value.rollingFiveHourLimit),
+  subscription: parseSyntheticSubscription(value.subscription),
+  weeklyTokenLimit: parseSyntheticWeekly(value.weeklyTokenLimit),
+});
 
 const countQuotaWhenIntegral = (
   current: QuotaCount,
@@ -51,8 +121,10 @@ const countQuotaWhenIntegral = (
  * @returns The first recognized API key.
  */
 const keyFromSyntheticAuth = (
-  value: unknown,
-  credential: (value: unknown) => Redacted.Redacted<string> | undefined
+  value: JsonObject,
+  credential: (
+    value: JsonValue | undefined
+  ) => Redacted.Redacted<string> | undefined
 ): Redacted.Redacted<string> | undefined => {
   if (!isRecord(value)) {
     return undefined;
@@ -108,7 +180,9 @@ const readSyntheticAuthPathKey = (
       path: authPath,
       providerID: "synthetic",
     });
-    return keyFromSyntheticAuth(auth, environment.credential);
+    return isRecord(auth)
+      ? keyFromSyntheticAuth(auth, environment.credential)
+      : undefined;
   }).pipe(
     Effect.catchCause(() => Effect.succeed<undefined>(globalThis.undefined))
   );
@@ -120,8 +194,8 @@ const readSyntheticAuthPathKey = (
  * @param value - ISO-8601 timestamp string reported by the provider.
  * @returns A `Date` when the input parses, otherwise `null`.
  */
-const parseIsoDate = (value: unknown): Date | null => {
-  if (typeof value !== "string") {
+const parseIsoDate = (value: string | undefined): Date | null => {
+  if (value === undefined) {
     return null;
   }
   const parsed = new Date(value);
@@ -138,10 +212,10 @@ const parseIsoDate = (value: unknown): Date | null => {
  * @returns A normalized 5h window, or `null` when no shape applies.
  */
 const syntheticFiveHourWindow = (
-  payload: Record<string, unknown>
+  payload: SyntheticPayload
 ): UsageWindow | null => {
   const rolling = payload.rollingFiveHourLimit;
-  if (isRecord(rolling)) {
+  if (rolling) {
     const { remaining } = rolling;
     const { max } = rolling;
     const parsedRemaining = parseUsageCount(remaining);
@@ -179,7 +253,7 @@ const syntheticFiveHourWindow = (
   }
 
   const { subscription } = payload;
-  if (isRecord(subscription)) {
+  if (subscription) {
     const { limit } = subscription;
     const { requests } = subscription;
     const parsedLimit = parseUsageCount(limit);
@@ -223,10 +297,10 @@ const syntheticFiveHourWindow = (
  * @returns A normalized weekly window, or `null` when not reported.
  */
 const syntheticWeeklyWindow = (
-  payload: Record<string, unknown>
+  payload: SyntheticPayload
 ): UsageWindow | null => {
   const weekly = payload.weeklyTokenLimit;
-  if (!isRecord(weekly)) {
+  if (!weekly) {
     return null;
   }
 
@@ -277,11 +351,12 @@ const fetchSyntheticUsageEffect = (
     const isOfficialHost = new URL(baseUrl).hostname === "api.synthetic.new";
     const configuredKey = environment.resolveCredential(config?.apiKey);
     const configuredFileKey = yield* readSyntheticAuthPathKey(config?.authPath);
-    const apiKey = isOfficialHost
-      ? (configuredFileKey ??
-        keyFromSyntheticAuth(openCodeAuth, environment.credential) ??
-        configuredKey)
-      : (configuredFileKey ?? configuredKey);
+    const authKey = isRecord(openCodeAuth)
+      ? keyFromSyntheticAuth(openCodeAuth, environment.credential)
+      : undefined;
+    const apiKey =
+      configuredFileKey ??
+      (isOfficialHost ? (authKey ?? configuredKey) : configuredKey);
     if (!apiKey) {
       return yield* new MissingProviderCredentialsError({
         operation: "fetch-usage",
@@ -300,7 +375,10 @@ const fetchSyntheticUsageEffect = (
       url: `${baseUrl}/v2/quotas`,
     });
 
-    if (!isRecord(payload)) {
+    const parsedPayload = isRecord(payload)
+      ? parseSyntheticPayload(payload)
+      : null;
+    if (!parsedPayload) {
       return yield* new ProviderResponseDecodeError({
         cause: "schema",
         operation: "decode-response",
@@ -309,11 +387,11 @@ const fetchSyntheticUsageEffect = (
     }
 
     const windows: UsageWindow[] = [];
-    const fiveHour = syntheticFiveHourWindow(payload);
+    const fiveHour = syntheticFiveHourWindow(parsedPayload);
     if (fiveHour) {
       windows.push(fiveHour);
     }
-    const weekly = syntheticWeeklyWindow(payload);
+    const weekly = syntheticWeeklyWindow(parsedPayload);
     if (weekly) {
       windows.push(weekly);
     }

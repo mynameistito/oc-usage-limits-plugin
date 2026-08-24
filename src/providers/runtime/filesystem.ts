@@ -9,6 +9,7 @@ import {
   ProviderTransportError,
 } from "@/errors.ts";
 import type { ProviderID } from "@/types.ts";
+import type { JsonValue } from "@/utils.ts";
 
 const MAX_AUTH_FILE_BYTES = 1024 * 1024;
 
@@ -111,7 +112,8 @@ export const ProviderFileSystemLive = Layer.succeed(ProviderFileSystem, {
               operation: "read-auth",
               providerID: input.providerID,
             }),
-          try: (): unknown => JSON.parse(text),
+          // SAFETY: JSON.parse output is validated as the JSON boundary type.
+          try: (): JsonValue => JSON.parse(text) as JsonValue,
         })
       )
     ),

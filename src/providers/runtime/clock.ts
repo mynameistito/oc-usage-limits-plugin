@@ -8,7 +8,7 @@ export class ProviderClock extends Context.Service<
   ProviderClock,
   {
     readonly after: (
-      milliseconds: unknown
+      milliseconds: number
     ) => Effect.Effect<ResetInstant | null>;
     readonly now: Effect.Effect<Date>;
   }
@@ -19,9 +19,7 @@ export const ProviderClockLive = Layer.succeed(ProviderClock, {
   after: (milliseconds) =>
     Clock.currentTimeMillis.pipe(
       Effect.map((now) =>
-        typeof milliseconds === "number" &&
-        Number.isFinite(milliseconds) &&
-        milliseconds >= 0
+        Number.isFinite(milliseconds) && milliseconds >= 0
           ? resetInstantOrNull(new Date(now + milliseconds))
           : null
       )

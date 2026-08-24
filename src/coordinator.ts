@@ -43,10 +43,10 @@ export interface UsageCoordinatorDependencies {
 const intervalMilliseconds = (seconds: number): number =>
   Math.max(15, seconds) * 1000;
 
-const errorMessage = (error: unknown): string =>
+const errorMessage = (error: Error): string =>
   error instanceof Error ? error.message : "usage unavailable";
 
-const errorKind = (error: unknown): "missing_credentials" | undefined =>
+const errorKind = (error: Error): "missing_credentials" | undefined =>
   error instanceof MissingProviderCredentialsError ? error.kind : undefined;
 
 const loadingState = (
@@ -78,17 +78,13 @@ export const usageCoordinator = (
 ): Effect.Effect<void> =>
   Effect.gen(function* coordinatorLoop() {
     const lastSuccess = new Map<ProviderID, ProviderUsage>();
-    let intervalMs = intervalMilliseconds(
-      DEFAULT_CONFIG.refreshIntervalSeconds
-    );
-
     while (true) {
       const configResult = yield* dependencies.loadConfig;
       const config = Result.isFailure(configResult)
         ? DEFAULT_CONFIG
         : configResult.success;
 
-      intervalMs = intervalMilliseconds(config.refreshIntervalSeconds);
+      const intervalMs = intervalMilliseconds(config.refreshIntervalSeconds);
       const providers = config.enabled ? getProviderConfigs(config) : [];
       yield* dependencies.publish({
         lastRefreshAt: null,
@@ -126,14 +122,17 @@ export const usageCoordinator = (
                   };
                 }
                 const previous = lastSuccess.get(id);
-                return {
+                const state: ProviderState = {
                   errorKind: errorKind(result.error),
                   id,
                   label,
                   message: errorMessage(result.error),
-                  ...(previous ? { previous } : {}),
                   status: "error",
                 };
+                if (previous) {
+                  return { ...state, previous };
+                }
+                return state;
               })
             )
           ),
