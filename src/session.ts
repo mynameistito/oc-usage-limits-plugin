@@ -122,9 +122,6 @@ export const usageForProvider = (
       return null;
     }
     const displayConfig = providerDisplays[id];
-    if (displayConfig?.showFooterBar === false) {
-      return null;
-    }
     const requestedWindow: FooterWindow = displayConfig?.footerWindow ?? "auto";
     const footerWindowKind = PROVIDER_REGISTRY[id]?.footerWindowKind;
     const findForKind = (kind: UsageWindowKind | undefined) => {

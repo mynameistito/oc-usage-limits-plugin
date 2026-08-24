@@ -127,6 +127,34 @@ describe("UsageLimitsPanel", () => {
     expect(text).not.toContain("5h");
   });
 
+  test("keeps sidebar provider text and percentage when its bar is hidden", async () => {
+    const text = await renderPanelText(
+      [
+        {
+          data: usage(),
+          id: "codex",
+          label: "Codex",
+          stale: false,
+          status: "ready",
+        },
+      ],
+      true,
+      null,
+      {
+        codex: {
+          footerWindow: "auto",
+          showFooterBar: true,
+          showSidebarBar: false,
+          sidebarWindow: "all",
+        },
+      }
+    );
+
+    expect(text).toContain("Codex");
+    expect(text).toContain("42% used");
+    expect(text).not.toContain("[█████░░░░░░░]");
+  });
+
   test("renders previous windows and error text when errors are visible", async () => {
     const text = await renderPanelText(
       [

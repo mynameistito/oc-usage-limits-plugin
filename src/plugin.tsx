@@ -8,6 +8,7 @@ import { loadConfig, loadOpenCodeAuth } from "@/config.ts";
 import { usageCoordinator } from "@/coordinator.ts";
 import type { ProviderError } from "@/errors.ts";
 import { fetchProviderEffect } from "@/providers.ts";
+import { pluginProviderForOpenCode } from "@/providers/index.ts";
 import { ProviderRuntimeLive } from "@/providers/runtime/index.ts";
 import { currentProviderID, usageForProvider } from "@/session.ts";
 import type {
@@ -88,9 +89,17 @@ export const createUsageLimitsPlugin =
         const providerID = currentProviderID(
           context.data.session.message.list(slot.sessionID)
         );
+        const usageProviderID = providerID
+          ? pluginProviderForOpenCode(providerID)
+          : null;
         return (
           <BottomUsage
             theme={context.theme}
+            showBar={
+              usageProviderID
+                ? providerDisplays()[usageProviderID]?.showFooterBar !== false
+                : true
+            }
             window={usageForProvider(states(), providerID, providerDisplays())}
           />
         );

@@ -168,6 +168,34 @@ describe("session helpers", () => {
     ).toBe("5h");
   });
 
+  test("selects footer usage when its bar is hidden", () => {
+    const states: ProviderState[] = [
+      {
+        data: {
+          capturedAt: new Date(),
+          id: "codex",
+          label: "Codex",
+          windows: [window("5h", 75)],
+        },
+        id: "codex",
+        label: "Codex",
+        stale: false,
+        status: "ready",
+      },
+    ];
+
+    expect(
+      usageForProvider(states, "openai", {
+        codex: {
+          footerWindow: "auto",
+          showFooterBar: false,
+          showSidebarBar: true,
+          sidebarWindow: "all",
+        },
+      })?.label
+    ).toBe("5h");
+  });
+
   test("returns null for unknown providers or unavailable data", () => {
     expect(usageForProvider([], "anthropic")).toBeNull();
     expect(

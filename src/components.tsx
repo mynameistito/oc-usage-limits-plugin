@@ -95,6 +95,7 @@ const dotColor = (usedPercent: number | null, theme: ThemeColors): RGBA => {
 };
 
 const UsageWindowRows = (props: {
+  showBar: boolean;
   theme: ThemeColors;
   windows: readonly UsageWindow[];
 }) => (
@@ -113,13 +114,15 @@ const UsageWindowRows = (props: {
         </text>
         <text>
           <span style={{ fg: props.theme.subdued }}>{"  "}</span>
-          <span
-            style={{
-              fg: dotColor(quotaUsedPercent(window.quota), props.theme),
-            }}
-          >
-            {percentBar(quotaUsedPercent(window.quota), 12)}
-          </span>
+          {props.showBar ? (
+            <span
+              style={{
+                fg: dotColor(quotaUsedPercent(window.quota), props.theme),
+              }}
+            >
+              {percentBar(quotaUsedPercent(window.quota), 12)}
+            </span>
+          ) : null}
           <span
             style={{
               fg: dotColor(quotaUsedPercent(window.quota), props.theme),
@@ -195,9 +198,6 @@ export const UsageLimitsPanel = (props: {
       if (!shouldRenderProviderState(state, props.showErrors)) {
         return false;
       }
-      if (!displayConfigFor(state).showSidebarBar) {
-        return false;
-      }
       if (state.status === "ready") {
         return filteredWindowsFor(state, state.data.windows).length > 0;
       }
@@ -249,12 +249,14 @@ export const UsageLimitsPanel = (props: {
                 ) : null}
                 {state.status === "ready" ? (
                   <UsageWindowRows
+                    showBar={displayConfigFor(state).showSidebarBar}
                     theme={colors}
                     windows={filteredWindowsFor(state, state.data.windows)}
                   />
                 ) : null}
                 {state.status === "error" && state.previous ? (
                   <UsageWindowRows
+                    showBar={displayConfigFor(state).showSidebarBar}
                     theme={colors}
                     windows={filteredWindowsFor(state, state.previous.windows)}
                   />
@@ -283,6 +285,7 @@ export const UsageLimitsPanel = (props: {
  * @returns Solid/OpenTUI JSX for the prompt footer slot.
  */
 export const BottomUsage = (props: {
+  showBar: boolean;
   window: UsageWindow | null;
   theme: UsageTheme;
 }) => {
@@ -291,13 +294,15 @@ export const BottomUsage = (props: {
     <Show when={props.window}>
       {(window) => (
         <text>
-          <span
-            style={{
-              fg: dotColor(quotaUsedPercent(window().quota), colors),
-            }}
-          >
-            {percentBar(quotaUsedPercent(window().quota), 8)}
-          </span>
+          {props.showBar ? (
+            <span
+              style={{
+                fg: dotColor(quotaUsedPercent(window().quota), colors),
+              }}
+            >
+              {percentBar(quotaUsedPercent(window().quota), 8)}
+            </span>
+          ) : null}
           <span style={{ fg: colors.text }}>
             {" "}
             {bottomWindowMainText(window())}
