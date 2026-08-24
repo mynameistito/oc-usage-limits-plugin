@@ -1,5 +1,13 @@
 # oc-usage-limits-plugin
 
+## 1.5.0
+
+### Minor Changes
+
+- 09dcfaf: Move usage display visibility and window selection to independently configurable provider bars.
+- c6de66b: Add separate `showSidebar` and `showFooter` configuration toggles for the usage displays.
+- 1a0d0ac: Add master display visibility and typed sidebar and prompt-footer window selection.
+
 ## 1.4.1
 
 ### Patch Changes
