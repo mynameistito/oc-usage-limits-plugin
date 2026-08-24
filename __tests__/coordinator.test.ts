@@ -31,16 +31,24 @@ const usage = (id: ProviderID): ProviderUsage => ({
 });
 
 const dependencies = (
-  fetchProvider: (id: ProviderID) => Effect.Effect<ProviderUsage, ProviderError>
+  fetchProvider: (
+    id: ProviderID
+  ) => Effect.Effect<ProviderUsage, ProviderError>,
+  initialConfig: ResolvedUsageLimitsConfig = config
 ) => {
   const snapshots: string[][] = [];
   const sleeps: Deferred.Deferred<boolean>[] = [];
+  const fetches: ProviderID[] = [];
   return {
     dependencies: {
       fetchProvider: <ID extends ProviderID>(id: ID) =>
         // SAFETY: The test dispatcher returns the usage type selected by ID.
-        fetchProvider(id) as Effect.Effect<ProviderUsage<ID>, ProviderError>,
-      loadConfig: Effect.succeed(Result.succeed(config)),
+        Effect.tap(fetchProvider(id), () =>
+          Effect.sync(() => {
+            fetches.push(id);
+          })
+        ) as Effect.Effect<ProviderUsage<ID>, ProviderError>,
+      loadConfig: Effect.succeed(Result.succeed(initialConfig)),
       // SAFETY: An empty auth object is a valid parsed OpenCode auth value.
       loadOpenCodeAuth: Effect.succeed({} as OpenCodeAuth),
       now: Effect.succeed(new Date("2026-08-14T12:01:00.000Z")),
@@ -55,6 +63,7 @@ const dependencies = (
           yield* Deferred.await(deferred).pipe(Effect.asVoid);
         }),
     },
+    fetches,
     sleeps,
     snapshots,
   };
@@ -111,5 +120,23 @@ describe("usage coordinator", () => {
     await Effect.runPromise(Deferred.succeed(gate, true));
     await Bun.sleep(0);
     expect(harness.snapshots).toHaveLength(1);
+  });
+
+  test("does not fetch disabled providers while fetching enabled providers", async () => {
+    const harness = dependencies((id) => Effect.succeed(usage(id)), {
+      ...config,
+      providers: {
+        codex: { enabled: false },
+        zai: { enabled: true },
+      },
+    });
+    const fiber = Effect.runFork(
+      Effect.scoped(usageCoordinator(harness.dependencies))
+    );
+
+    await Bun.sleep(0);
+    expect(harness.fetches).toEqual(["zai"]);
+    expect(harness.snapshots[0]).toEqual(["loading"]);
+    await Effect.runPromise(Fiber.interrupt(fiber));
   });
 });

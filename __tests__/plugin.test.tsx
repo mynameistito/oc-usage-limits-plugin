@@ -262,7 +262,7 @@ describe("usage-limits TUI lifecycle", () => {
     );
   });
 
-  test("hides both displays without stopping provider refreshes", async () => {
+  test("hides only both graphical bars without stopping provider refreshes", async () => {
     const harness = createHarness(
       config({
         providers: {
@@ -277,11 +277,18 @@ describe("usage-limits TUI lifecycle", () => {
     const registered = await initialize(harness);
 
     expect(harness.fetches).toEqual(["codex"]);
+    expect(await renderSlot(registered, "sidebar.content")).toContain("Codex");
+    expect(await renderSlot(registered, "sidebar.content")).toContain(
+      "42% used"
+    );
     expect(await renderSlot(registered, "sidebar.content")).not.toContain(
-      "Usage Limits"
+      "[█████░░░░░░░]"
+    );
+    expect(await renderSlot(registered, "prompt.footer.status")).toContain(
+      "42%"
     );
     expect(await renderSlot(registered, "prompt.footer.status")).not.toContain(
-      "42%"
+      "[████░░░░░░░░]"
     );
   });
 
@@ -289,21 +296,26 @@ describe("usage-limits TUI lifecycle", () => {
     [
       { providers: { codex: { enabled: true, showSidebarBar: false } } },
       "sidebar.content",
-      "Usage Limits",
+      "42% used",
     ],
     [
       { providers: { codex: { enabled: true, showFooterBar: false } } },
       "prompt.footer.status",
       "42%",
     ],
-  ])("hides the configured %s display", async (overrides, slot, text) => {
+  ])("hides only the configured %s bar", async (overrides, slot, text) => {
     const harness = createHarness(config(overrides));
     const registered = await initialize(harness);
 
-    expect(
-      // SAFETY: The table contains only the two registered slot names.
-      await renderSlot(registered, slot as keyof CharacterizedSlots)
-    ).not.toContain(text);
+    // SAFETY: The table contains only the two registered slot names.
+    const rendered = await renderSlot(
+      registered,
+      slot as keyof CharacterizedSlots
+    );
+    expect(rendered).toContain(text);
+    expect(rendered).not.toContain(
+      slot === "sidebar.content" ? "[█████░░░░░░░]" : "[████░░░░░░░░]"
+    );
   });
 
   test("does not render footer usage for shell mode or missing sessions", async () => {
