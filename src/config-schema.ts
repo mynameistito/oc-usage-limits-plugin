@@ -14,8 +14,29 @@ const secret = Schema.RedactedFromValue(Schema.String, {
 
 const commonProviderFields = {
   enabled: Schema.optionalKey(Schema.Boolean),
+  footerWindow: defaultKey(
+    Schema.Literals([
+      "auto",
+      "rolling",
+      "daily",
+      "weekly",
+      "monthly",
+      "credits",
+      "other",
+    ]),
+    "auto"
+  ),
   label: Schema.optionalKey(Schema.String),
 };
+
+const usageWindowKinds = [
+  "rolling",
+  "daily",
+  "weekly",
+  "monthly",
+  "credits",
+  "other",
+] as const;
 
 /** Schema for Codex provider configuration. */
 export const codexProviderConfigSchema = Schema.Struct({
@@ -82,9 +103,14 @@ const configSchema = Schema.Struct({
     Schema.Finite.check(Schema.isGreaterThanOrEqualTo(1000)),
     10_000
   ),
+  show: defaultKey(Schema.Boolean, true),
   showErrors: defaultKey(Schema.Boolean, true),
   showFooter: defaultKey(Schema.Boolean, true),
   showSidebar: defaultKey(Schema.Boolean, true),
+  sidebarWindow: defaultKey(
+    Schema.Literals(["all", ...usageWindowKinds]),
+    "all"
+  ),
 });
 
 const decodeConfig = Schema.decodeUnknownResult(configSchema, {

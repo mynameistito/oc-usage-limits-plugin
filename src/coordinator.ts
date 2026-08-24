@@ -12,13 +12,18 @@ import type {
   ProviderState,
   ProviderUsage,
   ResolvedUsageLimitsConfig,
+  FooterWindow,
+  SidebarWindow,
 } from "@/types.ts";
 
 export interface CoordinatorSnapshot {
   readonly states: readonly ProviderState[];
+  readonly show: boolean;
   readonly showErrors: boolean;
-  readonly showSidebar: boolean;
   readonly showFooter: boolean;
+  readonly showSidebar: boolean;
+  readonly sidebarWindow: SidebarWindow;
+  readonly footerWindows: Readonly<Partial<Record<ProviderID, FooterWindow>>>;
   readonly lastRefreshAt: Date | null;
 }
 
@@ -74,10 +79,18 @@ export const usageCoordinator = (
       intervalMs = intervalMilliseconds(config.refreshIntervalSeconds);
       const providers = config.enabled ? getProviderConfigs(config) : [];
       yield* dependencies.publish({
+        footerWindows: Object.fromEntries(
+          providers.map(([id, provider]) => [
+            id,
+            provider.footerWindow ?? "auto",
+          ])
+        ),
         lastRefreshAt: null,
+        show: config.show,
         showErrors: config.showErrors,
         showFooter: config.showFooter,
         showSidebar: config.showSidebar,
+        sidebarWindow: config.sidebarWindow,
         states: providers.map(([id, provider]) => loadingState(id, provider)),
       });
 
@@ -126,10 +139,18 @@ export const usageCoordinator = (
         const now = yield* dependencies.now;
         const staleAfterMs = intervalMs * 2;
         yield* dependencies.publish({
+          footerWindows: Object.fromEntries(
+            providers.map(([id, provider]) => [
+              id,
+              provider.footerWindow ?? "auto",
+            ])
+          ),
           lastRefreshAt: now,
+          show: config.show,
           showErrors: config.showErrors,
           showFooter: config.showFooter,
           showSidebar: config.showSidebar,
+          sidebarWindow: config.sidebarWindow,
           states: terminalStates.map((state) =>
             state.status === "ready"
               ? {
@@ -143,10 +164,13 @@ export const usageCoordinator = (
         });
       } else {
         yield* dependencies.publish({
+          footerWindows: {},
           lastRefreshAt: null,
+          show: config.show,
           showErrors: config.showErrors,
           showFooter: config.showFooter,
           showSidebar: config.showSidebar,
+          sidebarWindow: config.sidebarWindow,
           states: [],
         });
       }

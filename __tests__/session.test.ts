@@ -10,12 +10,20 @@ import {
   quotaUsedPercent,
 } from "@/usage.ts";
 
-const window = (label: string, usedPercent = 25): UsageWindow => ({
-  kind: label === "weekly" ? "weekly" : "rolling",
-  label,
-  quota: percentageQuota(Result.getOrThrow(parseUsagePercentage(usedPercent))),
-  resetsAt: new Date("2026-06-23T12:00:00.000Z"),
-});
+const window = (label: string, usedPercent = 25): UsageWindow => {
+  let kind: UsageWindow["kind"] = "rolling";
+  if (label === "daily" || label === "weekly" || label === "monthly") {
+    kind = label;
+  }
+  return {
+    kind,
+    label,
+    quota: percentageQuota(
+      Result.getOrThrow(parseUsagePercentage(usedPercent))
+    ),
+    resetsAt: new Date("2026-06-23T12:00:00.000Z"),
+  };
+};
 
 describe("session helpers", () => {
   test("finds the most recent provider id from top-level or model message data", () => {
@@ -76,6 +84,30 @@ describe("session helpers", () => {
     expect(usageForProvider(states, "zai-coding-plan")?.label).toBe("5h");
     const usage = usageForProvider(states, "zai-coding-plan");
     expect(Number(usage ? quotaUsedPercent(usage.quota) : null)).toBe(88);
+  });
+
+  test("honors a requested footer window before the provider default", () => {
+    const states: ProviderState[] = [
+      {
+        data: {
+          capturedAt: new Date(),
+          id: "codex",
+          label: "Codex",
+          windows: [window("daily", 40), window("5h", 75)],
+        },
+        id: "codex",
+        label: "Codex",
+        stale: false,
+        status: "ready",
+      },
+    ];
+
+    expect(usageForProvider(states, "openai", { codex: "daily" })?.label).toBe(
+      "daily"
+    );
+    expect(
+      usageForProvider(states, "openai", { codex: "monthly" })?.label
+    ).toBe("5h");
   });
 
   test("selects MiniMax usage for minimax-coding-plan sessions", () => {

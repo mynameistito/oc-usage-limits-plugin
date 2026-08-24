@@ -111,13 +111,16 @@ Create `~/.config/opencode/usage-limits.jsonc`. The same file lives at [`example
   "enabled": true,
   "refreshIntervalSeconds": 60,
   "requestTimeoutMs": 10000,
+  "show": true,
   "showErrors": true,
   "showSidebar": true,
   "showFooter": true,
+  "sidebarWindow": "all",
   "providers": {
     "codex": {
       "enabled": true,
       "label": "Codex",
+      "footerWindow": "auto",
     },
     "zai": {
       "enabled": true,
@@ -162,7 +165,7 @@ Disabled providers are hidden:
 }
 ```
 
-Set `showSidebar` or `showFooter` to `false` to hide the corresponding usage display without disabling provider refreshes. Both default to `true`.
+Set `show` to `false` to hide both displays without disabling provider refreshes. `showSidebar` and `showFooter` independently control the corresponding display, and all three default to `true`. Set `sidebarWindow` to `all`, `rolling`, `daily`, `weekly`, `monthly`, `credits`, or `other` to filter sidebar windows. Each provider can set `footerWindow` to `auto` or one of those window kinds; `auto` preserves the provider default.
 
 ## Providers
 

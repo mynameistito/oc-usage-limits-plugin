@@ -11,8 +11,8 @@ import {
   windowResetText,
   windowResetTime,
 } from "@/format.ts";
-import type { ProviderState, UsageWindow } from "@/types.ts";
-import { quotaUsedPercent } from "@/usage.ts";
+import type { ProviderState, SidebarWindow, UsageWindow } from "@/types.ts";
+import { quotaUsedPercent, usageWindowMatchesKind } from "@/usage.ts";
 
 /**
  * Chooses the status-dot color for a usage percentage.
@@ -103,6 +103,7 @@ export const shouldRenderProviderState = (
 export const UsageLimitsPanel = (props: {
   states: ProviderState[];
   showErrors: boolean;
+  sidebarWindow?: SidebarWindow;
   theme: TuiThemeCurrent;
   lastRefreshAt: Date | null;
 }) => {
@@ -154,13 +155,23 @@ export const UsageLimitsPanel = (props: {
                 {state.status === "ready" ? (
                   <UsageWindowRows
                     theme={props.theme}
-                    windows={state.data.windows}
+                    windows={state.data.windows.filter(
+                      (window) =>
+                        props.sidebarWindow === undefined ||
+                        props.sidebarWindow === "all" ||
+                        usageWindowMatchesKind(props.sidebarWindow, window)
+                    )}
                   />
                 ) : null}
                 {state.status === "error" && state.previous ? (
                   <UsageWindowRows
                     theme={props.theme}
-                    windows={state.previous.windows}
+                    windows={state.previous.windows.filter(
+                      (window) =>
+                        props.sidebarWindow === undefined ||
+                        props.sidebarWindow === "all" ||
+                        usageWindowMatchesKind(props.sidebarWindow, window)
+                    )}
                   />
                 ) : null}
                 {state.status === "error" && props.showErrors ? (

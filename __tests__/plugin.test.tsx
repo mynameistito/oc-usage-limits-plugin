@@ -64,9 +64,11 @@ const config = (
   providers: { codex: { enabled: true, label: "Codex Work" } },
   refreshIntervalSeconds: 20,
   requestTimeoutMs: 5000,
+  show: true,
   showErrors: true,
   showFooter: true,
   showSidebar: true,
+  sidebarWindow: "all",
   ...overrides,
 });
 
@@ -251,6 +253,27 @@ describe("usage-limits TUI lifecycle", () => {
     expect(await renderSlot(registered, "session_prompt_right")).not.toContain(
       "%"
     );
+  });
+
+  test("hides both displays without stopping provider refreshes", async () => {
+    const harness = createHarness(config({ show: false }));
+    const registered = await initialize(harness);
+
+    expect(harness.fetches).toEqual(["codex"]);
+    expect(await renderSlot(registered, "sidebar_content")).not.toContain(
+      "Usage Limits"
+    );
+    expect(await renderSlot(registered, "session_prompt_right")).not.toContain(
+      "%"
+    );
+  });
+
+  test("filters sidebar windows by the global window selection", async () => {
+    const harness = createHarness(config({ sidebarWindow: "daily" }));
+    const registered = await initialize(harness);
+    const sidebar = await renderSlot(registered, "sidebar_content");
+
+    expect(sidebar).not.toContain("5h");
   });
 
   test.each([

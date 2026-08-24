@@ -7,7 +7,10 @@ import type {
   ProviderState,
   ProviderUsage,
   UsageWindow,
+  FooterWindow,
 } from "@/types.ts";
+import type { UsageWindowKind } from "@/usage.ts";
+import { usageWindowMatchesKind } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
 
 /**
@@ -93,7 +96,8 @@ const windowFromState = (
  */
 export const usageForProvider = (
   states: readonly ProviderState[],
-  providerID: string | undefined
+  providerID: string | undefined,
+  footerWindows: Readonly<Partial<Record<ProviderID, FooterWindow>>> = {}
 ): UsageWindow | null => {
   const usageID = providerID
     ? (pluginProviderForOpenCode(providerID) as ProviderID | null)
@@ -105,15 +109,19 @@ export const usageForProvider = (
     if (!data) {
       return null;
     }
-    const footerWindowKind = PROVIDER_REGISTRY[id]?.footerWindowKind;
-    const legacyLabel =
-      footerWindowKind === "rolling" ? "5h" : footerWindowKind;
-    return (
-      data.windows.find((window) => window.label === legacyLabel) ??
-      data.windows.find((window) => window.kind === footerWindowKind) ??
-      data.windows[0] ??
-      null
-    );
+    const requestedWindow = footerWindows[id] ?? "auto";
+    const findWindow = (kind: UsageWindowKind): UsageWindow | undefined =>
+      (kind === "rolling"
+        ? data.windows.find((window) => window.label === "5h")
+        : undefined) ??
+      data.windows.find((window) => usageWindowMatchesKind(kind, window));
+    const requested =
+      requestedWindow === "auto" ? null : findWindow(requestedWindow);
+    if (requested) {
+      return requested;
+    }
+    const autoWindowKind = PROVIDER_REGISTRY[id]?.footerWindowKind;
+    return findWindow(autoWindowKind) ?? data.windows[0] ?? null;
   };
 
   if (usageID) {
