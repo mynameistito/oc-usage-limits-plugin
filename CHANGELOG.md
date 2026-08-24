@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 2.0.0-next.2
+
+### Patch Changes
+
+- 0b91654: Publish the typed provider display settings already included in the OpenCode v2 preview source.
+
 ## 2.0.0-next.1
 
 ### Minor Changes
