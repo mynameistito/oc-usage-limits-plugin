@@ -1,4 +1,4 @@
-import { Effect, Redacted, Result } from "effect";
+import { Effect, Redacted, Result, Schema } from "effect";
 
 import { syntheticProviderConfigSchema } from "@/config-schema.ts";
 import {
@@ -26,10 +26,14 @@ import {
   resetInstantOrNull,
 } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
+import type { JsonValue } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
 /** Default Synthetic API base URL. */
 const DEFAULT_SYNTHETIC_BASE_URL = "https://api.synthetic.new";
+
+type ProviderPayload = Readonly<Record<string, JsonValue>>;
+type IsoDateInput = JsonValue | undefined;
 
 const countQuotaWhenIntegral = (
   current: QuotaCount,
@@ -51,8 +55,10 @@ const countQuotaWhenIntegral = (
  * @returns The first recognized API key.
  */
 const keyFromSyntheticAuth = (
-  value: unknown,
-  credential: (value: unknown) => Redacted.Redacted<string> | undefined
+  value: OpenCodeAuth | JsonValue,
+  credential: (
+    value: JsonValue | Redacted.Redacted<string> | undefined
+  ) => Redacted.Redacted<string> | undefined
 ): Redacted.Redacted<string> | undefined => {
   if (!isRecord(value)) {
     return undefined;
@@ -120,8 +126,11 @@ const readSyntheticAuthPathKey = (
  * @param value - ISO-8601 timestamp string reported by the provider.
  * @returns A `Date` when the input parses, otherwise `null`.
  */
-const parseIsoDate = (value: unknown): Date | null => {
-  if (typeof value !== "string") {
+const parseIsoDate = (value: IsoDateInput): Date | null => {
+  if (!value) {
+    return null;
+  }
+  if (!Schema.is(Schema.Union([Schema.String, Schema.Number]))(value)) {
     return null;
   }
   const parsed = new Date(value);
@@ -138,7 +147,7 @@ const parseIsoDate = (value: unknown): Date | null => {
  * @returns A normalized 5h window, or `null` when no shape applies.
  */
 const syntheticFiveHourWindow = (
-  payload: Record<string, unknown>
+  payload: ProviderPayload
 ): UsageWindow | null => {
   const rolling = payload.rollingFiveHourLimit;
   if (isRecord(rolling)) {
@@ -223,7 +232,7 @@ const syntheticFiveHourWindow = (
  * @returns A normalized weekly window, or `null` when not reported.
  */
 const syntheticWeeklyWindow = (
-  payload: Record<string, unknown>
+  payload: ProviderPayload
 ): UsageWindow | null => {
   const weekly = payload.weeklyTokenLimit;
   if (!isRecord(weekly)) {
@@ -277,11 +286,10 @@ const fetchSyntheticUsageEffect = (
     const isOfficialHost = new URL(baseUrl).hostname === "api.synthetic.new";
     const configuredKey = environment.resolveCredential(config?.apiKey);
     const configuredFileKey = yield* readSyntheticAuthPathKey(config?.authPath);
-    const apiKey = isOfficialHost
-      ? (configuredFileKey ??
-        keyFromSyntheticAuth(openCodeAuth, environment.credential) ??
-        configuredKey)
-      : (configuredFileKey ?? configuredKey);
+    const authKey = keyFromSyntheticAuth(openCodeAuth, environment.credential);
+    const apiKey =
+      configuredFileKey ??
+      (isOfficialHost ? (authKey ?? configuredKey) : configuredKey);
     if (!apiKey) {
       return yield* new MissingProviderCredentialsError({
         operation: "fetch-usage",

@@ -38,8 +38,10 @@ const dependencies = (
   return {
     dependencies: {
       fetchProvider: <ID extends ProviderID>(id: ID) =>
+        // SAFETY: The fixture delegates to a provider mock with the generic contract.
         fetchProvider(id) as Effect.Effect<ProviderUsage<ID>, ProviderError>,
       loadConfig: Effect.succeed(Result.succeed(config)),
+      // SAFETY: Empty auth is a valid fixture for the coordinator.
       loadOpenCodeAuth: Effect.succeed({} as OpenCodeAuth),
       now: Effect.succeed(new Date("2026-08-14T12:01:00.000Z")),
       publish: (snapshot: CoordinatorSnapshot) =>

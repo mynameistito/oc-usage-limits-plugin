@@ -50,7 +50,7 @@
     "release": "changeset publish",
     "test": "bun test",
     "test:package": "bun run build && bun ./scripts/test-package.ts",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsc --noEmit",
     "version": "changeset version",
     "fix": "ultracite fix",
     "prepare": "lefthook install"

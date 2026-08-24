@@ -6,6 +6,7 @@ import { ProviderCommandError, ProviderTimeoutError } from "@/errors.ts";
 import type { ProviderID } from "@/types.ts";
 
 const MAX_COMMAND_OUTPUT_BYTES = 2 * 1024 * 1024;
+const COMMAND_OPERATION = "run-command";
 
 /** A bounded provider subprocess request. */
 export interface ProviderCommandInput {
@@ -51,7 +52,7 @@ const execute = (
           new ProviderCommandError({
             cause,
             exitCode,
-            operation: "run-command",
+            operation: COMMAND_OPERATION,
             providerID: input.providerID,
           })
         )
@@ -88,7 +89,7 @@ const execute = (
               new ProviderCommandError({
                 cause: "command",
                 exitCode,
-                operation: "run-command",
+                operation: COMMAND_OPERATION,
                 providerID: input.providerID,
               })
             )
@@ -108,7 +109,7 @@ const execute = (
         Effect.fail(
           new ProviderTimeoutError({
             cause: "timeout",
-            operation: "run-command",
+            operation: COMMAND_OPERATION,
             providerID: input.providerID,
             timeoutMs: input.timeoutMs,
           })

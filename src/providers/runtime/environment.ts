@@ -1,15 +1,24 @@
-import { Context, Layer, Redacted } from "effect";
+import { Context, Layer, Redacted, Schema } from "effect";
+
+import type { JsonValue } from "@/utils.ts";
 
 const environmentReference = /^\{env:(?<name>[^}]+)\}$/iu;
 
-const nonEmptySecret = (
-  value: unknown
-): Redacted.Redacted<string> | undefined => {
-  const revealed = Redacted.isRedacted(value) ? Redacted.value(value) : value;
-  if (typeof revealed !== "string") {
-    return undefined;
+type CredentialInput = JsonValue | Redacted.Redacted<string> | undefined;
+
+const nonEmptySecret = (value: CredentialInput) => {
+  if (
+    value !== undefined &&
+    !Schema.is(Schema.String)(value) &&
+    !Redacted.isRedacted(value)
+  ) {
+    return;
   }
-  const trimmed = revealed.trim();
+  const revealed = Redacted.isRedacted(value) ? Redacted.value(value) : value;
+  if (!revealed) {
+    return;
+  }
+  const trimmed = Schema.is(Schema.String)(revealed) ? revealed.trim() : "";
   return trimmed === "" ? undefined : Redacted.make(trimmed);
 };
 
@@ -18,10 +27,10 @@ export class ProviderEnvironment extends Context.Service<
   ProviderEnvironment,
   {
     readonly credential: (
-      value: unknown
+      value: CredentialInput
     ) => Redacted.Redacted<string> | undefined;
     readonly resolveCredential: (
-      value: unknown
+      value: CredentialInput
     ) => Redacted.Redacted<string> | undefined;
   }
 >()("oc-usage-limits/ProviderEnvironment") {}

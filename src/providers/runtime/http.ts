@@ -7,6 +7,7 @@ import {
   ProviderTransportError,
 } from "@/errors.ts";
 import type { ProviderID } from "@/types.ts";
+import type { JsonValue } from "@/utils.ts";
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
@@ -60,6 +61,14 @@ export type ProviderFetch = (
   input: string | URL | Request,
   init?: RequestInit
 ) => Promise<Response>;
+const FETCH_USAGE = "fetch-usage";
+const DECODE_RESPONSE = "decode-response";
+
+type ProviderHttpError =
+  | ProviderTransportError
+  | ProviderTimeoutError
+  | ProviderRateLimitError
+  | ProviderResponseDecodeError;
 
 /** Bounded, interruptible JSON HTTP transport with provider-safe failures. */
 export class ProviderHttpClient extends Context.Service<
@@ -67,13 +76,7 @@ export class ProviderHttpClient extends Context.Service<
   {
     readonly requestJson: (
       request: ProviderHttpRequest
-    ) => Effect.Effect<
-      unknown,
-      | ProviderTransportError
-      | ProviderTimeoutError
-      | ProviderRateLimitError
-      | ProviderResponseDecodeError
-    >;
+    ) => Effect.Effect<JsonValue, ProviderHttpError>;
   }
 >()("oc-usage-limits/ProviderHttpClient") {}
 
@@ -133,12 +136,12 @@ export const makeProviderHttpClient = (fetchImplementation: ProviderFetch) =>
           return error instanceof RangeError
             ? new ProviderResponseDecodeError({
                 cause: "output-limit",
-                operation: "decode-response",
+                operation: DECODE_RESPONSE,
                 providerID: request.providerID,
               })
             : new ProviderTransportError({
                 cause: "network",
-                operation: "fetch-usage",
+                operation: FETCH_USAGE,
                 providerID: request.providerID,
               });
         },
@@ -150,7 +153,7 @@ export const makeProviderHttpClient = (fetchImplementation: ProviderFetch) =>
           });
           if (response.status === 429) {
             throw new ProviderRateLimitError({
-              operation: "fetch-usage",
+              operation: FETCH_USAGE,
               providerID: request.providerID,
               retryAfterMs: retryAfterMilliseconds(response),
             });
@@ -164,18 +167,18 @@ export const makeProviderHttpClient = (fetchImplementation: ProviderFetch) =>
             }
             throw new ProviderTransportError({
               cause,
-              operation: "fetch-usage",
+              operation: FETCH_USAGE,
               providerID: request.providerID,
               status: response.status,
             });
           }
           const body = await readBoundedBody(response, signal);
           try {
-            return JSON.parse(new TextDecoder().decode(body)) as unknown;
+            return JSON.parse(new TextDecoder().decode(body));
           } catch {
             throw new ProviderResponseDecodeError({
               cause: "decode",
-              operation: "decode-response",
+              operation: DECODE_RESPONSE,
               providerID: request.providerID,
             });
           }
@@ -189,7 +192,7 @@ export const makeProviderHttpClient = (fetchImplementation: ProviderFetch) =>
             Effect.fail(
               new ProviderTimeoutError({
                 cause: "timeout",
-                operation: "fetch-usage",
+                operation: FETCH_USAGE,
                 providerID: request.providerID,
                 timeoutMs: request.timeoutMs,
               })

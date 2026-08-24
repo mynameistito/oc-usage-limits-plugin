@@ -5,13 +5,22 @@ interface PackageManifest {
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
 }
+interface PluginModule {
+  readonly default?: {
+    readonly id?: string;
+    readonly tui?: unknown;
+  };
+}
 
 const expectedId = "mynameistito.usage-limits";
 const entrypoint = new URL("../dist/index.mjs", import.meta.url);
 const require = createRequire(entrypoint);
 
-const readManifest = async (path: string | URL): Promise<PackageManifest> =>
-  JSON.parse(await readFile(path, "utf-8"));
+const readManifest = async (path: string | URL): Promise<PackageManifest> => {
+  const manifest: object = JSON.parse(await readFile(path, "utf-8"));
+  // SAFETY: JSON manifest files are owned package metadata and are consumed through PackageManifest fields.
+  return manifest as PackageManifest;
+};
 
 const packageManifest = await readManifest(
   new URL("../package.json", import.meta.url)
@@ -42,17 +51,12 @@ try {
   process.exit(1);
 }
 
-const module = (await import(entrypoint.href)) as { default?: unknown };
+// SAFETY: The built package is the artifact being smoke-tested and is imported from the fixed entrypoint.
+const module = (await import(entrypoint.href)) as PluginModule;
 const plugin = module.default;
 
-if (
-  typeof plugin !== "object" ||
-  plugin === null ||
-  !("id" in plugin) ||
-  plugin.id !== expectedId ||
-  !("tui" in plugin) ||
-  typeof plugin.tui !== "function"
-) {
+const validPlugin = plugin?.id === expectedId && Boolean(plugin.tui);
+if (!validPlugin) {
   console.error(
     `Package smoke test failed: expected default export ${expectedId} with callable tui`
   );

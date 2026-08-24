@@ -5,6 +5,6 @@ import { selectJsPlugins } from "ultracite/oxlint/js-plugins";
 import solid from "ultracite/oxlint/solid";
 
 export default defineConfig({
-  extends: [core, solid, antiSlop, selectJsPlugins(["github", "sonarjs"])],
+  extends: [antiSlop, core, solid, selectJsPlugins(["github", "sonarjs"])],
   ignorePatterns: core.ignorePatterns,
 });

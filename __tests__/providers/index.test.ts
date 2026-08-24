@@ -97,6 +97,7 @@ describe("provider manifest", () => {
 
   test("rejects unknown provider ids", () => {
     expect(() =>
+      // SAFETY: This intentionally exercises the runtime default branch.
       fetchProvider("unknown" as never, undefined, {}, 1000)
     ).toThrow("unknown provider: unknown");
   });

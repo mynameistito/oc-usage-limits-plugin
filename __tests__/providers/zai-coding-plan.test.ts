@@ -173,9 +173,8 @@ describe("ZAI provider", () => {
         })
       );
 
-      await expect(
-        fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000)
-      ).resolves.toMatchObject({ tierName: undefined });
+      const usage = await fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000);
+      expect(usage.tierName).toBeUndefined();
     });
 
     test("infers missing usage total as Unknown tier", async () => {
@@ -190,9 +189,8 @@ describe("ZAI provider", () => {
         })
       );
 
-      await expect(
-        fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000)
-      ).resolves.toMatchObject({ tierName: undefined });
+      const usage = await fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000);
+      expect(usage.tierName).toBeUndefined();
     });
   });
 

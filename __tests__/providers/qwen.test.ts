@@ -11,19 +11,13 @@ const commandError = (input: {
   stdout?: string;
 }): Error => Object.assign(new Error("command failed"), input);
 
-const safeErrorGraph = (error: unknown): string => {
-  if (!(error instanceof Error)) {
-    return String(error);
-  }
-  return `${error.name}:${error.message}:${
-    error.cause === undefined ? "" : safeErrorGraph(error.cause)
-  }`;
-};
+const safeErrorGraph = (error: Error): string =>
+  `${error.name}:${error.message}:${error.cause instanceof Error ? safeErrorGraph(error.cause) : ""}`;
 
 const createRunner = (
   auth: string | Error,
   usage: string | Error = ""
-): { calls: string[][]; runner: QwenCommandRunner } => {
+): RunnerFixture => {
   const calls: string[][] = [];
   const runner: QwenCommandRunner = (_cli, args) => {
     calls.push(args);
@@ -33,8 +27,14 @@ const createRunner = (
     }
     return Promise.resolve(result);
   };
-  return { calls, runner };
+  const result = { calls, runner };
+  return result;
 };
+
+interface RunnerFixture {
+  readonly calls: string[][];
+  readonly runner: QwenCommandRunner;
+}
 
 const fetchUsage = (runner: QwenCommandRunner, label?: string) =>
   createQwenProvider({ commandRunner: runner, now: () => NOW }).fetch(
@@ -96,10 +96,16 @@ describe("Qwen provider", () => {
       await fetchUsage(runner);
       throw new Error("expected Qwen CLI failure");
     } catch (error) {
-      expect(safeErrorGraph(error)).toContain(
-        "qwencloud CLI not available (qwencloud CLI failed)"
-      );
-      expect(safeErrorGraph(error)).not.toContain(secret);
+      expect(
+        safeErrorGraph(
+          error instanceof Error ? error : new Error(String(error))
+        )
+      ).toContain("qwencloud CLI not available (qwencloud CLI failed)");
+      expect(
+        safeErrorGraph(
+          error instanceof Error ? error : new Error(String(error))
+        )
+      ).not.toContain(secret);
     }
   });
 
@@ -147,10 +153,16 @@ describe("Qwen provider", () => {
       await fetchUsage(runner);
       throw new Error("expected malformed Qwen usage failure");
     } catch (error) {
-      expect(safeErrorGraph(error)).toContain(
-        "Failed to parse qwencloud usage response"
-      );
-      expect(safeErrorGraph(error)).not.toContain(fragment);
+      expect(
+        safeErrorGraph(
+          error instanceof Error ? error : new Error(String(error))
+        )
+      ).toContain("Failed to parse qwencloud usage response");
+      expect(
+        safeErrorGraph(
+          error instanceof Error ? error : new Error(String(error))
+        )
+      ).not.toContain(fragment);
     }
   });
 
@@ -176,11 +188,21 @@ describe("Qwen provider", () => {
       await fetchUsage(runner);
       throw new Error("expected Qwen usage command failure");
     } catch (error) {
-      expect(safeErrorGraph(error)).toContain(
-        "qwencloud usage query failed (qwencloud CLI exit code 1)"
-      );
-      expect(safeErrorGraph(error)).toContain("qwencloud CLI exit code 1");
-      expect(safeErrorGraph(error)).not.toContain(secret);
+      expect(
+        safeErrorGraph(
+          error instanceof Error ? error : new Error(String(error))
+        )
+      ).toContain("qwencloud usage query failed (qwencloud CLI exit code 1)");
+      expect(
+        safeErrorGraph(
+          error instanceof Error ? error : new Error(String(error))
+        )
+      ).toContain("qwencloud CLI exit code 1");
+      expect(
+        safeErrorGraph(
+          error instanceof Error ? error : new Error(String(error))
+        )
+      ).not.toContain(secret);
     }
   });
 
