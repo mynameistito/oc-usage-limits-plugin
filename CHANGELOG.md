@@ -1,5 +1,18 @@
 # oc-usage-limits-plugin
 
+## 2.0.0-next.1
+
+### Minor Changes
+
+- d5e6bed: Add typed master display, sidebar window filtering, and per-provider footer window selection configuration.
+- af75e02: Move display visibility and window selection to typed provider-level configuration fields.
+- e9d4e4b: Add separate `showSidebar` and `showFooter` configuration toggles for the v2 TUI displays.
+
+### Patch Changes
+
+- 41ea91f: Align the OpenCode v2 preview package with the current beta TUI API and host OpenTUI dependencies.
+- a686f72: Remove the unused OpenTUI keymap development dependency from the OpenCode v2 preview package.
+
 ## 2.0.0-next.0
 
 ### Major Changes
