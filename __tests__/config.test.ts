@@ -53,7 +53,11 @@ describe("configuration parsing", () => {
           authorizationScheme: "bearer",
           baseUrl: "https://example.com",
           enabled: true,
+          footerWindow: "weekly",
           label: "Work",
+          showFooterBar: false,
+          showSidebarBar: true,
+          sidebarWindow: "weekly",
         },
       },
     });
@@ -68,7 +72,11 @@ describe("configuration parsing", () => {
         authorizationScheme: "bearer",
         baseUrl: "https://example.com",
         enabled: true,
+        footerWindow: "weekly",
         label: "Work",
+        showFooterBar: false,
+        showSidebarBar: true,
+        sidebarWindow: "weekly",
       });
     }
   });

@@ -8,6 +8,7 @@ import { defaultLabelFor } from "@/providers/index.ts";
 import type {
   OpenCodeAuth,
   ProviderConfigMap,
+  ProviderDisplayConfig,
   ProviderID,
   ProviderState,
   ProviderUsage,
@@ -16,6 +17,9 @@ import type {
 
 export interface CoordinatorSnapshot {
   readonly states: readonly ProviderState[];
+  readonly providerDisplays: Readonly<
+    Partial<Record<ProviderID, ProviderDisplayConfig>>
+  >;
   readonly showErrors: boolean;
   readonly lastRefreshAt: Date | null;
 }
@@ -54,6 +58,21 @@ const loadingState = (
   status: "loading",
 });
 
+const providerDisplaysFor = (
+  providers: readonly (readonly [ProviderID, ProviderConfigMap[ProviderID]])[]
+): Partial<Record<ProviderID, ProviderDisplayConfig>> =>
+  Object.fromEntries(
+    providers.map(([id, provider]) => [
+      id,
+      {
+        footerWindow: provider.footerWindow ?? "auto",
+        showFooterBar: provider.showFooterBar ?? true,
+        showSidebarBar: provider.showSidebarBar ?? true,
+        sidebarWindow: provider.sidebarWindow ?? "all",
+      },
+    ])
+  );
+
 export const usageCoordinator = (
   dependencies: UsageCoordinatorDependencies
 ): Effect.Effect<void> =>
@@ -73,6 +92,7 @@ export const usageCoordinator = (
       const providers = config.enabled ? getProviderConfigs(config) : [];
       yield* dependencies.publish({
         lastRefreshAt: null,
+        providerDisplays: providerDisplaysFor(providers),
         showErrors: config.showErrors,
         states: providers.map(([id, provider]) => loadingState(id, provider)),
       });
@@ -123,6 +143,7 @@ export const usageCoordinator = (
         const staleAfterMs = intervalMs * 2;
         yield* dependencies.publish({
           lastRefreshAt: now,
+          providerDisplays: providerDisplaysFor(providers),
           showErrors: config.showErrors,
           states: terminalStates.map((state) =>
             state.status === "ready"
@@ -138,6 +159,7 @@ export const usageCoordinator = (
       } else {
         yield* dependencies.publish({
           lastRefreshAt: null,
+          providerDisplays: {},
           showErrors: config.showErrors,
           states: [],
         });

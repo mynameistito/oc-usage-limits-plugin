@@ -29,6 +29,32 @@
       "additionalProperties": false,
       "properties": {
         "enabled": { "type": "boolean" },
+        "showSidebarBar": { "type": "boolean", "default": true },
+        "showFooterBar": { "type": "boolean", "default": true },
+        "sidebarWindow": {
+          "enum": [
+            "all",
+            "rolling",
+            "daily",
+            "weekly",
+            "monthly",
+            "credits",
+            "other"
+          ],
+          "default": "all"
+        },
+        "footerWindow": {
+          "enum": [
+            "auto",
+            "rolling",
+            "daily",
+            "weekly",
+            "monthly",
+            "credits",
+            "other"
+          ],
+          "default": "auto"
+        },
         "label": { "type": "string" },
         "authPath": {
           "type": "string",

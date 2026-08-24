@@ -14,7 +14,33 @@ const secret = Schema.RedactedFromValue(Schema.String, {
 
 const commonProviderFields = {
   enabled: Schema.optionalKey(Schema.Boolean),
+  footerWindow: defaultKey(
+    Schema.Literals([
+      "auto",
+      "rolling",
+      "daily",
+      "weekly",
+      "monthly",
+      "credits",
+      "other",
+    ]),
+    "auto"
+  ),
   label: Schema.optionalKey(Schema.String),
+  showFooterBar: defaultKey(Schema.Boolean, true),
+  showSidebarBar: defaultKey(Schema.Boolean, true),
+  sidebarWindow: defaultKey(
+    Schema.Literals([
+      "all",
+      "rolling",
+      "daily",
+      "weekly",
+      "monthly",
+      "credits",
+      "other",
+    ]),
+    "all"
+  ),
 };
 
 /** Schema for Codex provider configuration. */

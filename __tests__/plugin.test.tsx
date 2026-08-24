@@ -243,6 +243,49 @@ describe("usage-limits TUI lifecycle", () => {
     );
   });
 
+  test("hides both displays without stopping provider refreshes", async () => {
+    const harness = createHarness(
+      config({
+        providers: {
+          codex: {
+            enabled: true,
+            showFooterBar: false,
+            showSidebarBar: false,
+          },
+        },
+      })
+    );
+    const registered = await initialize(harness);
+
+    expect(harness.fetches).toEqual(["codex"]);
+    expect(await renderSlot(registered, "sidebar.content")).not.toContain(
+      "Usage Limits"
+    );
+    expect(await renderSlot(registered, "prompt.footer.status")).not.toContain(
+      "42%"
+    );
+  });
+
+  test.each([
+    [
+      { providers: { codex: { enabled: true, showSidebarBar: false } } },
+      "sidebar.content",
+      "Usage Limits",
+    ],
+    [
+      { providers: { codex: { enabled: true, showFooterBar: false } } },
+      "prompt.footer.status",
+      "42%",
+    ],
+  ])("hides the configured %s display", async (overrides, slot, text) => {
+    const harness = createHarness(config(overrides));
+    const registered = await initialize(harness);
+
+    expect(
+      await renderSlot(registered, slot as keyof CharacterizedSlots)
+    ).not.toContain(text);
+  });
+
   test("does not render footer usage for shell mode or missing sessions", async () => {
     const harness = createHarness();
     const registered = await initialize(harness);

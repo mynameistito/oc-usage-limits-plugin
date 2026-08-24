@@ -12,6 +12,7 @@ import { ProviderRuntimeLive } from "@/providers/runtime/index.ts";
 import { currentProviderID, usageForProvider } from "@/session.ts";
 import type {
   ProviderID,
+  ProviderDisplayConfig,
   OpenCodeAuth,
   ProviderConfigMap,
   ProviderState,
@@ -61,12 +62,16 @@ export const createUsageLimitsPlugin =
   (dependencies: UsageLimitsTuiDependencies) =>
   (context: Context): (() => void) => {
     const [states, setStates] = createSignal<ProviderState[]>([]);
+    const [providerDisplays, setProviderDisplays] = createSignal<
+      Readonly<Partial<Record<ProviderID, ProviderDisplayConfig>>>
+    >({});
     const [showErrors, setShowErrors] = createSignal(true);
     const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);
     const disposeSidebar = context.ui.slot({
       append: "sidebar.content",
       render: () => (
         <UsageLimitsPanel
+          providerDisplays={providerDisplays()}
           showErrors={showErrors()}
           states={states()}
           theme={context.theme}
@@ -86,7 +91,7 @@ export const createUsageLimitsPlugin =
         return (
           <BottomUsage
             theme={context.theme}
-            window={usageForProvider(states(), providerID)}
+            window={usageForProvider(states(), providerID, providerDisplays())}
           />
         );
       },
@@ -99,6 +104,7 @@ export const createUsageLimitsPlugin =
       now: Effect.sync(dependencies.now),
       publish: (snapshot) =>
         Effect.sync(() => {
+          setProviderDisplays(snapshot.providerDisplays);
           setShowErrors(snapshot.showErrors);
           setStates([...snapshot.states]);
           setLastRefreshAt(snapshot.lastRefreshAt);

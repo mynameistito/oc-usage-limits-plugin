@@ -10,7 +10,12 @@ import {
   windowResetText,
   windowResetTime,
 } from "@/format.ts";
-import type { ProviderState, UsageWindow } from "@/types.ts";
+import type {
+  ProviderDisplayConfig,
+  ProviderState,
+  SidebarWindow,
+  UsageWindow,
+} from "@/types.ts";
 import { quotaUsedPercent } from "@/usage.ts";
 
 /**
@@ -160,12 +165,47 @@ export const UsageLimitsPanel = (props: {
   showErrors: boolean;
   theme: UsageTheme;
   lastRefreshAt: Date | null;
+  providerDisplays: Readonly<
+    Partial<Record<ProviderState["id"], ProviderDisplayConfig>>
+  >;
 }) => {
   const colors = resolveTheme(props.theme);
+  const displayConfigFor = (state: ProviderState): ProviderDisplayConfig =>
+    props.providerDisplays[state.id] ?? {
+      footerWindow: "auto",
+      showFooterBar: true,
+      showSidebarBar: true,
+      sidebarWindow: "all",
+    };
+  const filteredWindowsFor = (
+    state: ProviderState,
+    windows: readonly UsageWindow[]
+  ): UsageWindow[] => {
+    const sidebarWindow: SidebarWindow = displayConfigFor(state).sidebarWindow;
+    return sidebarWindow === "all"
+      ? [...windows]
+      : windows.filter(
+          (window) =>
+            window.kind === sidebarWindow ||
+            (sidebarWindow === "rolling" && window.label === "5h")
+        );
+  };
   const visibleStates = createMemo(() =>
-    props.states.filter((state) =>
-      shouldRenderProviderState(state, props.showErrors)
-    )
+    props.states.filter((state) => {
+      if (!shouldRenderProviderState(state, props.showErrors)) {
+        return false;
+      }
+      if (!displayConfigFor(state).showSidebarBar) {
+        return false;
+      }
+      if (state.status === "ready") {
+        return filteredWindowsFor(state, state.data.windows).length > 0;
+      }
+      if (state.status === "error" && state.previous) {
+        return filteredWindowsFor(state, state.previous.windows).length > 0;
+      }
+      return true;
+    })
   );
 
   return (
@@ -210,13 +250,13 @@ export const UsageLimitsPanel = (props: {
                 {state.status === "ready" ? (
                   <UsageWindowRows
                     theme={colors}
-                    windows={state.data.windows}
+                    windows={filteredWindowsFor(state, state.data.windows)}
                   />
                 ) : null}
                 {state.status === "error" && state.previous ? (
                   <UsageWindowRows
                     theme={colors}
-                    windows={state.previous.windows}
+                    windows={filteredWindowsFor(state, state.previous.windows)}
                   />
                 ) : null}
                 {state.status === "error" && props.showErrors ? (
