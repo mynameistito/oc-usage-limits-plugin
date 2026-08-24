@@ -140,6 +140,7 @@ describe("MiniMax provider", () => {
 
     const usage = await fetchMiniMaxTokenPlanUsage(
       {},
+      // SAFETY: This fixture matches the parsed OpenCode auth shape.
       { "minimax-coding-plan": { key: "auth-mm-key" } } as OpenCodeAuth,
       1000
     );

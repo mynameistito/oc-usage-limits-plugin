@@ -1,5 +1,7 @@
 import { Result, Schema } from "effect";
 
+import type { JsonValue } from "@/utils.ts";
+
 /** Stable semantic kinds for provider quota windows. */
 export type UsageWindowKind =
   | "rolling"
@@ -53,21 +55,23 @@ const parseResetInstant = Schema.decodeUnknownResult(ResetInstantSchema);
 
 /** Parses an unknown value into a finite percentage. */
 export const parseUsagePercentage = (
-  value: unknown
+  value: JsonValue
 ): Result.Result<Percentage, Schema.SchemaError> => parsePercentage(value);
 
 /** Parses an unknown value into a non-negative quota count. */
 export const parseUsageCount = (
-  value: unknown
+  value: JsonValue
 ): Result.Result<QuotaCount, Schema.SchemaError> => parseQuotaCount(value);
 
 /** Parses an unknown value into a valid absolute reset instant. */
 export const parseUsageResetInstant = (
-  value: unknown
+  value: JsonValue | Date
 ): Result.Result<ResetInstant, Schema.SchemaError> => parseResetInstant(value);
 
 /** Returns a valid reset instant or `null` for absent/invalid provider values. */
-export const resetInstantOrNull = (value: unknown): ResetInstant | null => {
+export const resetInstantOrNull = (
+  value: JsonValue | Date
+): ResetInstant | null => {
   const result = parseResetInstant(value);
   return Result.isFailure(result) ? null : result.success;
 };

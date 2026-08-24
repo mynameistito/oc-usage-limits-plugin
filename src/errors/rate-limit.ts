@@ -13,6 +13,6 @@ export class ProviderRateLimitError extends Schema.TaggedErrorClass<ProviderRate
   override get message(): string {
     return this.retryAfterMs === undefined
       ? "provider rate limit reached"
-      : "provider rate limit reached";
+      : `provider rate limit reached; retry after ${this.retryAfterMs}ms`;
   }
 }

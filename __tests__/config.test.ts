@@ -8,12 +8,12 @@ import {
   parseUsageLimitsConfig,
 } from "@/config-schema.ts";
 import { ConfigDecodeError, ConfigReadError } from "@/errors.ts";
-import * as utils from "@/utils.ts";
 
-const originalReadJsonFile = utils.readJsonFile;
+const actualUtils = await import("@/utils.ts");
+const originalReadJsonFile = actualUtils.readJsonFile;
 const readJsonFile = mock(originalReadJsonFile);
 
-mock.module("@/utils.ts", () => ({ ...utils, readJsonFile }));
+mock.module("@/utils.ts", () => ({ ...actualUtils, readJsonFile }));
 
 const { loadConfig, loadOpenCodeAuth } = await import("@/config.ts");
 

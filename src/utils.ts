@@ -2,6 +2,26 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { Schema } from "effect";
+
+/** JSON object returned by provider and configuration boundaries. */
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
+
+/** JSON arrays returned by provider and configuration boundaries. */
+type JsonArray = JsonValue[];
+
+/** JSON values returned by provider and configuration boundaries. */
+export type JsonValue =
+  | boolean
+  | JsonArray
+  | JsonObject
+  | null
+  | number
+  | string
+  | undefined;
+
 /**
  * Normalizes an arbitrary number into the inclusive percentage range used by UI.
  *
@@ -20,8 +40,21 @@ export const clampPercent = (value: number): number =>
  * @param value - Value to narrow.
  * @returns `true` when the value can be safely indexed as a record.
  */
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+export const isRecord = <T>(value: T): value is T & JsonObject =>
+  value !== null &&
+  !Array.isArray(value) &&
+  Object.prototype.toString.call(value) === "[object Object]";
+
+export const isString = <T>(value: T): value is T & string =>
+  Schema.is(Schema.String)(value);
+
+const isTrailingComma = (input: string, index: number): boolean => {
+  let lookahead = index + 1;
+  while (/\s/u.test(input[lookahead] ?? "")) {
+    lookahead += 1;
+  }
+  return input[lookahead] === "}" || input[lookahead] === "]";
+};
 
 const stripTrailingCommas = (input: string): string => {
   let output = "";
@@ -29,7 +62,8 @@ const stripTrailingCommas = (input: string): string => {
   let quote = "";
   let escaped = false;
 
-  for (let index = 0; index < input.length; index += 1) {
+  let index = 0;
+  while (index < input.length) {
     const char = input[index];
 
     if (inString) {
@@ -41,30 +75,42 @@ const stripTrailingCommas = (input: string): string => {
       } else if (char === quote) {
         inString = false;
       }
-      continue;
-    }
-
-    if (char === '"' || char === "'") {
+    } else if (char === '"' || char === "'") {
       inString = true;
       quote = char;
       output += char;
+    } else if (char === "," && isTrailingComma(input, index)) {
+      index += 1;
       continue;
+    } else {
+      output += char;
     }
-
-    if (char === ",") {
-      let lookahead = index + 1;
-      while (/\s/u.test(input[lookahead] ?? "")) {
-        lookahead += 1;
-      }
-      if (input[lookahead] === "}" || input[lookahead] === "]") {
-        continue;
-      }
-    }
-
-    output += char;
+    index += 1;
   }
 
   return output;
+};
+
+const skipLineComment = (input: string, start: number): number => {
+  let index = start;
+  while (index < input.length && input[index] !== "\n") {
+    index += 1;
+  }
+  return index;
+};
+
+const skipBlockComment = (input: string, start: number): number => {
+  let index = start + 2;
+  while (
+    index < input.length &&
+    !(input[index] === "*" && input[index + 1] === "/")
+  ) {
+    index += 1;
+  }
+  if (index >= input.length) {
+    throw new SyntaxError("Unterminated JSONC block comment");
+  }
+  return index + 2;
 };
 
 /**
@@ -83,7 +129,8 @@ const stripJsonComments = (input: string): string => {
   let quote = "";
   let escaped = false;
 
-  for (let index = 0; index < input.length; index += 1) {
+  let index = 0;
+  while (index < input.length) {
     const char = input[index];
     const next = input[index + 1];
 
@@ -96,40 +143,19 @@ const stripJsonComments = (input: string): string => {
       } else if (char === quote) {
         inString = false;
       }
-      continue;
-    }
-
-    if (char === '"' || char === "'") {
+    } else if (char === '"' || char === "'") {
       inString = true;
       quote = char;
       output += char;
-      continue;
-    }
-
-    if (char === "/" && next === "/") {
-      while (index < input.length && input[index] !== "\n") {
-        index += 1;
-      }
+    } else if (char === "/" && next === "/") {
+      index = skipLineComment(input, index);
       output += "\n";
-      continue;
+    } else if (char === "/" && next === "*") {
+      index = skipBlockComment(input, index) - 1;
+    } else {
+      output += char;
     }
-
-    if (char === "/" && next === "*") {
-      index += 2;
-      while (
-        index < input.length &&
-        !(input[index] === "*" && input[index + 1] === "/")
-      ) {
-        index += 1;
-      }
-      if (index >= input.length) {
-        throw new SyntaxError("Unterminated JSONC block comment");
-      }
-      index += 1;
-      continue;
-    }
-
-    output += char;
+    index += 1;
   }
 
   return stripTrailingCommas(output);
@@ -155,9 +181,10 @@ const expandHome = (value: string): string =>
  * @param filePath - Absolute path, relative path, or home-relative path to read.
  * @returns The parsed JSON value as `unknown`.
  */
-export const readJsonFile = async (filePath: string): Promise<unknown> => {
+export const readJsonFile = async (filePath: string): Promise<JsonValue> => {
   const raw = await readFile(expandHome(filePath), "utf-8");
-  const parsed: unknown = JSON.parse(stripJsonComments(raw));
+  // SAFETY: JSON.parse returns only values represented by the JSON boundary type.
+  const parsed = JSON.parse(stripJsonComments(raw)) as JsonValue;
   return parsed;
 };
 
@@ -202,7 +229,7 @@ export const fetchJson = async (
   url: string,
   init: RequestInit,
   timeoutMs: number
-): Promise<unknown> => {
+): Promise<JsonValue> => {
   const response = await fetch(url, {
     ...init,
     signal: init.signal ?? AbortSignal.timeout(timeoutMs),
@@ -223,7 +250,8 @@ export const fetchJson = async (
   }
 
   try {
-    const parsed: unknown = JSON.parse(body);
+    // SAFETY: JSON.parse returns only values represented by the JSON boundary type.
+    const parsed = JSON.parse(body) as JsonValue;
     return parsed;
   } catch {
     throw new Error("invalid JSON");

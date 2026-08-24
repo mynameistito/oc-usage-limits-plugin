@@ -6,6 +6,7 @@ import {
   ProviderResponseDecodeError,
 } from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
+import { isJsonNumber, isJsonString } from "@/providers/json.ts";
 import { ProviderClock } from "@/providers/runtime/clock.ts";
 import { ProviderEnvironment } from "@/providers/runtime/environment.ts";
 import { ProviderFileSystem } from "@/providers/runtime/filesystem.ts";
@@ -26,9 +27,57 @@ import {
   unknownQuota,
 } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
+import type { JsonObject, JsonValue } from "@/utils.ts";
 
 /** ZAI Coding Plan quota endpoint used to fetch usage limits. */
 const ZAI_QUOTA_URL = "https://api.z.ai/api/monitor/usage/quota/limit";
+const DECODE_RESPONSE_OPERATION = "decode-response";
+
+interface ZaiLimit {
+  readonly type?: string;
+  readonly percentage?: number;
+  readonly nextResetTime?: number;
+  readonly usage?: number;
+  readonly currentValue?: number;
+}
+interface ZaiPayload {
+  readonly data: { readonly limits: readonly ZaiLimit[] };
+}
+interface ZaiWindowResult {
+  readonly promptTotal: number | null;
+  readonly window: UsageWindow | null;
+}
+interface ZaiLimitsResult {
+  readonly promptTotal: number | null;
+  readonly windows: UsageWindow[];
+}
+
+const parseZaiPayload = (value: JsonObject): ZaiPayload | null => {
+  if (!isRecord(value.data) || !Array.isArray(value.data.limits)) {
+    return null;
+  }
+  const limits = value.data.limits.flatMap((limit) => {
+    if (!isRecord(limit)) {
+      return [];
+    }
+    return [
+      {
+        currentValue: isJsonNumber(limit.currentValue)
+          ? limit.currentValue
+          : undefined,
+        nextResetTime: isJsonNumber(limit.nextResetTime)
+          ? limit.nextResetTime
+          : undefined,
+        percentage: isJsonNumber(limit.percentage)
+          ? limit.percentage
+          : undefined,
+        type: isJsonString(limit.type) ? limit.type : undefined,
+        usage: isJsonNumber(limit.usage) ? limit.usage : undefined,
+      },
+    ];
+  });
+  return { data: { limits } };
+};
 
 /**
  * Infers the ZAI plan tier from the provider's prompt/time quota total.
@@ -87,8 +136,10 @@ const zaiQuota = (
  * @returns The first recognized API key.
  */
 const keyFromZaiAuth = (
-  value: unknown,
-  credential: (value: unknown) => Redacted.Redacted<string> | undefined
+  value: JsonObject,
+  credential: (
+    value: JsonValue | undefined
+  ) => Redacted.Redacted<string> | undefined
 ): Redacted.Redacted<string> | undefined => {
   if (!isRecord(value)) {
     return undefined;
@@ -142,7 +193,9 @@ const readZaiAuthPathKey = (
     const files = yield* ProviderFileSystem;
     const environment = yield* ProviderEnvironment;
     const auth = yield* files.readJson({ path: authPath, providerID: "zai" });
-    return keyFromZaiAuth(auth, environment.credential);
+    return isRecord(auth)
+      ? keyFromZaiAuth(auth, environment.credential)
+      : undefined;
   }).pipe(
     Effect.catchCause(() => Effect.succeed<undefined>(globalThis.undefined))
   );
@@ -157,21 +210,16 @@ const readZaiAuthPathKey = (
  * @param limit - Raw limit object from the ZAI quota API.
  * @returns The normalized window plus any prompt total discovered on the entry.
  */
-const zaiWindowFromLimit = (
-  limit: Record<string, unknown>
-): { promptTotal: number | null; window: UsageWindow | null } => {
+const zaiWindowFromLimit = (limit: ZaiLimit): ZaiWindowResult => {
   const parsedUsed = parseUsagePercentage(limit.percentage);
   const usedPercent = Result.isSuccess(parsedUsed) ? parsedUsed.success : null;
   const resetsAt = resetInstantOrNull(
-    typeof limit.nextResetTime === "number"
-      ? new Date(limit.nextResetTime)
-      : null
+    limit.nextResetTime === undefined ? null : new Date(limit.nextResetTime)
   );
-  const usageTotal = typeof limit.usage === "number" ? limit.usage : undefined;
+  const usageTotal = limit.usage;
 
   if (limit.type === "TOKENS_LIMIT") {
-    const rawCurrentValue =
-      typeof limit.currentValue === "number" ? limit.currentValue : undefined;
+    const rawCurrentValue = limit.currentValue;
     const currentValue =
       rawCurrentValue === undefined ? undefined : Math.round(rawCurrentValue);
     const computedTotal =
@@ -199,15 +247,13 @@ const zaiWindowFromLimit = (
   return { promptTotal: null, window: null };
 };
 
-const parseZaiLimits = (
-  limits: readonly unknown[]
-): { readonly promptTotal: number | null; readonly windows: UsageWindow[] } => {
+const parseZaiLimits = (limits: readonly ZaiLimit[]): ZaiLimitsResult => {
   const windows: UsageWindow[] = [];
   let promptTotal: number | null = null;
   let sawTokenLimit = false;
 
   for (const limit of limits) {
-    if (!isRecord(limit) || typeof limit.type !== "string") {
+    if (!limit.type) {
       continue;
     }
 
@@ -256,7 +302,9 @@ const fetchZaiCodingPlanUsageEffect = (
     const clock = yield* ProviderClock;
     const apiKey =
       (yield* readZaiAuthPathKey(config?.authPath)) ??
-      keyFromZaiAuth(openCodeAuth, environment.credential) ??
+      (isRecord(openCodeAuth)
+        ? keyFromZaiAuth(openCodeAuth, environment.credential)
+        : undefined) ??
       environment.resolveCredential(config?.apiKey);
     if (!apiKey) {
       return yield* new MissingProviderCredentialsError({
@@ -279,24 +327,21 @@ const fetchZaiCodingPlanUsageEffect = (
       url: ZAI_QUOTA_URL,
     });
 
-    if (
-      !isRecord(payload) ||
-      !isRecord(payload.data) ||
-      !Array.isArray(payload.data.limits)
-    ) {
+    const parsedPayload = isRecord(payload) ? parseZaiPayload(payload) : null;
+    if (!parsedPayload) {
       return yield* new ProviderResponseDecodeError({
         cause: "schema",
-        operation: "decode-response",
+        operation: DECODE_RESPONSE_OPERATION,
         providerID: "zai",
       });
     }
 
-    const { limits } = payload.data;
+    const { limits } = parsedPayload.data;
     const parsed = yield* Effect.try({
       catch: () =>
         new ProviderResponseDecodeError({
           cause: "schema",
-          operation: "decode-response",
+          operation: DECODE_RESPONSE_OPERATION,
           providerID: "zai",
         }),
       try: () => parseZaiLimits(limits),
@@ -305,7 +350,7 @@ const fetchZaiCodingPlanUsageEffect = (
     if (!windows.some((window) => window.kind === "rolling")) {
       return yield* new ProviderResponseDecodeError({
         cause: "schema",
-        operation: "decode-response",
+        operation: DECODE_RESPONSE_OPERATION,
         providerID: "zai",
       });
     }

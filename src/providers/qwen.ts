@@ -6,6 +6,7 @@ import {
   ProviderResponseDecodeError,
 } from "@/errors.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
+import { isJsonBoolean, isJsonNumber, isJsonString } from "@/providers/json.ts";
 import { ProviderClock } from "@/providers/runtime/clock.ts";
 import { ProviderCommandExecutor } from "@/providers/runtime/command.ts";
 import type {
@@ -25,16 +26,50 @@ import { isRecord } from "@/utils.ts";
 
 /** Default CLI command used when no override is configured. */
 const DEFAULT_CLI = "qwencloud";
+const DECODE_RESPONSE_OPERATION = "decode-response";
 
-const safeCommandCause = (error: unknown): Error => {
-  const record = isRecord(error) ? error : {};
-  const { code } = record;
-  const suffix =
-    typeof code === "number" || typeof code === "string"
-      ? `exit code ${code}`
-      : "failed";
+interface QwenAuthPayload {
+  readonly authenticated?: boolean;
+  readonly server_verified?: boolean;
+}
+interface QwenTokenPlan {
+  readonly planName?: string;
+  readonly remainingCredits?: number;
+  readonly resetDate?: string;
+  readonly status?: string;
+  readonly subscribed: boolean;
+  readonly totalCredits?: number;
+  readonly usedPct?: number;
+}
+interface QwenUsagePayload {
+  readonly token_plan?: QwenTokenPlanPayload;
+}
+interface QwenCommandError extends Error {
+  readonly code?: number | string;
+  readonly stdout?: string;
+}
+interface QwenTokenPlanPayload {
+  readonly planName?: string;
+  readonly remainingCredits?: number;
+  readonly resetDate?: string;
+  readonly status?: string;
+  readonly subscribed: boolean;
+  readonly totalCredits?: number;
+  readonly usedPct?: number;
+}
+
+const safeCommandCause = (error: QwenCommandError): Error => {
+  const code =
+    isJsonNumber(error.code) || isJsonString(error.code)
+      ? error.code
+      : undefined;
+  const suffix = code === undefined ? "failed" : `exit code ${code}`;
   return new Error(`qwencloud CLI ${suffix}`);
 };
+
+const commandError = (error: Error): QwenCommandError =>
+  // SAFETY: command runners attach these optional fields to Error instances.
+  error as QwenCommandError;
 
 /** Legacy injectable Qwen command boundary retained for direct consumers. */
 export type QwenCommandRunner = (
@@ -57,14 +92,19 @@ export interface QwenProviderDependencies {
  * @returns `true` when the CLI reports authenticated credentials.
  */
 const parseAuthStatus = (raw: string): boolean => {
-  let data: unknown;
+  let data: QwenAuthPayload;
   try {
-    data = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) {
+      throw new Error("not an object");
+    }
+    data = {
+      authenticated:
+        isJsonBoolean(parsed.authenticated) && parsed.authenticated,
+      server_verified:
+        !isJsonBoolean(parsed.server_verified) || parsed.server_verified,
+    };
   } catch {
-    throw new Error("Failed to parse qwencloud auth status");
-  }
-
-  if (!isRecord(data)) {
     throw new Error("Failed to parse qwencloud auth status");
   }
 
@@ -86,33 +126,50 @@ const parseAuthStatus = (raw: string): boolean => {
  * @param raw - Raw stdout JSON from the CLI.
  * @returns The parsed Token Plan snapshot.
  */
-const parseTokenPlan = (raw: string) => {
-  let data: unknown;
+const parseTokenPlan = (raw: string): QwenTokenPlan => {
+  let data: QwenUsagePayload;
   try {
-    data = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) {
+      throw new Error("not an object");
+    }
+    const tokenPlan = isRecord(parsed.token_plan)
+      ? parsed.token_plan
+      : undefined;
+    data = {
+      token_plan: tokenPlan
+        ? {
+            planName: isJsonString(tokenPlan.planName)
+              ? tokenPlan.planName
+              : undefined,
+            remainingCredits: isJsonNumber(tokenPlan.remainingCredits)
+              ? tokenPlan.remainingCredits
+              : undefined,
+            resetDate: isJsonString(tokenPlan.resetDate)
+              ? tokenPlan.resetDate
+              : undefined,
+            status: isJsonString(tokenPlan.status)
+              ? tokenPlan.status
+              : undefined,
+            subscribed: tokenPlan.subscribed === true,
+            totalCredits: isJsonNumber(tokenPlan.totalCredits)
+              ? tokenPlan.totalCredits
+              : undefined,
+            usedPct: isJsonNumber(tokenPlan.usedPct)
+              ? tokenPlan.usedPct
+              : undefined,
+          }
+        : undefined,
+    };
   } catch {
     throw new Error("Failed to parse qwencloud usage response");
   }
-  if (!isRecord(data)) {
-    throw new Error("Invalid qwencloud usage response");
-  }
-
   const tp = data.token_plan;
   if (!isRecord(tp)) {
     return { subscribed: false as const };
   }
 
-  return {
-    planName: typeof tp.planName === "string" ? tp.planName : undefined,
-    remainingCredits:
-      typeof tp.remainingCredits === "number" ? tp.remainingCredits : undefined,
-    resetDate: typeof tp.resetDate === "string" ? tp.resetDate : undefined,
-    status: typeof tp.status === "string" ? tp.status : undefined,
-    subscribed: tp.subscribed === true,
-    totalCredits:
-      typeof tp.totalCredits === "number" ? tp.totalCredits : undefined,
-    usedPct: typeof tp.usedPct === "number" ? tp.usedPct : undefined,
-  };
+  return tp;
 };
 
 /**
@@ -126,9 +183,7 @@ const parseTokenPlan = (raw: string) => {
  * @param tp - Parsed Token Plan data.
  * @returns A normalized usage window, or `null` when no percentage is reported.
  */
-const buildQwenWindow = (
-  tp: ReturnType<typeof parseTokenPlan>
-): UsageWindow | null => {
+const buildQwenWindow = (tp: QwenTokenPlan): UsageWindow | null => {
   if (!tp.subscribed) {
     return null;
   }
@@ -194,7 +249,7 @@ const fetchQwenTokenPlanUsage = (
       catch: () =>
         new ProviderResponseDecodeError({
           cause: "decode",
-          operation: "decode-response",
+          operation: DECODE_RESPONSE_OPERATION,
           providerID: "qwen",
         }),
       try: () => parseAuthStatus(authRaw),
@@ -216,7 +271,7 @@ const fetchQwenTokenPlanUsage = (
       catch: () =>
         new ProviderResponseDecodeError({
           cause: "decode",
-          operation: "decode-response",
+          operation: DECODE_RESPONSE_OPERATION,
           providerID: "qwen",
         }),
       try: () => parseTokenPlan(usageRaw),
@@ -225,7 +280,7 @@ const fetchQwenTokenPlanUsage = (
     if (!tokenPlan.subscribed || !window) {
       return yield* new ProviderResponseDecodeError({
         cause: "schema",
-        operation: "decode-response",
+        operation: DECODE_RESPONSE_OPERATION,
         providerID: "qwen",
       });
     }
@@ -257,14 +312,15 @@ export const createQwenProvider = (dependencies: QwenProviderDependencies) => ({
         );
         return output.trim();
       } catch (error) {
-        const record = isRecord(error) ? error : {};
-        const { code } = record;
+        const parsed = error instanceof Error ? commandError(error) : undefined;
+        const code =
+          parsed && isJsonNumber(parsed.code) ? parsed.code : undefined;
         const stdout =
-          typeof record.stdout === "string" ? record.stdout.trim() : "";
-        if (allowNonZero && stdout && typeof code === "number" && code !== 0) {
+          parsed && isJsonString(parsed.stdout) ? parsed.stdout.trim() : "";
+        if (allowNonZero && stdout && code !== undefined && code !== 0) {
           return stdout;
         }
-        throw safeCommandCause(error);
+        throw safeCommandCause(parsed ?? new Error("command failed"));
       }
     };
     let authRaw: string;

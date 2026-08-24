@@ -18,15 +18,15 @@ import path from "node:path";
 /** Minimal package manifest fields needed by the non-interactive changeset tool. */
 interface PackageJson {
   /** Runtime dependencies declared by the package. */
-  dependencies?: Record<string, unknown>;
+  dependencies?: Record<string, string>;
   /** Development dependencies declared by the package. */
-  devDependencies?: Record<string, unknown>;
+  devDependencies?: Record<string, string>;
   /** Package name written into Changesets frontmatter. */
-  name?: unknown;
+  name?: string;
   /** Optional dependencies declared by the package. */
-  optionalDependencies?: Record<string, unknown>;
+  optionalDependencies?: Record<string, string>;
   /** Peer dependencies declared by the package. */
-  peerDependencies?: Record<string, unknown>;
+  peerDependencies?: Record<string, string>;
 }
 
 /** Semver bump types supported by Changesets. */
@@ -34,6 +34,7 @@ type ChangesetType = "patch" | "minor" | "major";
 
 /** Runtime list used to validate command-line Changeset bump arguments. */
 const changesetTypes = ["patch", "minor", "major"] as const;
+const PACKAGE_JSON_FILE = "package.json";
 
 /**
  * Narrows an arbitrary CLI argument to a supported Changeset bump type.
@@ -42,7 +43,7 @@ const changesetTypes = ["patch", "minor", "major"] as const;
  * @returns `true` when the value is `patch`, `minor`, or `major`.
  */
 const isChangesetType = (type: string | undefined): type is ChangesetType =>
-  changesetTypes.includes(type as ChangesetType);
+  type !== undefined && changesetTypes.some((candidate) => candidate === type);
 
 /**
  * Finds the nearest project root by walking upward until a package manifest is found.
@@ -54,14 +55,14 @@ const findProjectRoot = (startDir: string) => {
   let currentDir = startDir;
 
   while (currentDir !== path.dirname(currentDir)) {
-    if (existsSync(path.join(currentDir, "package.json"))) {
+    if (existsSync(path.join(currentDir, PACKAGE_JSON_FILE))) {
       return currentDir;
     }
 
     currentDir = path.dirname(currentDir);
   }
 
-  if (existsSync(path.join(currentDir, "package.json"))) {
+  if (existsSync(path.join(currentDir, PACKAGE_JSON_FILE))) {
     return currentDir;
   }
 
@@ -77,6 +78,7 @@ const findProjectRoot = (startDir: string) => {
  */
 const readPackageJson = (packageJsonPath: string) => {
   try {
+    // SAFETY: package.json is decoded and validated by getPackageName below.
     return JSON.parse(readFileSync(packageJsonPath, "utf-8")) as PackageJson;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -92,7 +94,8 @@ const readPackageJson = (packageJsonPath: string) => {
  * @returns The non-empty package name.
  */
 const getPackageName = (packageJson: PackageJson) => {
-  if (typeof packageJson.name !== "string" || !packageJson.name.trim()) {
+  const name = packageJson.name ?? "";
+  if (!name.trim()) {
     console.error("package.json must include a non-empty name field");
     process.exit(1);
   }
@@ -131,7 +134,7 @@ const assertChangesetsCliInstalled = (
   }
 
   const requireFromProject = createRequire(
-    path.join(projectRoot, "package.json")
+    path.join(projectRoot, PACKAGE_JSON_FILE)
   );
 
   try {
@@ -197,7 +200,7 @@ if (!summary.trim()) {
 }
 
 const projectRoot = findProjectRoot(import.meta.dirname);
-const packageJson = readPackageJson(path.join(projectRoot, "package.json"));
+const packageJson = readPackageJson(path.join(projectRoot, PACKAGE_JSON_FILE));
 const packageName = getPackageName(packageJson);
 assertChangesetsCliInstalled(packageJson, projectRoot);
 
