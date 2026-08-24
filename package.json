@@ -1,48 +1,5 @@
 {
-  "dependencies": {
-    "effect": "4.0.0-beta.83"
-  },
-  "devDependencies": {
-    "@changesets/cli": "^3.0.1",
-    "@opencode-ai/plugin": "1.18.21",
-    "@opentui/core": "0.5.6",
-    "@opentui/keymap": "0.5.6",
-    "@opentui/solid": "0.5.6",
-    "@types/bun": "1.4.0",
-    "@types/node": "26.2.0",
-    "@typescript/native": "npm:typescript@^7.0.2",
-    "eslint-plugin-github": "6.1.2",
-    "eslint-plugin-sonarjs": "^4.2.0",
-    "lefthook": "^2.1.10",
-    "oxfmt": "^0.64.0",
-    "oxlint": "^1.79.0",
-    "solid-js": "1.9.12",
-    "tsdown": "^0.22.14",
-    "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "ultracite": "7.10.6"
-  },
   "name": "oc-usage-limits-plugin",
-  "peerDependencies": {
-    "@opentui/core": "0.5.6",
-    "@opentui/solid": "0.5.6",
-    "solid-js": "1.9.12"
-  },
-  "scripts": {
-    "changeset": "changeset",
-    "changeset-add": "bun ./scripts/changeset-add.ts",
-    "build": "tsdown",
-    "check": "ultracite check",
-    "knip": "bunx knip@latest",
-    "prepack": "bun run build",
-    "release": "changeset publish",
-    "test": "bun test",
-    "test:package": "bun run build && bun ./scripts/test-package.ts",
-    "typecheck": "tsgo --noEmit",
-    "version": "changeset version",
-    "fix": "ultracite fix",
-    "prepare": "lefthook install"
-  },
-  "type": "module",
   "version": "1.5.0",
   "description": "OpenCode TUI plugin that shows Codex, ZAI, Synthetic, and MiniMax Token Plan usage limits in the sidebar and prompt footer.",
   "keywords": [
@@ -72,6 +29,7 @@
     "README.md",
     "LICENSE"
   ],
+  "type": "module",
   "exports": {
     "./tui": {
       "types": "./dist/index.d.mts",
@@ -81,6 +39,48 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "scripts": {
+    "changeset": "changeset",
+    "changeset-add": "bun ./scripts/changeset-add.ts",
+    "build": "tsdown",
+    "check": "ultracite check",
+    "knip": "bunx knip@latest",
+    "prepack": "bun run build",
+    "release": "changeset publish",
+    "test": "bun test",
+    "test:package": "bun run build && bun ./scripts/test-package.ts",
+    "typecheck": "tsgo --noEmit",
+    "version": "changeset version",
+    "fix": "ultracite fix",
+    "prepare": "lefthook install"
+  },
+  "dependencies": {
+    "effect": "4.0.0-beta.83"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.1",
+    "@opencode-ai/plugin": "1.18.21",
+    "@opentui/core": "0.5.6",
+    "@opentui/keymap": "0.5.6",
+    "@opentui/solid": "0.5.6",
+    "@types/bun": "1.4.0",
+    "@types/node": "26.2.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "eslint-plugin-github": "6.1.2",
+    "eslint-plugin-sonarjs": "^4.2.0",
+    "lefthook": "^2.1.10",
+    "oxfmt": "^0.64.0",
+    "oxlint": "^1.79.0",
+    "solid-js": "1.9.12",
+    "tsdown": "^0.22.14",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "ultracite": "7.10.6"
+  },
+  "peerDependencies": {
+    "@opentui/core": "0.5.6",
+    "@opentui/solid": "0.5.6",
+    "solid-js": "1.9.12"
   },
   "overrides": {
     "@babel/core": "7.29.7",
