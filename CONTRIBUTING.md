@@ -66,7 +66,7 @@ bun run changeset-add patch "short summary"
 
 Use `minor` for new features and `major` for breaking changes.
 
-Stable releases use normal Changesets mode on `main`. The v2 branch uses Changesets prerelease mode and publishes the resulting versions with the npm `next` dist-tag. The v2 release lane must have committed prerelease metadata before it is manually dispatched:
+Stable releases use normal Changesets mode on `main`. The v2 branch uses Changesets prerelease mode and publishes the resulting versions with the npm `next` dist-tag automatically when changes land on `opencode-v2`:
 
 ```bash
 bunx changeset pre enter next
