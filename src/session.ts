@@ -116,9 +116,6 @@ export const usageForProvider = (
       return null;
     }
     const settings = display[id];
-    if (settings?.showFooterBar === false) {
-      return null;
-    }
     const requestedWindow = settings?.footerWindow ?? "auto";
     const findWindow = (kind: UsageWindowKind): UsageWindow | undefined =>
       (kind === "rolling"

@@ -269,6 +269,29 @@ describe("usage-limits TUI lifecycle", () => {
     );
   });
 
+  test("does not fetch or display a provider disabled in its settings", async () => {
+    const harness = createHarness(
+      config({
+        providers: {
+          codex: {
+            enabled: false,
+            label: "Codex Work",
+          },
+          zai: {
+            enabled: true,
+            label: "ZAI Work",
+          },
+        },
+      })
+    );
+    const registered = await initialize(harness);
+
+    expect(harness.fetches).toEqual(["zai"]);
+    const sidebar = await renderSlot(registered, "sidebar_content");
+    expect(sidebar).toContain("ZAI Work");
+    expect(sidebar).not.toContain("Codex Work");
+  });
+
   test("hides a provider's displays without stopping its refreshes", async () => {
     const harness = createHarness(
       config({
@@ -285,12 +308,14 @@ describe("usage-limits TUI lifecycle", () => {
     const registered = await initialize(harness);
 
     expect(harness.fetches).toEqual(["codex"]);
-    expect(await renderSlot(registered, "sidebar_content")).not.toContain(
-      "Usage Limits"
-    );
-    expect(await renderSlot(registered, "session_prompt_right")).not.toContain(
-      "%"
-    );
+    const sidebar = await renderSlot(registered, "sidebar_content");
+    const footer = await renderSlot(registered, "session_prompt_right");
+    expect(sidebar).toContain("Usage Limits");
+    expect(sidebar).toContain("Codex Work");
+    expect(sidebar).toContain("42%");
+    expect(sidebar).not.toContain("[█████░░░░░░░]");
+    expect(footer).toContain("42%");
+    expect(footer).not.toContain("[███░░░░░]");
   });
 
   test("filters sidebar windows per provider", async () => {
@@ -338,12 +363,46 @@ describe("usage-limits TUI lifecycle", () => {
       const harness = createHarness(config(overrides));
       const registered = await initialize(harness);
 
-      expect(await renderSlot(registered, hiddenSlot)).not.toContain("42%");
-      expect(await renderSlot(registered, visibleSlot)).toContain(
+      const hidden = await renderSlot(registered, hiddenSlot);
+      const visible = await renderSlot(registered, visibleSlot);
+      expect(hidden).toContain("42%");
+      expect(hidden).not.toContain(
+        hiddenSlot === "sidebar_content" ? "[█████░░░░░░░]" : "[███░░░░░]"
+      );
+      expect(visible).toContain(
         visibleSlot === "sidebar_content" ? "Codex Work" : "42%"
       );
     }
   );
+
+  test("keeps provider settings independent across multiple providers", async () => {
+    const harness = createHarness(
+      config({
+        providers: {
+          codex: {
+            enabled: true,
+            label: "Codex Work",
+            showFooterBar: false,
+            showSidebarBar: true,
+          },
+          zai: {
+            enabled: true,
+            label: "ZAI Work",
+            showFooterBar: true,
+            showSidebarBar: false,
+          },
+        },
+      })
+    );
+    const registered = await initialize(harness);
+
+    expect(harness.fetches).toEqual(["codex", "zai"]);
+    const sidebar = await renderSlot(registered, "sidebar_content");
+    expect(sidebar).toContain("Codex Work");
+    expect(sidebar).toContain("ZAI Work");
+    expect(sidebar).toContain("[█████░░░░░░░]");
+    expect(sidebar).toContain("42%");
+  });
 
   test("uses safe defaults when typed config parsing fails", async () => {
     const harness = createHarness();
