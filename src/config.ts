@@ -30,11 +30,7 @@ export const DEFAULT_CONFIG: ResolvedUsageLimitsConfig = {
   providers: {},
   refreshIntervalSeconds: 60,
   requestTimeoutMs: 10_000,
-  show: true,
   showErrors: true,
-  showFooter: true,
-  showSidebar: true,
-  sidebarWindow: "all",
 };
 
 const isMissingFile = (error: unknown): boolean =>

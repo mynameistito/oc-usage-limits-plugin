@@ -3,8 +3,9 @@ import {
   PROVIDER_REGISTRY,
 } from "@/providers/index.ts";
 import type {
-  FooterWindow,
+  ProviderDisplayConfig,
   ProviderID,
+  FooterWindow,
   ProviderState,
   ProviderUsage,
   UsageWindow,
@@ -107,7 +108,9 @@ const windowFromState = (
 export const usageForProvider = (
   states: readonly ProviderState[],
   providerID: string | undefined,
-  footerWindows: Readonly<Partial<Record<ProviderID, FooterWindow>>> = {}
+  providerDisplays: Readonly<
+    Partial<Record<ProviderID, ProviderDisplayConfig>>
+  > = {}
 ): UsageWindow | null => {
   const usageID = providerID
     ? (pluginProviderForOpenCode(providerID) as ProviderID | null)
@@ -119,7 +122,11 @@ export const usageForProvider = (
     if (!data) {
       return null;
     }
-    const requestedWindow = footerWindows[id] ?? "auto";
+    const displayConfig = providerDisplays[id];
+    if (displayConfig?.showFooterBar === false) {
+      return null;
+    }
+    const requestedWindow: FooterWindow = displayConfig?.footerWindow ?? "auto";
     const footerWindowKind = PROVIDER_REGISTRY[id]?.footerWindowKind;
     const findForKind = (kind: UsageWindowKind | undefined) => {
       if (!kind) {

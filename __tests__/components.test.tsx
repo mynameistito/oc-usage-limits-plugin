@@ -6,7 +6,12 @@ import { testRender } from "@opentui/solid";
 import { Result } from "effect";
 
 import { CompactStatusLine, UsageLimitsPanel } from "@/components.tsx";
-import type { ProviderState, ProviderUsage, UsageWindow } from "@/types.ts";
+import type {
+  ProviderDisplayConfig,
+  ProviderState,
+  ProviderUsage,
+  UsageWindow,
+} from "@/types.ts";
 import { parseUsagePercentage, percentageQuota } from "@/usage.ts";
 
 const color = RGBA.fromValues(1, 2, 3, 255);
@@ -43,7 +48,9 @@ const renderPanelText = async (
   states: ProviderState[],
   showErrors: boolean,
   lastRefreshAt: Date | null = null,
-  sidebarWindow: "all" | "weekly" = "all"
+  providerDisplays: Readonly<
+    Partial<Record<ProviderState["id"], ProviderDisplayConfig>>
+  > = {}
 ): Promise<string> => {
   const setup = await testRender(
     () => (
@@ -52,7 +59,7 @@ const renderPanelText = async (
         states={states}
         theme={theme}
         lastRefreshAt={lastRefreshAt}
-        sidebarWindow={sidebarWindow}
+        providerDisplays={providerDisplays}
       />
     ),
     { height: 12, width: 80 }
@@ -88,7 +95,7 @@ describe("UsageLimitsPanel", () => {
     expect(text).toContain("[█████░░░░░░░]");
   });
 
-  test("filters windows by the global sidebar window", async () => {
+  test("filters windows by the provider sidebar window", async () => {
     const text = await renderPanelText(
       [
         {
@@ -106,7 +113,14 @@ describe("UsageLimitsPanel", () => {
       ],
       true,
       null,
-      "weekly"
+      {
+        codex: {
+          footerWindow: "auto",
+          showFooterBar: true,
+          showSidebarBar: true,
+          sidebarWindow: "weekly",
+        },
+      }
     );
 
     expect(text).toContain("weekly");

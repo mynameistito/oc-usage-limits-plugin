@@ -58,11 +58,7 @@ const config = (
   providers: { codex: { enabled: true, label: "Codex Work" } },
   refreshIntervalSeconds: 20,
   requestTimeoutMs: 5000,
-  show: true,
   showErrors: true,
-  showFooter: true,
-  showSidebar: true,
-  sidebarWindow: "all",
   ...overrides,
 });
 
@@ -248,7 +244,17 @@ describe("usage-limits TUI lifecycle", () => {
   });
 
   test("hides both displays without stopping provider refreshes", async () => {
-    const harness = createHarness(config({ show: false }));
+    const harness = createHarness(
+      config({
+        providers: {
+          codex: {
+            enabled: true,
+            showFooterBar: false,
+            showSidebarBar: false,
+          },
+        },
+      })
+    );
     const registered = await initialize(harness);
 
     expect(harness.fetches).toEqual(["codex"]);
@@ -261,8 +267,16 @@ describe("usage-limits TUI lifecycle", () => {
   });
 
   test.each([
-    [{ showSidebar: false }, "sidebar.content", "Usage Limits"],
-    [{ showFooter: false }, "prompt.footer.status", "42%"],
+    [
+      { providers: { codex: { enabled: true, showSidebarBar: false } } },
+      "sidebar.content",
+      "Usage Limits",
+    ],
+    [
+      { providers: { codex: { enabled: true, showFooterBar: false } } },
+      "prompt.footer.status",
+      "42%",
+    ],
   ])("hides the configured %s display", async (overrides, slot, text) => {
     const harness = createHarness(config(overrides));
     const registered = await initialize(harness);

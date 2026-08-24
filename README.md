@@ -120,15 +120,14 @@ Create `~/.config/opencode/usage-limits.jsonc`. The same file lives at [`example
   "enabled": true,
   "refreshIntervalSeconds": 60,
   "requestTimeoutMs": 10000,
-  "show": true,
-  "showSidebar": true,
-  "showFooter": true,
-  "sidebarWindow": "all",
   "showErrors": true,
   "providers": {
     "codex": {
       "enabled": true,
       "label": "Codex",
+      "showSidebarBar": true,
+      "showFooterBar": true,
+      "sidebarWindow": "all",
       "footerWindow": "auto",
     },
     "zai": {
@@ -174,9 +173,9 @@ Disabled providers are hidden:
 }
 ```
 
-`enabled` controls whether a provider is fetched and displayed. Set `show` to `false` to hide both displays without stopping provider refreshes. `showSidebar` and `showFooter` independently control their displays; all three display switches default to `true`.
+Top-level `enabled` is the plugin master switch, and `showErrors` controls error text globally. Each provider's `enabled` controls fetching. Provider `showSidebarBar` and `showFooterBar` independently control its sidebar and footer displays without stopping refreshes; both default to `true`.
 
-Set `sidebarWindow` to `all`, `rolling`, `daily`, `weekly`, `monthly`, `credits`, or `other` to filter every sidebar provider. Rolling includes legacy `5h` labels. Each provider accepts `footerWindow` with `auto` (the provider's normal selection), or one of the same window kinds. An unavailable requested footer window falls back to the provider's automatic selection and then its first available window.
+Each provider's `sidebarWindow` can be `all`, `rolling`, `daily`, `weekly`, `monthly`, `credits`, or `other`. Rolling includes legacy `5h` labels. Each provider accepts `footerWindow` with `auto` (the provider's normal selection), or one of the same window kinds. An unavailable requested footer window falls back to the provider's automatic selection and then its first available window.
 
 ## Providers
 

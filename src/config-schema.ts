@@ -27,6 +27,20 @@ const commonProviderFields = {
     "auto"
   ),
   label: Schema.optionalKey(Schema.String),
+  showFooterBar: defaultKey(Schema.Boolean, true),
+  showSidebarBar: defaultKey(Schema.Boolean, true),
+  sidebarWindow: defaultKey(
+    Schema.Literals([
+      "all",
+      "rolling",
+      "daily",
+      "weekly",
+      "monthly",
+      "credits",
+      "other",
+    ]),
+    "all"
+  ),
 };
 
 /** Schema for Codex provider configuration. */
@@ -94,22 +108,7 @@ const configSchema = Schema.Struct({
     Schema.Finite.check(Schema.isGreaterThanOrEqualTo(1000)),
     10_000
   ),
-  show: defaultKey(Schema.Boolean, true),
   showErrors: defaultKey(Schema.Boolean, true),
-  showFooter: defaultKey(Schema.Boolean, true),
-  showSidebar: defaultKey(Schema.Boolean, true),
-  sidebarWindow: defaultKey(
-    Schema.Literals([
-      "all",
-      "rolling",
-      "daily",
-      "weekly",
-      "monthly",
-      "credits",
-      "other",
-    ]),
-    "all"
-  ),
 });
 
 const decodeConfig = Schema.decodeUnknownResult(configSchema, {

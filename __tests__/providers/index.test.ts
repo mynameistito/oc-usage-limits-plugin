@@ -65,11 +65,7 @@ describe("provider manifest", () => {
         },
         refreshIntervalSeconds: 60,
         requestTimeoutMs: 1000,
-        show: true,
         showErrors: true,
-        showFooter: true,
-        showSidebar: true,
-        sidebarWindow: "all",
       })
     ).toEqual([
       ["codex", { enabled: true, label: "Codex" }],
