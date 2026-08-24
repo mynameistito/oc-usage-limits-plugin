@@ -1,5 +1,12 @@
 # oc-usage-limits-plugin
 
+## 2.0.0-next.3
+
+### Patch Changes
+
+- e183031: Harden provider parsing and complete the opencode-v2 next release checks
+- c9103c9: Keep provider usage text visible when sidebar or footer usage bars are disabled.
+
 ## 2.0.0-next.2
 
 ### Patch Changes
