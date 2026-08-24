@@ -40,6 +40,7 @@ const dotColor = (usedPercent: number | null, theme: TuiThemeCurrent): RGBA => {
 };
 
 const UsageWindowRows = (props: {
+  showBar: boolean;
   theme: TuiThemeCurrent;
   windows: readonly UsageWindow[];
 }) => (
@@ -58,13 +59,15 @@ const UsageWindowRows = (props: {
         </text>
         <text>
           <span style={{ fg: props.theme.textMuted }}>{"  "}</span>
-          <span
-            style={{
-              fg: dotColor(quotaUsedPercent(window.quota), props.theme),
-            }}
-          >
-            {percentBar(quotaUsedPercent(window.quota), 12)}
-          </span>
+          {props.showBar ? (
+            <span
+              style={{
+                fg: dotColor(quotaUsedPercent(window.quota), props.theme),
+              }}
+            >
+              {percentBar(quotaUsedPercent(window.quota), 12)}
+            </span>
+          ) : null}
           <span
             style={{
               fg: dotColor(quotaUsedPercent(window.quota), props.theme),
@@ -126,13 +129,9 @@ export const UsageLimitsPanel = (props: {
   lastRefreshAt: Date | null;
 }) => {
   const visibleStates = createMemo(() =>
-    props.states.filter((state) => {
-      const settings = props.display?.[state.id];
-      return (
-        settings?.showSidebarBar !== false &&
-        shouldRenderProviderState(state, props.showErrors)
-      );
-    })
+    props.states.filter((state) =>
+      shouldRenderProviderState(state, props.showErrors)
+    )
   );
 
   return (
@@ -176,6 +175,9 @@ export const UsageLimitsPanel = (props: {
                 ) : null}
                 {state.status === "ready" ? (
                   <UsageWindowRows
+                    showBar={
+                      props.display?.[state.id]?.showSidebarBar !== false
+                    }
                     theme={props.theme}
                     windows={filterSidebarWindows(
                       state.id,
@@ -186,6 +188,9 @@ export const UsageLimitsPanel = (props: {
                 ) : null}
                 {state.status === "error" && state.previous ? (
                   <UsageWindowRows
+                    showBar={
+                      props.display?.[state.id]?.showSidebarBar !== false
+                    }
                     theme={props.theme}
                     windows={filterSidebarWindows(
                       state.id,
@@ -218,19 +223,22 @@ export const UsageLimitsPanel = (props: {
  * @returns Solid/OpenTUI JSX for the prompt footer slot.
  */
 export const BottomUsage = (props: {
+  showBar: boolean;
   window: UsageWindow | null;
   theme: TuiThemeCurrent;
 }) => (
   <Show when={props.window}>
     {(window) => (
       <text>
-        <span
-          style={{
-            fg: dotColor(quotaUsedPercent(window().quota), props.theme),
-          }}
-        >
-          {percentBar(quotaUsedPercent(window().quota), 8)}
-        </span>
+        {props.showBar ? (
+          <span
+            style={{
+              fg: dotColor(quotaUsedPercent(window().quota), props.theme),
+            }}
+          >
+            {percentBar(quotaUsedPercent(window().quota), 8)}
+          </span>
+        ) : null}
         <span style={{ fg: props.theme.text }}>
           {" "}
           {bottomWindowMainText(window())}
