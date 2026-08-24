@@ -11,8 +11,13 @@ import {
   windowResetText,
   windowResetTime,
 } from "@/format.ts";
-import type { ProviderState, UsageWindow } from "@/types.ts";
-import { quotaUsedPercent } from "@/usage.ts";
+import type {
+  ProviderDisplaySettings,
+  ProviderID,
+  ProviderState,
+  UsageWindow,
+} from "@/types.ts";
+import { quotaUsedPercent, usageWindowMatchesKind } from "@/usage.ts";
 
 /**
  * Chooses the status-dot color for a usage percentage.
@@ -91,6 +96,19 @@ export const shouldRenderProviderState = (
   return showErrors && state.errorKind !== "missing_credentials";
 };
 
+const filterSidebarWindows = (
+  id: ProviderID,
+  windows: readonly UsageWindow[],
+  display:
+    | Readonly<Partial<Record<ProviderID, ProviderDisplaySettings>>>
+    | undefined
+): readonly UsageWindow[] => {
+  const sidebarWindow = display?.[id]?.sidebarWindow ?? "all";
+  return sidebarWindow === "all"
+    ? windows
+    : windows.filter((window) => usageWindowMatchesKind(sidebarWindow, window));
+};
+
 /**
  * Renders the sidebar usage-limits panel.
  *
@@ -103,13 +121,18 @@ export const shouldRenderProviderState = (
 export const UsageLimitsPanel = (props: {
   states: ProviderState[];
   showErrors: boolean;
+  display?: Readonly<Partial<Record<ProviderID, ProviderDisplaySettings>>>;
   theme: TuiThemeCurrent;
   lastRefreshAt: Date | null;
 }) => {
   const visibleStates = createMemo(() =>
-    props.states.filter((state) =>
-      shouldRenderProviderState(state, props.showErrors)
-    )
+    props.states.filter((state) => {
+      const settings = props.display?.[state.id];
+      return (
+        settings?.showSidebarBar !== false &&
+        shouldRenderProviderState(state, props.showErrors)
+      );
+    })
   );
 
   return (
@@ -154,13 +177,21 @@ export const UsageLimitsPanel = (props: {
                 {state.status === "ready" ? (
                   <UsageWindowRows
                     theme={props.theme}
-                    windows={state.data.windows}
+                    windows={filterSidebarWindows(
+                      state.id,
+                      state.data.windows,
+                      props.display
+                    )}
                   />
                 ) : null}
                 {state.status === "error" && state.previous ? (
                   <UsageWindowRows
                     theme={props.theme}
-                    windows={state.previous.windows}
+                    windows={filterSidebarWindows(
+                      state.id,
+                      state.previous.windows,
+                      props.display
+                    )}
                   />
                 ) : null}
                 {state.status === "error" && props.showErrors ? (

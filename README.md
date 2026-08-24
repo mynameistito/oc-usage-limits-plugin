@@ -116,6 +116,10 @@ Create `~/.config/opencode/usage-limits.jsonc`. The same file lives at [`example
     "codex": {
       "enabled": true,
       "label": "Codex",
+      "showSidebarBar": true,
+      "showFooterBar": true,
+      "sidebarWindow": "all",
+      "footerWindow": "auto",
     },
     "zai": {
       "enabled": true,
@@ -159,6 +163,8 @@ Disabled providers are hidden:
   "zai": { "enabled": false }
 }
 ```
+
+`enabled` is the plugin master switch, while each provider's `enabled` field controls fetching. Provider `showSidebarBar` and `showFooterBar` independently control that provider's displays without stopping refreshes. `sidebarWindow` filters that provider's sidebar windows (`all`, `rolling`, `daily`, `weekly`, `monthly`, `credits`, or `other`), and `footerWindow` selects its footer window (`auto` or one of those kinds). Both display flags default to `true`; `sidebarWindow` defaults to `all` and `footerWindow` to `auto`.
 
 ## Providers
 

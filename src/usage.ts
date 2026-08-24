@@ -9,6 +9,12 @@ export type UsageWindowKind =
   | "credits"
   | "other";
 
+export const usageWindowMatchesKind = (
+  kind: UsageWindowKind,
+  window: { readonly kind: UsageWindowKind; readonly label: string }
+): boolean =>
+  window.kind === kind || (kind === "rolling" && window.label === "5h");
+
 /** A finite percentage in the inclusive range `0..100`. */
 export type Percentage = typeof PercentageSchema.Type;
 

@@ -2,6 +2,16 @@ import type { Redacted } from "effect";
 
 import type { ResetInstant, UsageQuota, UsageWindowKind } from "@/usage.ts";
 
+type SidebarWindow = "all" | UsageWindowKind;
+type FooterWindow = "auto" | UsageWindowKind;
+
+export interface ProviderDisplaySettings {
+  readonly showSidebarBar: boolean;
+  readonly showFooterBar: boolean;
+  readonly sidebarWindow: SidebarWindow;
+  readonly footerWindow: FooterWindow;
+}
+
 /** Provider adapters supported by the usage-limits plugin. */
 export type ProviderID =
   | "codex"
@@ -84,6 +94,10 @@ interface CommonProviderConfig {
   readonly enabled?: boolean;
   /** Optional provider display label override. */
   readonly label?: string;
+  readonly showSidebarBar?: boolean;
+  readonly showFooterBar?: boolean;
+  readonly sidebarWindow?: SidebarWindow;
+  readonly footerWindow?: FooterWindow;
 }
 
 /** Codex provider configuration. */

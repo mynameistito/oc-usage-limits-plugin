@@ -12,11 +12,15 @@ import type {
   ProviderState,
   ProviderUsage,
   ResolvedUsageLimitsConfig,
+  ProviderDisplaySettings,
 } from "@/types.ts";
 
 export interface CoordinatorSnapshot {
   readonly states: readonly ProviderState[];
   readonly showErrors: boolean;
+  readonly display: Readonly<
+    Partial<Record<ProviderID, ProviderDisplaySettings>>
+  >;
   readonly lastRefreshAt: Date | null;
 }
 
@@ -54,6 +58,15 @@ const loadingState = (
   status: "loading",
 });
 
+const displaySettings = (
+  provider: ProviderConfigMap[ProviderID]
+): ProviderDisplaySettings => ({
+  footerWindow: provider.footerWindow ?? "auto",
+  showFooterBar: provider.showFooterBar ?? true,
+  showSidebarBar: provider.showSidebarBar ?? true,
+  sidebarWindow: provider.sidebarWindow ?? "all",
+});
+
 export const usageCoordinator = (
   dependencies: UsageCoordinatorDependencies
 ): Effect.Effect<void> =>
@@ -72,6 +85,9 @@ export const usageCoordinator = (
       intervalMs = intervalMilliseconds(config.refreshIntervalSeconds);
       const providers = config.enabled ? getProviderConfigs(config) : [];
       yield* dependencies.publish({
+        display: Object.fromEntries(
+          providers.map(([id, provider]) => [id, displaySettings(provider)])
+        ),
         lastRefreshAt: null,
         showErrors: config.showErrors,
         states: providers.map(([id, provider]) => loadingState(id, provider)),
@@ -122,6 +138,9 @@ export const usageCoordinator = (
         const now = yield* dependencies.now;
         const staleAfterMs = intervalMs * 2;
         yield* dependencies.publish({
+          display: Object.fromEntries(
+            providers.map(([id, provider]) => [id, displaySettings(provider)])
+          ),
           lastRefreshAt: now,
           showErrors: config.showErrors,
           states: terminalStates.map((state) =>
@@ -137,6 +156,7 @@ export const usageCoordinator = (
         });
       } else {
         yield* dependencies.publish({
+          display: {},
           lastRefreshAt: null,
           showErrors: config.showErrors,
           states: [],

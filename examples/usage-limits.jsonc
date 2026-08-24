@@ -8,6 +8,10 @@
     "codex": {
       "enabled": true,
       "label": "Codex",
+      "showSidebarBar": true,
+      "showFooterBar": true,
+      "sidebarWindow": "all",
+      "footerWindow": "auto",
     },
     "zai": {
       "enabled": true,

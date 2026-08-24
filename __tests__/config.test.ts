@@ -53,7 +53,11 @@ describe("configuration parsing", () => {
           authorizationScheme: "bearer",
           baseUrl: "https://example.com",
           enabled: true,
+          footerWindow: "daily",
           label: "Work",
+          showFooterBar: false,
+          showSidebarBar: false,
+          sidebarWindow: "weekly",
         },
       },
     });
@@ -68,7 +72,11 @@ describe("configuration parsing", () => {
         authorizationScheme: "bearer",
         baseUrl: "https://example.com",
         enabled: true,
+        footerWindow: "daily",
         label: "Work",
+        showFooterBar: false,
+        showSidebarBar: false,
+        sidebarWindow: "weekly",
       });
     }
   });
@@ -79,6 +87,8 @@ describe("configuration parsing", () => {
     [{ refreshIntervalSeconds: Number.NaN }, "finite refresh"],
     [{ requestTimeoutMs: 999 }, "timeout minimum"],
     [{ providers: { codex: { authorizationScheme: "token" } } }, "enum"],
+    [{ providers: { codex: { footerWindow: "invalid" } } }, "footer window"],
+    [{ providers: { codex: { sidebarWindow: "invalid" } } }, "sidebar window"],
     [{ providers: { unknown: {} } }, "unknown provider"],
     [{ unknown: true }, "unknown top-level key"],
   ])("rejects %s (%s)", (input) => {

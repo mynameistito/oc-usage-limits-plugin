@@ -16,6 +16,7 @@ import type {
   ProviderConfigMap,
   ProviderState,
   ProviderUsage,
+  ProviderDisplaySettings,
 } from "@/types.ts";
 
 /** Runtime dependencies used by the usage-limits TUI lifecycle. */
@@ -62,6 +63,9 @@ export const createUsageLimitsTui =
   (api) => {
     const [states, setStates] = createSignal<ProviderState[]>([]);
     const [showErrors, setShowErrors] = createSignal(true);
+    const [display, setDisplay] = createSignal<
+      Readonly<Partial<Record<ProviderID, ProviderDisplaySettings>>>
+    >({});
     const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);
     api.slots.register({
       order: 101,
@@ -73,13 +77,14 @@ export const createUsageLimitsTui =
           return (
             <BottomUsage
               theme={ctx.theme.current}
-              window={usageForProvider(states(), providerID)}
+              window={usageForProvider(states(), providerID, display())}
             />
           );
         },
         sidebar_content(ctx) {
           return (
             <UsageLimitsPanel
+              display={display()}
               showErrors={showErrors()}
               states={states()}
               theme={ctx.theme.current}
@@ -98,6 +103,7 @@ export const createUsageLimitsTui =
       publish: (snapshot) =>
         Effect.sync(() => {
           setShowErrors(snapshot.showErrors);
+          setDisplay(snapshot.display);
           setStates([...snapshot.states]);
           setLastRefreshAt(snapshot.lastRefreshAt);
         }),

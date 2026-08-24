@@ -61,7 +61,16 @@ const config = (
   overrides: Partial<ResolvedUsageLimitsConfig> = {}
 ): ResolvedUsageLimitsConfig => ({
   enabled: true,
-  providers: { codex: { enabled: true, label: "Codex Work" } },
+  providers: {
+    codex: {
+      enabled: true,
+      footerWindow: "auto",
+      label: "Codex Work",
+      showFooterBar: true,
+      showSidebarBar: true,
+      sidebarWindow: "all",
+    },
+  },
   refreshIntervalSeconds: 20,
   requestTimeoutMs: 5000,
   showErrors: true,
@@ -250,6 +259,82 @@ describe("usage-limits TUI lifecycle", () => {
       "%"
     );
   });
+
+  test("hides a provider's displays without stopping its refreshes", async () => {
+    const harness = createHarness(
+      config({
+        providers: {
+          codex: {
+            enabled: true,
+            label: "Codex Work",
+            showFooterBar: false,
+            showSidebarBar: false,
+          },
+        },
+      })
+    );
+    const registered = await initialize(harness);
+
+    expect(harness.fetches).toEqual(["codex"]);
+    expect(await renderSlot(registered, "sidebar_content")).not.toContain(
+      "Usage Limits"
+    );
+    expect(await renderSlot(registered, "session_prompt_right")).not.toContain(
+      "%"
+    );
+  });
+
+  test("filters sidebar windows per provider", async () => {
+    const harness = createHarness(
+      config({
+        providers: {
+          codex: {
+            enabled: true,
+            label: "Codex Work",
+            sidebarWindow: "daily",
+          },
+        },
+      })
+    );
+    const registered = await initialize(harness);
+    const sidebar = await renderSlot(registered, "sidebar_content");
+
+    expect(sidebar).not.toContain("5h");
+  });
+
+  test.each([
+    [
+      "sidebar",
+      {
+        providers: {
+          codex: { enabled: true, label: "Codex Work", showSidebarBar: false },
+        },
+      },
+      "sidebar_content",
+      "session_prompt_right",
+    ],
+    [
+      "footer",
+      {
+        providers: {
+          codex: { enabled: true, label: "Codex Work", showFooterBar: false },
+        },
+      },
+      "session_prompt_right",
+      "sidebar_content",
+    ],
+  ] as const)(
+    "supports an independent %s visibility toggle",
+    async (_name, overrides, hiddenSlot, visibleSlot) => {
+      const harness = createHarness(config(overrides));
+      const registered = await initialize(harness);
+
+      expect(await renderSlot(registered, hiddenSlot)).not.toContain("42%");
+      expect(await renderSlot(registered, visibleSlot)).toContain(
+        visibleSlot === "sidebar_content" ? "Codex Work" : "42%"
+      );
+    }
+  );
 
   test("uses safe defaults when typed config parsing fails", async () => {
     const harness = createHarness();
