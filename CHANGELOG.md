@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 1.6.0
+
+### Minor Changes
+
+- d03c2ab: Harden provider runtime boundaries and improve usage-limit provider handling, diagnostics, and package verification.
+
 ## 1.5.0
 
 ### Minor Changes
