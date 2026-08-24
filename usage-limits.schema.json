@@ -10,6 +10,8 @@
     "refreshIntervalSeconds": { "type": "number", "minimum": 15 },
     "requestTimeoutMs": { "type": "number", "minimum": 1000 },
     "showErrors": { "type": "boolean" },
+    "showSidebar": { "type": "boolean" },
+    "showFooter": { "type": "boolean" },
     "providers": {
       "type": "object",
       "additionalProperties": false,

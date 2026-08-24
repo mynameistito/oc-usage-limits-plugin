@@ -147,6 +147,8 @@ export interface ResolvedUsageLimitsConfig {
   readonly refreshIntervalSeconds: number;
   readonly requestTimeoutMs: number;
   readonly showErrors: boolean;
+  readonly showSidebar: boolean;
+  readonly showFooter: boolean;
 }
 
 /**

@@ -83,6 +83,8 @@ const configSchema = Schema.Struct({
     10_000
   ),
   showErrors: defaultKey(Schema.Boolean, true),
+  showFooter: defaultKey(Schema.Boolean, true),
+  showSidebar: defaultKey(Schema.Boolean, true),
 });
 
 const decodeConfig = Schema.decodeUnknownResult(configSchema, {

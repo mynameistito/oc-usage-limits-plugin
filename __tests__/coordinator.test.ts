@@ -21,6 +21,8 @@ const config: ResolvedUsageLimitsConfig = {
   refreshIntervalSeconds: 15,
   requestTimeoutMs: 1000,
   showErrors: true,
+  showFooter: true,
+  showSidebar: true,
 };
 
 const usage = (id: ProviderID): ProviderUsage => ({

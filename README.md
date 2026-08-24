@@ -112,6 +112,8 @@ Create `~/.config/opencode/usage-limits.jsonc`. The same file lives at [`example
   "refreshIntervalSeconds": 60,
   "requestTimeoutMs": 10000,
   "showErrors": true,
+  "showSidebar": true,
+  "showFooter": true,
   "providers": {
     "codex": {
       "enabled": true,
@@ -159,6 +161,8 @@ Disabled providers are hidden:
   "zai": { "enabled": false }
 }
 ```
+
+Set `showSidebar` or `showFooter` to `false` to hide the corresponding usage display without disabling provider refreshes. Both default to `true`.
 
 ## Providers
 

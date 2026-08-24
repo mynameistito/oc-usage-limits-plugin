@@ -31,6 +31,8 @@ export const DEFAULT_CONFIG: ResolvedUsageLimitsConfig = {
   refreshIntervalSeconds: 60,
   requestTimeoutMs: 10_000,
   showErrors: true,
+  showFooter: true,
+  showSidebar: true,
 };
 
 const isMissingFile = (error: unknown): boolean =>

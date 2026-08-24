@@ -65,6 +65,8 @@ const config = (
   refreshIntervalSeconds: 20,
   requestTimeoutMs: 5000,
   showErrors: true,
+  showFooter: true,
+  showSidebar: true,
   ...overrides,
 });
 
@@ -250,6 +252,32 @@ describe("usage-limits TUI lifecycle", () => {
       "%"
     );
   });
+
+  test.each([
+    [
+      "sidebar",
+      { showSidebar: false },
+      "sidebar_content",
+      "session_prompt_right",
+    ],
+    [
+      "footer",
+      { showFooter: false },
+      "session_prompt_right",
+      "sidebar_content",
+    ],
+  ] as const)(
+    "supports an independent %s visibility toggle",
+    async (_name, overrides, hiddenSlot, visibleSlot) => {
+      const harness = createHarness(config(overrides));
+      const registered = await initialize(harness);
+
+      expect(await renderSlot(registered, hiddenSlot)).not.toContain("42%");
+      expect(await renderSlot(registered, visibleSlot)).toContain(
+        visibleSlot === "sidebar_content" ? "Codex Work" : "42%"
+      );
+    }
+  );
 
   test("uses safe defaults when typed config parsing fails", async () => {
     const harness = createHarness();

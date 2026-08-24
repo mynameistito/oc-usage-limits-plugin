@@ -62,6 +62,8 @@ export const createUsageLimitsTui =
   (api) => {
     const [states, setStates] = createSignal<ProviderState[]>([]);
     const [showErrors, setShowErrors] = createSignal(true);
+    const [showSidebar, setShowSidebar] = createSignal(true);
+    const [showFooter, setShowFooter] = createSignal(true);
     const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);
     api.slots.register({
       order: 101,
@@ -70,22 +72,22 @@ export const createUsageLimitsTui =
           const providerID = currentProviderID(
             api.state.session.messages(props.session_id)
           );
-          return (
+          return showFooter() ? (
             <BottomUsage
               theme={ctx.theme.current}
               window={usageForProvider(states(), providerID)}
             />
-          );
+          ) : null;
         },
         sidebar_content(ctx) {
-          return (
+          return showSidebar() ? (
             <UsageLimitsPanel
               showErrors={showErrors()}
               states={states()}
               theme={ctx.theme.current}
               lastRefreshAt={lastRefreshAt()}
             />
-          );
+          ) : null;
         },
       },
     });
@@ -98,6 +100,8 @@ export const createUsageLimitsTui =
       publish: (snapshot) =>
         Effect.sync(() => {
           setShowErrors(snapshot.showErrors);
+          setShowSidebar(snapshot.showSidebar);
+          setShowFooter(snapshot.showFooter);
           setStates([...snapshot.states]);
           setLastRefreshAt(snapshot.lastRefreshAt);
         }),

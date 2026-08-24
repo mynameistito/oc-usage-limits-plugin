@@ -30,6 +30,8 @@ describe("configuration parsing", () => {
       refreshIntervalSeconds: 15,
       requestTimeoutMs: 1000,
       showErrors: false,
+      showFooter: false,
+      showSidebar: false,
     });
 
     expect(Result.isSuccess(result)).toBe(true);
@@ -40,6 +42,8 @@ describe("configuration parsing", () => {
         refreshIntervalSeconds: 15,
         requestTimeoutMs: 1000,
         showErrors: false,
+        showFooter: false,
+        showSidebar: false,
       });
     }
   });
@@ -112,6 +116,8 @@ describe("configuration loading", () => {
     expect(Result.isSuccess(result)).toBe(true);
     if (Result.isSuccess(result)) {
       expect(result.success.refreshIntervalSeconds).toBe(60);
+      expect(result.success.showSidebar).toBe(true);
+      expect(result.success.showFooter).toBe(true);
     }
   });
 

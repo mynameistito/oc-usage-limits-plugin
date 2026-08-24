@@ -66,6 +66,8 @@ describe("provider manifest", () => {
         refreshIntervalSeconds: 60,
         requestTimeoutMs: 1000,
         showErrors: true,
+        showFooter: true,
+        showSidebar: true,
       })
     ).toEqual([
       ["codex", { enabled: true, label: "Codex" }],
