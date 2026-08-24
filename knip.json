@@ -1,0 +1,3 @@
+{
+  "ignoreDependencies": ["eslint-plugin-github", "eslint-plugin-sonarjs"]
+}

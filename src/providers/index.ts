@@ -22,9 +22,14 @@ export const PROVIDER_ORDER: readonly ProviderID[] = PROVIDER_MANIFEST.map(
 );
 
 /** Provider lookup derived from the same ordered manifest. */
-export const PROVIDER_REGISTRY = Object.fromEntries(
-  PROVIDER_MANIFEST.map((provider) => [provider.id, provider])
-) as Readonly<Record<ProviderID, (typeof PROVIDER_MANIFEST)[number]>>;
+export const PROVIDER_REGISTRY = {
+  codex: codexProvider,
+  minimax: minimaxProvider,
+  "opencode-go": openCodeGoProvider,
+  qwen: qwenProvider,
+  synthetic: syntheticProvider,
+  zai: zaiProvider,
+} satisfies Record<ProviderID, (typeof PROVIDER_MANIFEST)[number]>;
 
 /** Provider definitions projected in explicit sidebar display order. */
 export const PROVIDERS = [...PROVIDER_MANIFEST] as const;

@@ -8,18 +8,21 @@ import {
   parseUsageLimitsConfig,
 } from "@/config-schema.ts";
 import { ConfigDecodeError, ConfigReadError } from "@/errors.ts";
-import * as utils from "@/utils.ts";
+import { isRecord, readJsonFile as readJsonFileImpl } from "@/utils.ts";
 
-const originalReadJsonFile = utils.readJsonFile;
-const readJsonFile = mock(originalReadJsonFile);
+const originalReadJsonFile = readJsonFileImpl;
+const mockedReadJsonFile = mock(originalReadJsonFile);
 
-mock.module("@/utils.ts", () => ({ ...utils, readJsonFile }));
+mock.module("@/utils.ts", () => ({
+  isRecord,
+  readJsonFile: mockedReadJsonFile,
+}));
 
 const { loadConfig, loadOpenCodeAuth } = await import("@/config.ts");
 
 afterEach(() => {
-  readJsonFile.mockReset();
-  readJsonFile.mockImplementation(originalReadJsonFile);
+  mockedReadJsonFile.mockReset();
+  mockedReadJsonFile.mockImplementation(originalReadJsonFile);
 });
 
 describe("configuration parsing", () => {
@@ -114,7 +117,7 @@ describe("configuration parsing", () => {
 
 describe("configuration loading", () => {
   test("returns defaults when no user config exists", async () => {
-    readJsonFile.mockRejectedValueOnce(
+    mockedReadJsonFile.mockRejectedValueOnce(
       Object.assign(new Error("missing"), { code: "ENOENT" })
     );
 
@@ -126,14 +129,14 @@ describe("configuration loading", () => {
   });
 
   test("returns typed read and JSONC decode failures", async () => {
-    readJsonFile.mockRejectedValueOnce(new Error("permission denied"));
+    mockedReadJsonFile.mockRejectedValueOnce(new Error("permission denied"));
     const readResult = await loadConfig();
     expect(Result.isFailure(readResult)).toBe(true);
     if (Result.isFailure(readResult)) {
       expect(readResult.failure).toBeInstanceOf(ConfigReadError);
     }
 
-    readJsonFile.mockRejectedValueOnce(new SyntaxError("malformed"));
+    mockedReadJsonFile.mockRejectedValueOnce(new SyntaxError("malformed"));
     const decodeResult = await loadConfig();
     expect(Result.isFailure(decodeResult)).toBe(true);
     if (Result.isFailure(decodeResult)) {
@@ -142,7 +145,7 @@ describe("configuration loading", () => {
   });
 
   test("loads recognized auth fields as redacted values", async () => {
-    readJsonFile.mockResolvedValueOnce({
+    mockedReadJsonFile.mockResolvedValueOnce({
       ignored: { value: true },
       openai: { access: "token", accountId: "account" },
     });
@@ -153,7 +156,7 @@ describe("configuration loading", () => {
   });
 
   test("treats absent or malformed auth as empty", async () => {
-    readJsonFile.mockRejectedValueOnce(new Error("missing"));
+    mockedReadJsonFile.mockRejectedValueOnce(new Error("missing"));
     await expect(loadOpenCodeAuth()).resolves.toEqual({});
     expect(parseOpenCodeAuth({ openai: { access: 42 } })).toEqual({});
   });

@@ -23,19 +23,25 @@ import {
   resetInstantOrNull,
 } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
+import type { JsonValue } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
 /** Default OpenCode GO API base URL. */
 const DEFAULT_OPEN_CODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
+const OPENCODE_GO_PROVIDER_ID = "opencode-go" as const;
+const DECODE_RESPONSE = "decode-response";
+type AuthCredential = JsonValue;
 
 const keyFromAuth = (
-  value: unknown,
-  credential: (value: unknown) => Redacted.Redacted<string> | undefined
+  value: OpenCodeAuth | JsonValue,
+  credential: (
+    value: JsonValue | Redacted.Redacted<string> | undefined
+  ) => Redacted.Redacted<string> | undefined
 ): Redacted.Redacted<string> | undefined => {
   if (!isRecord(value)) {
     return undefined;
   }
-  for (const entry of [value["opencode-go"], value.opencode]) {
+  for (const entry of [value[OPENCODE_GO_PROVIDER_ID], value.opencode]) {
     if (!isRecord(entry)) {
       continue;
     }
@@ -62,7 +68,7 @@ const readAuthPathKey = (
     const environment = yield* ProviderEnvironment;
     const auth = yield* files.readJson({
       path: authPath,
-      providerID: "opencode-go",
+      providerID: OPENCODE_GO_PROVIDER_ID,
     });
     return keyFromAuth(auth, environment.credential);
   }).pipe(
@@ -71,7 +77,7 @@ const readAuthPathKey = (
 };
 
 const usageWindow = (
-  value: unknown,
+  value: AuthCredential | undefined,
   kind: UsageWindow["kind"],
   label: string
 ): UsageWindow | null => {
@@ -106,15 +112,15 @@ const fetchOpenCodeGoUsageEffect = (
     );
     const officialHost = new URL(baseUrl).hostname === "opencode.ai";
     const authPathKey = yield* readAuthPathKey(config?.authPath);
-    const apiKey = officialHost
-      ? (authPathKey ??
-        keyFromAuth(openCodeAuth, environment.credential) ??
-        environment.resolveCredential(config?.apiKey))
-      : (authPathKey ?? environment.resolveCredential(config?.apiKey));
+    const configuredKey = environment.resolveCredential(config?.apiKey);
+    const authKey = keyFromAuth(openCodeAuth, environment.credential);
+    const apiKey =
+      authPathKey ??
+      (officialHost ? (authKey ?? configuredKey) : configuredKey);
     if (!apiKey) {
       return yield* new MissingProviderCredentialsError({
         operation: "fetch-usage",
-        providerID: "opencode-go",
+        providerID: OPENCODE_GO_PROVIDER_ID,
       });
     }
 
@@ -124,15 +130,15 @@ const fetchOpenCodeGoUsageEffect = (
         Authorization: `Bearer ${Redacted.value(apiKey)}`,
       },
       method: "GET",
-      providerID: "opencode-go",
+      providerID: OPENCODE_GO_PROVIDER_ID,
       timeoutMs,
       url: `${baseUrl}/usage`,
     });
     if (!isRecord(payload) || !isRecord(payload.usage)) {
       return yield* new ProviderResponseDecodeError({
         cause: "schema",
-        operation: "decode-response",
-        providerID: "opencode-go",
+        operation: DECODE_RESPONSE,
+        providerID: OPENCODE_GO_PROVIDER_ID,
       });
     }
 
@@ -144,14 +150,14 @@ const fetchOpenCodeGoUsageEffect = (
     if (windows.length === 0) {
       return yield* new ProviderResponseDecodeError({
         cause: "schema",
-        operation: "decode-response",
-        providerID: "opencode-go",
+        operation: DECODE_RESPONSE,
+        providerID: OPENCODE_GO_PROVIDER_ID,
       });
     }
 
     return {
       capturedAt: yield* clock.now,
-      id: "opencode-go",
+      id: OPENCODE_GO_PROVIDER_ID,
       label: config?.label ?? "OpenCode GO",
       windows,
     };
@@ -176,6 +182,6 @@ export const openCodeGoProvider = {
   defaultLabel: "OpenCode GO",
   fetch: fetchOpenCodeGoUsageEffect,
   footerWindowKind: "rolling",
-  id: "opencode-go",
-  openCodeProviderIDs: ["opencode-go"],
+  id: OPENCODE_GO_PROVIDER_ID,
+  openCodeProviderIDs: [OPENCODE_GO_PROVIDER_ID],
 } as const satisfies ProviderDefinition<"opencode-go">;

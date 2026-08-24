@@ -26,6 +26,7 @@ import {
   unknownQuota,
 } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
+import type { JsonValue } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
 /** Default ChatGPT backend base URL used for Codex usage requests. */
@@ -114,7 +115,12 @@ const loadCodexCredentials = (
  *   length.
  * @returns A normalized usage window, or `null` for invalid payloads.
  */
-const codexWindow = (value: unknown, fallback: string): UsageWindow | null => {
+type CodexWindowPayload = Readonly<Record<string, JsonValue>>;
+
+const codexWindow = (
+  value: CodexWindowPayload | undefined,
+  fallback: string
+): UsageWindow | null => {
   if (!isRecord(value)) {
     return null;
   }
@@ -124,14 +130,10 @@ const codexWindow = (value: unknown, fallback: string): UsageWindow | null => {
     return null;
   }
   const used = Result.isSuccess(parsedUsed) ? parsedUsed.success : null;
-  const windowSeconds =
-    typeof value.limit_window_seconds === "number"
-      ? value.limit_window_seconds
-      : 0;
+  const windowSeconds = Number(value.limit_window_seconds) || 0;
+  const resetSeconds = Number(value.reset_at);
   const resetAt = resetInstantOrNull(
-    typeof value.reset_at === "number" && value.reset_at > 0
-      ? new Date(value.reset_at * 1000)
-      : null
+    resetSeconds > 0 ? new Date(resetSeconds * 1000) : null
   );
 
   return {
@@ -146,7 +148,7 @@ const codexWindow = (value: unknown, fallback: string): UsageWindow | null => {
 };
 
 const reportedWindowsAreInvalid = (
-  rateLimit: Record<string, unknown> | undefined,
+  rateLimit: CodexWindowPayload | undefined,
   windows: readonly UsageWindow[]
 ): boolean =>
   rateLimit !== undefined &&
@@ -217,10 +219,14 @@ const fetchCodexUsageEffect = (
     const rateLimit = isRecord(payload.rate_limit)
       ? payload.rate_limit
       : undefined;
-    const primaryWindow = codexWindow(rateLimit?.primary_window, "usage");
+    const primaryWindow = isRecord(rateLimit?.primary_window)
+      ? codexWindow(rateLimit.primary_window, "usage")
+      : null;
     const windows = [
       primaryWindow,
-      codexWindow(rateLimit?.secondary_window, "secondary"),
+      isRecord(rateLimit?.secondary_window)
+        ? codexWindow(rateLimit.secondary_window, "secondary")
+        : null,
     ].filter((item): item is UsageWindow => item !== null);
     if (!primaryWindow || reportedWindowsAreInvalid(rateLimit, windows)) {
       return yield* new ProviderResponseDecodeError({
@@ -229,21 +235,21 @@ const fetchCodexUsageEffect = (
         providerID: "codex",
       });
     }
-    const resetCredits =
-      isRecord(payload.rate_limit_reset_credits) &&
-      typeof payload.rate_limit_reset_credits.available_count === "number" &&
-      Number.isFinite(payload.rate_limit_reset_credits.available_count) &&
-      payload.rate_limit_reset_credits.available_count >= 0
-        ? payload.rate_limit_reset_credits.available_count
-        : null;
+    const resetCredits = isRecord(payload.rate_limit_reset_credits)
+      ? Number(payload.rate_limit_reset_credits.available_count)
+      : Number.NaN;
+    const validResetCredits =
+      Number.isFinite(resetCredits) && resetCredits >= 0;
 
     return {
       capturedAt: yield* clock.now,
       id: "codex",
       label: config?.label ?? "Codex",
-      metadata: { resetCredits },
+      metadata: { resetCredits: validResetCredits ? resetCredits : null },
       tierName:
-        typeof payload.plan_type === "string" ? payload.plan_type : undefined,
+        String(payload.plan_type) === "undefined"
+          ? undefined
+          : String(payload.plan_type),
       windows,
     };
   });

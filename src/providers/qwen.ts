@@ -1,4 +1,4 @@
-import { Effect, Result } from "effect";
+import { Effect, Result, Schema } from "effect";
 
 import { qwenProviderConfigSchema } from "@/config-schema.ts";
 import {
@@ -25,14 +25,28 @@ import { isRecord } from "@/utils.ts";
 
 /** Default CLI command used when no override is configured. */
 const DEFAULT_CLI = "qwencloud";
+const DECODE_RESPONSE = "decode-response";
+const decodeString = Schema.decodeUnknownOption(Schema.String);
+const decodeNumber = Schema.decodeUnknownOption(Schema.Number);
 
-const safeCommandCause = (error: unknown): Error => {
+interface QwenTokenPlan {
+  readonly planName?: string;
+  readonly remainingCredits?: number;
+  readonly resetDate?: string;
+  readonly status?: string;
+  readonly subscribed: boolean;
+  readonly totalCredits?: number;
+  readonly usedPct?: number;
+}
+
+interface CommandFailure {
+  readonly code?: number | string;
+}
+
+const safeCommandCause = (error: Error | CommandFailure): Error => {
   const record = isRecord(error) ? error : {};
   const { code } = record;
-  const suffix =
-    typeof code === "number" || typeof code === "string"
-      ? `exit code ${code}`
-      : "failed";
+  const suffix = code === undefined ? "failed" : `exit code ${String(code)}`;
   return new Error(`qwencloud CLI ${suffix}`);
 };
 
@@ -86,7 +100,7 @@ const parseAuthStatus = (raw: string): boolean => {
  * @param raw - Raw stdout JSON from the CLI.
  * @returns The parsed Token Plan snapshot.
  */
-const parseTokenPlan = (raw: string) => {
+const parseTokenPlan = (raw: string): QwenTokenPlan => {
   let data: unknown;
   try {
     data = JSON.parse(raw);
@@ -103,15 +117,22 @@ const parseTokenPlan = (raw: string) => {
   }
 
   return {
-    planName: typeof tp.planName === "string" ? tp.planName : undefined,
-    remainingCredits:
-      typeof tp.remainingCredits === "number" ? tp.remainingCredits : undefined,
-    resetDate: typeof tp.resetDate === "string" ? tp.resetDate : undefined,
-    status: typeof tp.status === "string" ? tp.status : undefined,
+    planName:
+      String(tp.planName) === "undefined" ? undefined : String(tp.planName),
+    remainingCredits: Number.isFinite(Number(tp.remainingCredits))
+      ? Number(tp.remainingCredits)
+      : undefined,
+    resetDate:
+      String(tp.resetDate) === "undefined" ? undefined : String(tp.resetDate),
+    status: String(tp.status) === "undefined" ? undefined : String(tp.status),
     subscribed: tp.subscribed === true,
-    totalCredits:
-      typeof tp.totalCredits === "number" ? tp.totalCredits : undefined,
-    usedPct: typeof tp.usedPct === "number" ? tp.usedPct : undefined,
+    totalCredits: Number.isFinite(Number(tp.totalCredits))
+      ? Number(tp.totalCredits)
+      : undefined,
+    usedPct: (() => {
+      const parsed = decodeNumber(tp.usedPct);
+      return parsed._tag === "Some" ? parsed.value : Number.NaN;
+    })(),
   };
 };
 
@@ -194,7 +215,7 @@ const fetchQwenTokenPlanUsage = (
       catch: () =>
         new ProviderResponseDecodeError({
           cause: "decode",
-          operation: "decode-response",
+          operation: DECODE_RESPONSE,
           providerID: "qwen",
         }),
       try: () => parseAuthStatus(authRaw),
@@ -216,7 +237,7 @@ const fetchQwenTokenPlanUsage = (
       catch: () =>
         new ProviderResponseDecodeError({
           cause: "decode",
-          operation: "decode-response",
+          operation: DECODE_RESPONSE,
           providerID: "qwen",
         }),
       try: () => parseTokenPlan(usageRaw),
@@ -225,7 +246,7 @@ const fetchQwenTokenPlanUsage = (
     if (!tokenPlan.subscribed || !window) {
       return yield* new ProviderResponseDecodeError({
         cause: "schema",
-        operation: "decode-response",
+        operation: DECODE_RESPONSE,
         providerID: "qwen",
       });
     }
@@ -259,12 +280,19 @@ export const createQwenProvider = (dependencies: QwenProviderDependencies) => ({
       } catch (error) {
         const record = isRecord(error) ? error : {};
         const { code } = record;
+        const parsedStdout = decodeString(record.stdout);
+        const parsedCode = decodeNumber(code);
         const stdout =
-          typeof record.stdout === "string" ? record.stdout.trim() : "";
-        if (allowNonZero && stdout && typeof code === "number" && code !== 0) {
+          parsedStdout._tag === "Some" ? parsedStdout.value.trim() : "";
+        if (
+          allowNonZero &&
+          stdout &&
+          parsedCode._tag === "Some" &&
+          parsedCode.value !== 0
+        ) {
           return stdout;
         }
-        throw safeCommandCause(error);
+        throw safeCommandCause(error instanceof Error ? error : {});
       }
     };
     let authRaw: string;

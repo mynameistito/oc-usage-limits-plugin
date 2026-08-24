@@ -54,6 +54,7 @@ export const fetchProviderEffect = <ID extends ProviderID>(
       ) as Effect.Effect<ProviderUsage<ID>, ProviderError, ProviderRuntime>;
     }
     case "opencode-go": {
+      // SAFETY: The switch narrows ID and config to the OpenCode GO provider.
       return openCodeGoProvider.fetch(
         config,
         openCodeAuth,
@@ -61,6 +62,7 @@ export const fetchProviderEffect = <ID extends ProviderID>(
       ) as Effect.Effect<ProviderUsage<ID>, ProviderError, ProviderRuntime>;
     }
     case "qwen": {
+      // SAFETY: The switch narrows ID and config to the Qwen provider.
       return qwenProvider.fetch(
         config,
         openCodeAuth,

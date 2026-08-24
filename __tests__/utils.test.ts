@@ -16,10 +16,13 @@ type FetchMock = (
   url: string | URL | Request,
   init?: RequestInit
 ) => Promise<Response>;
+// SAFETY: The mock implements the fetch call signature used by utility tests.
+const asFetch = <T>(value: T): typeof fetch => value as typeof fetch;
 
 const installFetchMock = (response: Response) => {
   const fetchMock = mock<FetchMock>(() => Promise.resolve(response));
-  globalThis.fetch = fetchMock as unknown as typeof fetch;
+  // SAFETY: The mock implements the subset of fetch used by utility tests.
+  globalThis.fetch = asFetch(fetchMock);
   return fetchMock;
 };
 

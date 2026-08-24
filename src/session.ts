@@ -1,3 +1,5 @@
+import { Schema } from "effect";
+
 import {
   pluginProviderForOpenCode,
   PROVIDER_REGISTRY,
@@ -13,6 +15,8 @@ import type { UsageWindowKind } from "@/usage.ts";
 import { usageWindowMatchesKind } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
 
+const providerIDSchema = Schema.decodeUnknownOption(Schema.String);
+
 /**
  * Extracts an OpenCode provider identifier from a session message-like value.
  *
@@ -22,17 +26,21 @@ import { isRecord } from "@/utils.ts";
  * @param message - Unknown message payload from OpenCode session state.
  * @returns The provider identifier when present.
  */
-const getProviderFromMessage = (message: unknown): string | undefined => {
+const getProviderFromMessage = <T>(message: T): string | undefined => {
   if (!isRecord(message)) {
     return undefined;
   }
 
-  if (typeof message.providerID === "string") {
-    return message.providerID;
+  const directProvider = providerIDSchema(message.providerID);
+  if (directProvider._tag === "Some") {
+    return directProvider.value;
   }
 
-  if (isRecord(message.model) && typeof message.model.providerID === "string") {
-    return message.model.providerID;
+  if (isRecord(message.model)) {
+    const nestedProvider = providerIDSchema(message.model.providerID ?? null);
+    if (nestedProvider._tag === "Some") {
+      return nestedProvider.value;
+    }
   }
 
   return undefined;
@@ -99,9 +107,7 @@ export const usageForProvider = (
   providerID: string | undefined,
   display: Readonly<Partial<Record<ProviderID, ProviderDisplaySettings>>> = {}
 ): UsageWindow | null => {
-  const usageID = providerID
-    ? (pluginProviderForOpenCode(providerID) as ProviderID | null)
-    : null;
+  const usageID = providerID ? pluginProviderForOpenCode(providerID) : null;
 
   const resolveWindow = (id: ProviderID): UsageWindow | null => {
     const state = states.find((item) => item.id === id);

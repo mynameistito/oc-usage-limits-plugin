@@ -32,7 +32,7 @@ const context = {
   theme: {
     current: new Proxy(
       { thinkingOpacity: 0.6 },
-      { get: (target, key) => Reflect.get(target, key) ?? color }
+      { get: (target, key) => target[key as keyof typeof target] ?? color }
     ),
   },
 } as TuiSlotContext;
@@ -50,6 +50,9 @@ interface CharacterizedSlots {
     ) => JSX.Element;
   };
 }
+
+// SAFETY: The test adapter implements every TuiPluginApi member consumed here.
+const asTuiPluginApi = <T,>(value: T): TuiPluginApi => value as TuiPluginApi;
 
 interface ScheduledRefresh {
   callback: () => Promise<void>;
@@ -95,12 +98,17 @@ const createHarness = (initialConfig = config()) => {
   const scheduled: ScheduledRefresh[] = [];
   const fetches: ProviderID[] = [];
   const auth: OpenCodeAuth = {};
-  const state: {
+  interface HarnessState {
     config: ResolvedUsageLimitsConfig;
     configError: ConfigDecodeError | null;
     fetchError: Error | null;
-  } = { config: initialConfig, configError: null, fetchError: null };
-  let dispose: TuiDispose | undefined;
+  }
+  const state: HarnessState = {
+    config: initialConfig,
+    configError: null,
+    fetchError: null,
+  };
+  let dispose: TuiDispose | null = null;
   let registered: CharacterizedSlots | undefined;
 
   const dependencies: UsageLimitsTuiDependencies = {
@@ -112,6 +120,7 @@ const createHarness = (initialConfig = config()) => {
     ) => {
       fetches.push(id);
       if (state.fetchError) {
+        // SAFETY: The harness stores the provider error shape in fetchError.
         return Effect.fail(state.fetchError as ProviderError);
       }
       return Effect.succeed(usage(id));
@@ -150,7 +159,7 @@ const createHarness = (initialConfig = config()) => {
         const [callback] = args;
         dispose = callback;
         return () => {
-          dispose = undefined;
+          dispose = null;
         };
       },
       signal: new AbortController().signal,
@@ -168,7 +177,7 @@ const createHarness = (initialConfig = config()) => {
 
   // SAFETY: The plugin only reads lifecycle, slots, and session.messages from
   // this focused test adapter; each used member has the production API shape.
-  const api = partialApi as unknown as TuiPluginApi;
+  const api = asTuiPluginApi(partialApi);
 
   return {
     api,

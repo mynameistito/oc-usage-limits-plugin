@@ -10,10 +10,4 @@ import {
 export class ProviderTimeoutError extends Schema.TaggedErrorClass<ProviderTimeoutError>()(
   "ProviderTimeoutError",
   { ...providerContext, ...safeCause, timeoutMs: NonNegativeFiniteSchema }
-) {
-  override get message(): string {
-    return this.timeoutMs >= 0
-      ? "provider operation timed out"
-      : "provider operation timed out";
-  }
-}
+) {}

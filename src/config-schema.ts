@@ -3,6 +3,7 @@ import { Effect, Redacted, Result, Schema } from "effect";
 import { ConfigDecodeError } from "@/errors.ts";
 import type { OpenCodeAuth, ResolvedUsageLimitsConfig } from "@/types.ts";
 import { isRecord } from "@/utils.ts";
+import type { JsonValue } from "@/utils.ts";
 
 const defaultKey = <S extends Schema.Top>(schema: S, value: S["Encoded"]) =>
   schema.pipe(Schema.withDecodingDefaultKey(Effect.succeed(value)));
@@ -118,36 +119,55 @@ const decodeConfig = Schema.decodeUnknownResult(configSchema, {
 });
 const decodeCredential = Schema.decodeUnknownResult(secret);
 
-const parseCredential = (input: unknown) => {
+type CredentialInput = JsonValue | Redacted.Redacted<string> | undefined;
+type CredentialValue = string | Redacted.Redacted<string> | null | undefined;
+
+const parseCredential = (input: CredentialInput) => {
   const result = decodeCredential(input);
   return Result.isSuccess(result) ? result.success : undefined;
 };
 
-const parseAuthEntry = (input: unknown) => {
+const parseAuthEntry = (input: CredentialInput) => {
   if (!isRecord(input)) {
     return;
   }
   const apiKey = parseCredential(input.apiKey);
   const key = parseCredential(input.key);
-  return apiKey || key
-    ? { ...(apiKey ? { apiKey } : {}), ...(key ? { key } : {}) }
-    : undefined;
+  if (!(apiKey || key)) {
+    return;
+  }
+  const result: Record<string, Redacted.Redacted<string>> = {};
+  if (apiKey) {
+    result.apiKey = apiKey;
+  }
+  if (key) {
+    result.key = key;
+  }
+  return result;
 };
 
-const parseOpenAIEntry = (input: unknown) => {
+const parseOpenAIEntry = (input: CredentialInput) => {
   if (!isRecord(input)) {
     return;
   }
   const access = parseCredential(input.access);
   const accountId = parseCredential(input.accountId);
-  return access || accountId
-    ? { ...(access ? { access } : {}), ...(accountId ? { accountId } : {}) }
-    : undefined;
+  if (!(access || accountId)) {
+    return;
+  }
+  const result: Record<string, Redacted.Redacted<string>> = {};
+  if (access) {
+    result.access = access;
+  }
+  if (accountId) {
+    result.accountId = accountId;
+  }
+  return result;
 };
 
 /** Parses unknown plugin config into a fully resolved immutable value. */
 export const parseUsageLimitsConfig = (
-  input: unknown
+  input: JsonValue
 ): Result.Result<ResolvedUsageLimitsConfig, ConfigDecodeError> => {
   const result = decodeConfig(input);
   if (Result.isFailure(result)) {
@@ -158,12 +178,13 @@ export const parseUsageLimitsConfig = (
       })
     );
   }
-  const { $schema: _schema, ...config } = result.success;
+  const config = { ...result.success };
+  delete config.$schema;
   return Result.succeed(config);
 };
 
 /** Best-effort parser for recognized OpenCode auth fields. */
-export const parseOpenCodeAuth = (input: unknown): OpenCodeAuth => {
+export const parseOpenCodeAuth = (input: JsonValue): OpenCodeAuth => {
   if (!isRecord(input)) {
     return {};
   }
@@ -178,27 +199,44 @@ export const parseOpenCodeAuth = (input: unknown): OpenCodeAuth => {
   const openCodeGo = parseAuthEntry(input["opencode-go"]);
   const opencode = parseAuthEntry(input.opencode);
 
-  return {
-    ...(minimax ? { minimax } : {}),
-    ...(minimaxCodingPlan ? { "minimax-coding-plan": minimaxCodingPlan } : {}),
-    ...(minimaxTokenPlan ? { "minimax-token-plan": minimaxTokenPlan } : {}),
-    ...(openai ? { openai } : {}),
-    ...(synthetic ? { synthetic } : {}),
-    ...(zai ? { zai } : {}),
-    ...(zaiCodingPlan ? { "zai-coding-plan": zaiCodingPlan } : {}),
-    ...(openCodeGo ? { "opencode-go": openCodeGo } : {}),
-    ...(opencode ? { opencode } : {}),
-  };
+  const result: OpenCodeAuth = {};
+  if (minimax) {
+    result.minimax = minimax;
+  }
+  if (minimaxCodingPlan) {
+    result["minimax-coding-plan"] = minimaxCodingPlan;
+  }
+  if (minimaxTokenPlan) {
+    result["minimax-token-plan"] = minimaxTokenPlan;
+  }
+  if (openai) {
+    result.openai = openai;
+  }
+  if (synthetic) {
+    result.synthetic = synthetic;
+  }
+  if (zai) {
+    result.zai = zai;
+  }
+  if (zaiCodingPlan) {
+    result["zai-coding-plan"] = zaiCodingPlan;
+  }
+  if (openCodeGo) {
+    result["opencode-go"] = openCodeGo;
+  }
+  if (opencode) {
+    result.opencode = opencode;
+  }
+  return result;
 };
 
 /** Reveals a credential only at an adapter boundary that needs the raw value. */
-export const credentialValue = (credential: unknown): string | undefined => {
+export const credentialValue = (
+  credential: CredentialValue
+): string | undefined => {
   const value = Redacted.isRedacted(credential)
     ? Redacted.value(credential)
     : credential;
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const trimmed = value.trim();
+  const trimmed = value?.trim() ?? "";
   return trimmed === "" ? undefined : trimmed;
 };

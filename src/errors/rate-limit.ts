@@ -9,10 +9,4 @@ export class ProviderRateLimitError extends Schema.TaggedErrorClass<ProviderRate
     ...providerContext,
     retryAfterMs: Schema.optionalKey(NonNegativeFiniteSchema),
   }
-) {
-  override get message(): string {
-    return this.retryAfterMs === undefined
-      ? "provider rate limit reached"
-      : "provider rate limit reached";
-  }
-}
+) {}

@@ -23,6 +23,7 @@ import {
   resetInstantOrNull,
 } from "@/usage.ts";
 import { isRecord } from "@/utils.ts";
+import type { JsonValue } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
 /** Default MiniMax Token Plan base URL (international region). */
@@ -30,6 +31,18 @@ const DEFAULT_MINIMAX_BASE_URL = "https://www.minimax.io";
 
 /** Endpoint path appended to the configured base URL. */
 const MINIMAX_TOKEN_PLAN_PATH = "/v1/token_plan/remains";
+const INVALID_MINIMAX_USAGE = "invalid MiniMax usage";
+const DECODE_RESPONSE = "decode-response";
+
+interface MiniMaxEntry {
+  readonly model_name?: string;
+  readonly current_interval_status?: number;
+  readonly current_interval_remaining_percent?: number;
+  readonly remains_time?: number;
+  readonly current_weekly_status?: number;
+  readonly current_weekly_remaining_percent?: number;
+  readonly weekly_remains_time?: number;
+}
 
 /**
  * Extracts a MiniMax subscription key from any supported auth object shape.
@@ -41,8 +54,10 @@ const MINIMAX_TOKEN_PLAN_PATH = "/v1/token_plan/remains";
  * @returns The first recognized subscription key.
  */
 const keyFromMiniMaxAuth = (
-  value: unknown,
-  credential: (value: unknown) => Redacted.Redacted<string> | undefined
+  value: OpenCodeAuth | JsonValue,
+  credential: (
+    value: JsonValue | Redacted.Redacted<string> | undefined
+  ) => Redacted.Redacted<string> | undefined
 ): Redacted.Redacted<string> | undefined => {
   if (!isRecord(value)) {
     return undefined;
@@ -140,8 +155,8 @@ const readMiniMaxAuthPathKey = (
  * @returns The selected record, or `null` when none are usable.
  */
 const selectMiniMaxEntry = (
-  entries: readonly Record<string, unknown>[]
-): Record<string, unknown> | null => {
+  entries: readonly MiniMaxEntry[]
+): MiniMaxEntry | null => {
   const general = entries.find((entry) => entry.model_name === "general");
   if (general) {
     return general;
@@ -151,7 +166,7 @@ const selectMiniMaxEntry = (
     entries.find(
       (entry) =>
         entry.current_interval_status === 1 &&
-        typeof entry.current_interval_remaining_percent === "number"
+        entry.current_interval_remaining_percent !== undefined
     ) ?? null
   );
 };
@@ -168,7 +183,7 @@ const selectMiniMaxEntry = (
  * @returns A normalized 5h window, or `null` when not reportable.
  */
 const minimaxFiveHourWindow = (
-  entry: Record<string, unknown>,
+  entry: MiniMaxEntry,
   now: Date
 ): UsageWindow | null => {
   if (entry.current_interval_status === 3) {
@@ -186,7 +201,7 @@ const minimaxFiveHourWindow = (
   }
   const remainsMs = entry.remains_time;
   const resetsAt = resetInstantOrNull(
-    typeof remainsMs === "number" ? new Date(now.getTime() + remainsMs) : null
+    remainsMs === undefined ? null : new Date(now.getTime() + remainsMs)
   );
   return {
     kind: "rolling",
@@ -208,7 +223,7 @@ const minimaxFiveHourWindow = (
  * @returns A normalized weekly window, or `null` when not reportable.
  */
 const minimaxWeeklyWindow = (
-  entry: Record<string, unknown>,
+  entry: MiniMaxEntry,
   now: Date
 ): UsageWindow | null => {
   if (entry.current_weekly_status === 3) {
@@ -226,7 +241,7 @@ const minimaxWeeklyWindow = (
   }
   const remainsMs = entry.weekly_remains_time;
   const resetsAt = resetInstantOrNull(
-    typeof remainsMs === "number" ? new Date(now.getTime() + remainsMs) : null
+    remainsMs === undefined ? null : new Date(now.getTime() + remainsMs)
   );
   return {
     kind: "weekly",
@@ -249,11 +264,9 @@ const minimaxWeeklyWindow = (
  * @throws {TypeError} When the payload is not an object.
  * @throws {Error} When the envelope shape does not match a successful response.
  */
-const parseMiniMaxModelRemains = (
-  payload: unknown
-): Record<string, unknown>[] => {
+const parseMiniMaxModelRemains = (payload: JsonValue): MiniMaxEntry[] => {
   if (!isRecord(payload)) {
-    throw new TypeError("invalid MiniMax usage");
+    throw new TypeError(INVALID_MINIMAX_USAGE);
   }
   const baseResp = payload.base_resp;
   const statusCode = isRecord(baseResp) ? baseResp.status_code : undefined;
@@ -262,10 +275,10 @@ const parseMiniMaxModelRemains = (
     (statusCode === 0 || statusCode === null || statusCode === undefined) &&
     statusMsg === "success";
   if (!baseRespOk) {
-    throw new Error("invalid MiniMax usage");
+    throw new Error(INVALID_MINIMAX_USAGE);
   }
   if (!Array.isArray(payload.model_remains)) {
-    throw new TypeError("invalid MiniMax usage");
+    throw new TypeError(INVALID_MINIMAX_USAGE);
   }
   return payload.model_remains.filter(isRecord);
 };
@@ -299,11 +312,10 @@ const fetchMiniMaxTokenPlanUsageEffect = (
     const isOfficialHost = officialHosts.has(new URL(baseUrl).hostname);
     const configuredKey = environment.resolveCredential(config?.apiKey);
     const configuredFileKey = yield* readMiniMaxAuthPathKey(config?.authPath);
-    const apiKey = isOfficialHost
-      ? (configuredFileKey ??
-        keyFromMiniMaxAuth(openCodeAuth, environment.credential) ??
-        configuredKey)
-      : (configuredFileKey ?? configuredKey);
+    const authKey = keyFromMiniMaxAuth(openCodeAuth, environment.credential);
+    const apiKey =
+      configuredFileKey ??
+      (isOfficialHost ? (authKey ?? configuredKey) : configuredKey);
     if (!apiKey) {
       return yield* new MissingProviderCredentialsError({
         operation: "fetch-usage",
@@ -327,7 +339,7 @@ const fetchMiniMaxTokenPlanUsageEffect = (
       catch: () =>
         new ProviderResponseDecodeError({
           cause: "schema",
-          operation: "decode-response",
+          operation: DECODE_RESPONSE,
           providerID: "minimax",
         }),
       try: () => parseMiniMaxModelRemains(payload),
@@ -336,7 +348,7 @@ const fetchMiniMaxTokenPlanUsageEffect = (
     if (!selected) {
       return yield* new ProviderResponseDecodeError({
         cause: "schema",
-        operation: "decode-response",
+        operation: DECODE_RESPONSE,
         providerID: "minimax",
       });
     }
@@ -355,7 +367,7 @@ const fetchMiniMaxTokenPlanUsageEffect = (
     if (!fiveHour) {
       return yield* new ProviderResponseDecodeError({
         cause: "schema",
-        operation: "decode-response",
+        operation: DECODE_RESPONSE,
         providerID: "minimax",
       });
     }

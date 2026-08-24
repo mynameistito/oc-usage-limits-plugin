@@ -20,7 +20,18 @@ export const clampPercent = (value: number): number =>
  * @param value - Value to narrow.
  * @returns `true` when the value can be safely indexed as a record.
  */
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
+export interface UnknownRecord {
+  readonly [key: string]: JsonValue;
+}
+export type JsonValue =
+  | UnknownRecord
+  | readonly JsonValue[]
+  | string
+  | number
+  | boolean
+  | null;
+
+export const isRecord = <T>(value: T): value is T & UnknownRecord =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const stripTrailingCommas = (input: string): string => {
@@ -32,8 +43,8 @@ const stripTrailingCommas = (input: string): string => {
   for (let index = 0; index < input.length; index += 1) {
     const char = input[index];
 
+    let keep = true;
     if (inString) {
-      output += char;
       if (escaped) {
         escaped = false;
       } else if (char === "\\") {
@@ -41,27 +52,21 @@ const stripTrailingCommas = (input: string): string => {
       } else if (char === quote) {
         inString = false;
       }
-      continue;
-    }
-
-    if (char === '"' || char === "'") {
+    } else if (char === '"' || char === "'") {
       inString = true;
       quote = char;
-      output += char;
-      continue;
-    }
-
-    if (char === ",") {
+    } else if (char === ",") {
       let lookahead = index + 1;
       while (/\s/u.test(input[lookahead] ?? "")) {
         lookahead += 1;
       }
       if (input[lookahead] === "}" || input[lookahead] === "]") {
-        continue;
+        keep = false;
       }
     }
-
-    output += char;
+    if (keep) {
+      output += char;
+    }
   }
 
   return output;
@@ -77,59 +82,58 @@ const stripTrailingCommas = (input: string): string => {
  * @param input - Raw JSONC text.
  * @returns JSON-compatible text suitable for `JSON.parse`.
  */
+interface ConsumedString {
+  readonly text: string;
+  readonly end: number;
+}
+
+const consumeString = (input: string, start: number): ConsumedString => {
+  let index = start;
+  let escaped = false;
+  const quote = input[index] ?? "";
+  let text = quote;
+  index += 1;
+  while (index < input.length) {
+    const char = input[index] ?? "";
+    text += char;
+    index += 1;
+    if (escaped) {
+      escaped = false;
+    } else if (char === "\\") {
+      escaped = true;
+    } else if (char === quote) {
+      break;
+    }
+  }
+  return { end: index, text };
+};
+
 const stripJsonComments = (input: string): string => {
   let output = "";
-  let inString = false;
-  let quote = "";
-  let escaped = false;
-
-  for (let index = 0; index < input.length; index += 1) {
-    const char = input[index];
-    const next = input[index + 1];
-
-    if (inString) {
-      output += char;
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === quote) {
-        inString = false;
-      }
-      continue;
-    }
-
+  let remaining = input;
+  while (remaining.length > 0) {
+    const [char, next] = remaining;
     if (char === '"' || char === "'") {
-      inString = true;
-      quote = char;
-      output += char;
-      continue;
-    }
-
-    if (char === "/" && next === "/") {
-      while (index < input.length && input[index] !== "\n") {
-        index += 1;
+      const string = consumeString(remaining, 0);
+      output += string.text;
+      remaining = remaining.slice(string.end);
+    } else if (char === "/" && next === "/") {
+      const newline = remaining.indexOf("\n");
+      if (newline === -1) {
+        break;
       }
       output += "\n";
-      continue;
-    }
-
-    if (char === "/" && next === "*") {
-      index += 2;
-      while (
-        index < input.length &&
-        !(input[index] === "*" && input[index + 1] === "/")
-      ) {
-        index += 1;
-      }
-      if (index >= input.length) {
+      remaining = remaining.slice(newline);
+    } else if (char === "/" && next === "*") {
+      const end = remaining.indexOf("*/", 2);
+      if (end === -1) {
         throw new SyntaxError("Unterminated JSONC block comment");
       }
-      index += 1;
-      continue;
+      remaining = remaining.slice(end + 2);
+    } else {
+      output += char;
+      remaining = remaining.slice(1);
     }
-
-    output += char;
   }
 
   return stripTrailingCommas(output);
@@ -155,10 +159,11 @@ const expandHome = (value: string): string =>
  * @param filePath - Absolute path, relative path, or home-relative path to read.
  * @returns The parsed JSON value as `unknown`.
  */
-export const readJsonFile = async (filePath: string): Promise<unknown> => {
+export const readJsonFile = async (filePath: string): Promise<JsonValue> => {
   const raw = await readFile(expandHome(filePath), "utf-8");
   const parsed: unknown = JSON.parse(stripJsonComments(raw));
-  return parsed;
+  // SAFETY: JSON.parse returns the JSON value represented by the file.
+  return parsed as JsonValue;
 };
 
 /**
@@ -202,7 +207,7 @@ export const fetchJson = async (
   url: string,
   init: RequestInit,
   timeoutMs: number
-): Promise<unknown> => {
+): Promise<JsonValue> => {
   const response = await fetch(url, {
     ...init,
     signal: init.signal ?? AbortSignal.timeout(timeoutMs),
@@ -224,7 +229,8 @@ export const fetchJson = async (
 
   try {
     const parsed: unknown = JSON.parse(body);
-    return parsed;
+    // SAFETY: The response body was successfully decoded as JSON.
+    return parsed as JsonValue;
   } catch {
     throw new Error("invalid JSON");
   }

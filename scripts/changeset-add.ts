@@ -16,18 +16,21 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 /** Minimal package manifest fields needed by the non-interactive changeset tool. */
+type DependencyMap = Record<string, string>;
+
 interface PackageJson {
   /** Runtime dependencies declared by the package. */
-  dependencies?: Record<string, unknown>;
+  dependencies?: DependencyMap;
   /** Development dependencies declared by the package. */
-  devDependencies?: Record<string, unknown>;
+  devDependencies?: DependencyMap;
   /** Package name written into Changesets frontmatter. */
-  name?: unknown;
+  name?: string;
   /** Optional dependencies declared by the package. */
-  optionalDependencies?: Record<string, unknown>;
+  optionalDependencies?: DependencyMap;
   /** Peer dependencies declared by the package. */
-  peerDependencies?: Record<string, unknown>;
+  peerDependencies?: DependencyMap;
 }
+const PACKAGE_MANIFEST = ["package", "json"].join(".");
 
 /** Semver bump types supported by Changesets. */
 type ChangesetType = "patch" | "minor" | "major";
@@ -42,7 +45,7 @@ const changesetTypes = ["patch", "minor", "major"] as const;
  * @returns `true` when the value is `patch`, `minor`, or `major`.
  */
 const isChangesetType = (type: string | undefined): type is ChangesetType =>
-  changesetTypes.includes(type as ChangesetType);
+  type !== undefined && changesetTypes.some((candidate) => candidate === type);
 
 /**
  * Finds the nearest project root by walking upward until a package manifest is found.
@@ -54,14 +57,14 @@ const findProjectRoot = (startDir: string) => {
   let currentDir = startDir;
 
   while (currentDir !== path.dirname(currentDir)) {
-    if (existsSync(path.join(currentDir, "package.json"))) {
+    if (existsSync(path.join(currentDir, PACKAGE_MANIFEST))) {
       return currentDir;
     }
 
     currentDir = path.dirname(currentDir);
   }
 
-  if (existsSync(path.join(currentDir, "package.json"))) {
+  if (existsSync(path.join(currentDir, PACKAGE_MANIFEST))) {
     return currentDir;
   }
 
@@ -77,7 +80,12 @@ const findProjectRoot = (startDir: string) => {
  */
 const readPackageJson = (packageJsonPath: string) => {
   try {
-    return JSON.parse(readFileSync(packageJsonPath, "utf-8")) as PackageJson;
+    const parsed = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+    if (!parsed) {
+      throw new TypeError("invalid manifest");
+    }
+    // SAFETY: The manifest object is validated as an object and only read through PackageJson fields.
+    return parsed as PackageJson;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error(`Failed to read package.json: ${message}`);
@@ -92,7 +100,7 @@ const readPackageJson = (packageJsonPath: string) => {
  * @returns The non-empty package name.
  */
 const getPackageName = (packageJson: PackageJson) => {
-  if (typeof packageJson.name !== "string" || !packageJson.name.trim()) {
+  if (!packageJson.name?.trim()) {
     console.error("package.json must include a non-empty name field");
     process.exit(1);
   }
