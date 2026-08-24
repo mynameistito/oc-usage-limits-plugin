@@ -269,6 +269,29 @@ describe("usage-limits TUI lifecycle", () => {
     );
   });
 
+  test("does not fetch or display a provider disabled in its settings", async () => {
+    const harness = createHarness(
+      config({
+        providers: {
+          codex: {
+            enabled: false,
+            label: "Codex Work",
+          },
+          zai: {
+            enabled: true,
+            label: "ZAI Work",
+          },
+        },
+      })
+    );
+    const registered = await initialize(harness);
+
+    expect(harness.fetches).toEqual(["zai"]);
+    const sidebar = await renderSlot(registered, "sidebar_content");
+    expect(sidebar).toContain("ZAI Work");
+    expect(sidebar).not.toContain("Codex Work");
+  });
+
   test("hides a provider's displays without stopping its refreshes", async () => {
     const harness = createHarness(
       config({
