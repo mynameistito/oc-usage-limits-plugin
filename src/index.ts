@@ -1,12 +1,8 @@
-import type { UsageLimitsPlugin } from "@/plugin.tsx";
-import { setupUsageLimitsPlugin } from "@/plugin.tsx";
+import { Plugin } from "@opencode-ai/plugin/tui";
 
-/** Local seam for the v2 Plugin.define API until the host package exposes it. */
-const Plugin = {
-  define: <T extends UsageLimitsPlugin>(plugin: T): T => plugin,
-};
+import { setupUsageLimitsPlugin } from "@/plugin.tsx";
 
 export default Plugin.define({
   id: "mynameistito.usage-limits",
   setup: setupUsageLimitsPlugin,
-} satisfies UsageLimitsPlugin);
+});
