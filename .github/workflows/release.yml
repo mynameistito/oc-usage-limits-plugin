@@ -17,7 +17,7 @@ permissions:
 jobs:
   release:
     if: github.ref == 'refs/heads/main' && github.ref != 'refs/heads/opencode-v2'
-    name: Version or stage package
+    name: Version or Stage package@latest
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -148,8 +148,8 @@ jobs:
             --notes-file release-notes.md
 
   preview:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/opencode-v2'
-    name: Publish v2 preview
+    if: github.ref == 'refs/heads/opencode-v2'
+    name: Version or Stage package@next
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -170,29 +170,22 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Require committed prerelease metadata
-        run: |
-          git ls-files --error-unmatch .changeset/pre.json
-          bun scripts/release-guard.ts metadata --file .changeset/pre.json
-
       - name: Typecheck
         run: bun run typecheck
 
       - name: Check
         run: bun run check
 
-      - name: Version v2 preview
-        run: bunx changeset version
-
-      - name: Validate preview release
-        run: |
-          package_version=$(node --print "require('./package.json').version")
-          bun scripts/release-guard.ts preview \
-            --branch "$GITHUB_REF_NAME" \
-            --version "$package_version" \
-            --dist-tag next
+      - name: Create release pull request or prepare publish
+        id: changesets
+        uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
+        with:
+          version-script: if [ ! -f .changeset/pre.json ]; then bunx changeset pre enter next; fi && bunx changeset version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Stage v2 preview package on npm
+        if: steps.changesets.outputs.has-changesets == 'false'
         env:
           PACKAGE_NAME: oc-usage-limits-plugin
         run: |
@@ -224,6 +217,7 @@ jobs:
           fi
 
       - name: Create v2 GitHub prerelease
+        if: steps.changesets.outputs.has-changesets == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PACKAGE_NAME: oc-usage-limits-plugin
