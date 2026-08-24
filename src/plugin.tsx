@@ -1,10 +1,9 @@
 /* @jsxImportSource @opentui/solid */
-import type { JSX } from "@opentui/solid";
+import type { Context } from "@opencode-ai/plugin/tui/context";
 import { Effect, Fiber } from "effect";
 import { createSignal } from "solid-js";
 
 import { BottomUsage, UsageLimitsPanel } from "@/components.tsx";
-import type { UsageTheme } from "@/components.tsx";
 import { loadConfig, loadOpenCodeAuth } from "@/config.ts";
 import { usageCoordinator } from "@/coordinator.ts";
 import type { ProviderError } from "@/errors.ts";
@@ -18,35 +17,6 @@ import type {
   ProviderState,
   ProviderUsage,
 } from "@/types.ts";
-
-export interface UsageLimitsSlotContext {
-  sessionID?: string;
-  mode?: "normal" | "shell";
-}
-
-type UsageLimitsSlot = (context: UsageLimitsSlotContext) => JSX.Element | null;
-
-export interface UsageLimitsPluginContext {
-  ui: {
-    slot: (claim: {
-      append: "sidebar.content" | "prompt.footer.status";
-      render: UsageLimitsSlot;
-    }) => () => void;
-  };
-  theme: UsageTheme;
-  data: {
-    session: {
-      message: {
-        list: (sessionID: string) => readonly unknown[];
-      };
-    };
-  };
-}
-
-export interface UsageLimitsPlugin {
-  id: string;
-  setup: (context: UsageLimitsPluginContext) => () => void;
-}
 
 /** Runtime dependencies used by the usage-limits TUI lifecycle. */
 export interface UsageLimitsTuiDependencies {
@@ -89,7 +59,7 @@ const productionDependencies: UsageLimitsTuiDependencies = {
  */
 export const createUsageLimitsPlugin =
   (dependencies: UsageLimitsTuiDependencies) =>
-  (context: UsageLimitsPluginContext): (() => void) => {
+  (context: Context): (() => void) => {
     const [states, setStates] = createSignal<ProviderState[]>([]);
     const [showErrors, setShowErrors] = createSignal(true);
     const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);

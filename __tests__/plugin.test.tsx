@@ -1,6 +1,7 @@
 /* @jsxImportSource @opentui/solid */
 import { describe, expect, test } from "bun:test";
 
+import type { Context } from "@opencode-ai/plugin/tui/context";
 import { RGBA } from "@opentui/core";
 import { testRender } from "@opentui/solid";
 import type { JSX } from "@opentui/solid";
@@ -10,10 +11,7 @@ import type { UsageTheme } from "@/components.tsx";
 import { ConfigDecodeError } from "@/errors.ts";
 import type { ProviderError } from "@/errors.ts";
 import { createUsageLimitsPlugin } from "@/plugin.tsx";
-import type {
-  UsageLimitsSlotContext,
-  UsageLimitsTuiDependencies,
-} from "@/plugin.tsx";
+import type { UsageLimitsTuiDependencies } from "@/plugin.tsx";
 import type {
   OpenCodeAuth,
   ProviderConfig,
@@ -31,6 +29,11 @@ const theme = new Proxy(
   { thinkingOpacity: 0.6 },
   { get: (target, key) => Reflect.get(target, key) ?? color }
 ) as unknown as UsageTheme;
+
+interface UsageLimitsSlotContext {
+  sessionID?: string;
+  mode?: "normal" | "shell";
+}
 
 type CharacterizedSlots = Record<
   "sidebar.content" | "prompt.footer.status",
@@ -178,7 +181,9 @@ const renderSlot = async (
 
 const initialize = async (harness: ReturnType<typeof createHarness>) => {
   harness.setDispose(
-    createUsageLimitsPlugin(harness.dependencies)(harness.context)
+    createUsageLimitsPlugin(harness.dependencies)(
+      harness.context as unknown as Context
+    )
   );
   await Bun.sleep(0);
   const registered = harness.getRegistered();
