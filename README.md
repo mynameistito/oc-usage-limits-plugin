@@ -111,15 +111,14 @@ Create `~/.config/opencode/usage-limits.jsonc`. The same file lives at [`example
   "enabled": true,
   "refreshIntervalSeconds": 60,
   "requestTimeoutMs": 10000,
-  "show": true,
   "showErrors": true,
-  "showSidebar": true,
-  "showFooter": true,
-  "sidebarWindow": "all",
   "providers": {
     "codex": {
       "enabled": true,
       "label": "Codex",
+      "showSidebarBar": true,
+      "showFooterBar": true,
+      "sidebarWindow": "all",
       "footerWindow": "auto",
     },
     "zai": {
@@ -165,7 +164,7 @@ Disabled providers are hidden:
 }
 ```
 
-Set `show` to `false` to hide both displays without disabling provider refreshes. `showSidebar` and `showFooter` independently control the corresponding display, and all three default to `true`. Set `sidebarWindow` to `all`, `rolling`, `daily`, `weekly`, `monthly`, `credits`, or `other` to filter sidebar windows. Each provider can set `footerWindow` to `auto` or one of those window kinds; `auto` preserves the provider default.
+`enabled` is the plugin master switch, while each provider's `enabled` field controls fetching. Provider `showSidebarBar` and `showFooterBar` independently control that provider's displays without stopping refreshes. `sidebarWindow` filters that provider's sidebar windows (`all`, `rolling`, `daily`, `weekly`, `monthly`, `credits`, or `other`), and `footerWindow` selects its footer window (`auto` or one of those kinds). Both display flags default to `true`; `sidebarWindow` defaults to `all` and `footerWindow` to `auto`.
 
 ## Providers
 

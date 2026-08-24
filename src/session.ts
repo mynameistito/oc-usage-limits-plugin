@@ -7,7 +7,7 @@ import type {
   ProviderState,
   ProviderUsage,
   UsageWindow,
-  FooterWindow,
+  ProviderDisplaySettings,
 } from "@/types.ts";
 import type { UsageWindowKind } from "@/usage.ts";
 import { usageWindowMatchesKind } from "@/usage.ts";
@@ -97,7 +97,7 @@ const windowFromState = (
 export const usageForProvider = (
   states: readonly ProviderState[],
   providerID: string | undefined,
-  footerWindows: Readonly<Partial<Record<ProviderID, FooterWindow>>> = {}
+  display: Readonly<Partial<Record<ProviderID, ProviderDisplaySettings>>> = {}
 ): UsageWindow | null => {
   const usageID = providerID
     ? (pluginProviderForOpenCode(providerID) as ProviderID | null)
@@ -109,7 +109,11 @@ export const usageForProvider = (
     if (!data) {
       return null;
     }
-    const requestedWindow = footerWindows[id] ?? "auto";
+    const settings = display[id];
+    if (settings?.showFooterBar === false) {
+      return null;
+    }
+    const requestedWindow = settings?.footerWindow ?? "auto";
     const findWindow = (kind: UsageWindowKind): UsageWindow | undefined =>
       (kind === "rolling"
         ? data.windows.find((window) => window.label === "5h")

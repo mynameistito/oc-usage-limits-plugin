@@ -61,14 +61,19 @@ const config = (
   overrides: Partial<ResolvedUsageLimitsConfig> = {}
 ): ResolvedUsageLimitsConfig => ({
   enabled: true,
-  providers: { codex: { enabled: true, label: "Codex Work" } },
+  providers: {
+    codex: {
+      enabled: true,
+      footerWindow: "auto",
+      label: "Codex Work",
+      showFooterBar: true,
+      showSidebarBar: true,
+      sidebarWindow: "all",
+    },
+  },
   refreshIntervalSeconds: 20,
   requestTimeoutMs: 5000,
-  show: true,
   showErrors: true,
-  showFooter: true,
-  showSidebar: true,
-  sidebarWindow: "all",
   ...overrides,
 });
 
@@ -255,8 +260,19 @@ describe("usage-limits TUI lifecycle", () => {
     );
   });
 
-  test("hides both displays without stopping provider refreshes", async () => {
-    const harness = createHarness(config({ show: false }));
+  test("hides a provider's displays without stopping its refreshes", async () => {
+    const harness = createHarness(
+      config({
+        providers: {
+          codex: {
+            enabled: true,
+            label: "Codex Work",
+            showFooterBar: false,
+            showSidebarBar: false,
+          },
+        },
+      })
+    );
     const registered = await initialize(harness);
 
     expect(harness.fetches).toEqual(["codex"]);
@@ -268,8 +284,18 @@ describe("usage-limits TUI lifecycle", () => {
     );
   });
 
-  test("filters sidebar windows by the global window selection", async () => {
-    const harness = createHarness(config({ sidebarWindow: "daily" }));
+  test("filters sidebar windows per provider", async () => {
+    const harness = createHarness(
+      config({
+        providers: {
+          codex: {
+            enabled: true,
+            label: "Codex Work",
+            sidebarWindow: "daily",
+          },
+        },
+      })
+    );
     const registered = await initialize(harness);
     const sidebar = await renderSlot(registered, "sidebar_content");
 
@@ -279,13 +305,21 @@ describe("usage-limits TUI lifecycle", () => {
   test.each([
     [
       "sidebar",
-      { showSidebar: false },
+      {
+        providers: {
+          codex: { enabled: true, label: "Codex Work", showSidebarBar: false },
+        },
+      },
       "sidebar_content",
       "session_prompt_right",
     ],
     [
       "footer",
-      { showFooter: false },
+      {
+        providers: {
+          codex: { enabled: true, label: "Codex Work", showFooterBar: false },
+        },
+      },
       "session_prompt_right",
       "sidebar_content",
     ],

@@ -102,11 +102,25 @@ describe("session helpers", () => {
       },
     ];
 
-    expect(usageForProvider(states, "openai", { codex: "daily" })?.label).toBe(
-      "daily"
-    );
     expect(
-      usageForProvider(states, "openai", { codex: "monthly" })?.label
+      usageForProvider(states, "openai", {
+        codex: {
+          footerWindow: "daily",
+          showFooterBar: true,
+          showSidebarBar: true,
+          sidebarWindow: "all",
+        },
+      })?.label
+    ).toBe("daily");
+    expect(
+      usageForProvider(states, "openai", {
+        codex: {
+          footerWindow: "monthly",
+          showFooterBar: true,
+          showSidebarBar: true,
+          sidebarWindow: "all",
+        },
+      })?.label
     ).toBe("5h");
   });
 

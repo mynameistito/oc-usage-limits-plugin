@@ -29,11 +29,7 @@ describe("configuration parsing", () => {
       providers: {},
       refreshIntervalSeconds: 15,
       requestTimeoutMs: 1000,
-      show: false,
       showErrors: false,
-      showFooter: false,
-      showSidebar: false,
-      sidebarWindow: "weekly",
     });
 
     expect(Result.isSuccess(result)).toBe(true);
@@ -43,11 +39,7 @@ describe("configuration parsing", () => {
         providers: {},
         refreshIntervalSeconds: 15,
         requestTimeoutMs: 1000,
-        show: false,
         showErrors: false,
-        showFooter: false,
-        showSidebar: false,
-        sidebarWindow: "weekly",
       });
     }
   });
@@ -61,7 +53,11 @@ describe("configuration parsing", () => {
           authorizationScheme: "bearer",
           baseUrl: "https://example.com",
           enabled: true,
+          footerWindow: "daily",
           label: "Work",
+          showFooterBar: false,
+          showSidebarBar: false,
+          sidebarWindow: "weekly",
         },
       },
     });
@@ -76,7 +72,11 @@ describe("configuration parsing", () => {
         authorizationScheme: "bearer",
         baseUrl: "https://example.com",
         enabled: true,
+        footerWindow: "daily",
         label: "Work",
+        showFooterBar: false,
+        showSidebarBar: false,
+        sidebarWindow: "weekly",
       });
     }
   });
@@ -88,7 +88,7 @@ describe("configuration parsing", () => {
     [{ requestTimeoutMs: 999 }, "timeout minimum"],
     [{ providers: { codex: { authorizationScheme: "token" } } }, "enum"],
     [{ providers: { codex: { footerWindow: "invalid" } } }, "footer window"],
-    [{ sidebarWindow: "invalid" }, "sidebar window"],
+    [{ providers: { codex: { sidebarWindow: "invalid" } } }, "sidebar window"],
     [{ providers: { unknown: {} } }, "unknown provider"],
     [{ unknown: true }, "unknown top-level key"],
   ])("rejects %s (%s)", (input) => {
@@ -122,10 +122,6 @@ describe("configuration loading", () => {
     expect(Result.isSuccess(result)).toBe(true);
     if (Result.isSuccess(result)) {
       expect(result.success.refreshIntervalSeconds).toBe(60);
-      expect(result.success.showSidebar).toBe(true);
-      expect(result.success.showFooter).toBe(true);
-      expect(result.success.show).toBe(true);
-      expect(result.success.sidebarWindow).toBe("all");
     }
   });
 

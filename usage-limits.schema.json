@@ -9,21 +9,7 @@
     "enabled": { "type": "boolean" },
     "refreshIntervalSeconds": { "type": "number", "minimum": 15 },
     "requestTimeoutMs": { "type": "number", "minimum": 1000 },
-    "show": { "type": "boolean" },
     "showErrors": { "type": "boolean" },
-    "showSidebar": { "type": "boolean" },
-    "sidebarWindow": {
-      "enum": [
-        "all",
-        "rolling",
-        "daily",
-        "weekly",
-        "monthly",
-        "credits",
-        "other"
-      ]
-    },
-    "showFooter": { "type": "boolean" },
     "providers": {
       "type": "object",
       "additionalProperties": false,
@@ -43,6 +29,19 @@
       "additionalProperties": false,
       "properties": {
         "enabled": { "type": "boolean" },
+        "showSidebarBar": { "type": "boolean" },
+        "showFooterBar": { "type": "boolean" },
+        "sidebarWindow": {
+          "enum": [
+            "all",
+            "rolling",
+            "daily",
+            "weekly",
+            "monthly",
+            "credits",
+            "other"
+          ]
+        },
         "footerWindow": {
           "enum": [
             "auto",

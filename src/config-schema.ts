@@ -12,6 +12,15 @@ const secret = Schema.RedactedFromValue(Schema.String, {
   label: "credential",
 });
 
+const usageWindowKinds = [
+  "rolling",
+  "daily",
+  "weekly",
+  "monthly",
+  "credits",
+  "other",
+] as const;
+
 const commonProviderFields = {
   enabled: Schema.optionalKey(Schema.Boolean),
   footerWindow: defaultKey(
@@ -27,16 +36,13 @@ const commonProviderFields = {
     "auto"
   ),
   label: Schema.optionalKey(Schema.String),
+  showFooterBar: defaultKey(Schema.Boolean, true),
+  showSidebarBar: defaultKey(Schema.Boolean, true),
+  sidebarWindow: defaultKey(
+    Schema.Literals(["all", ...usageWindowKinds]),
+    "all"
+  ),
 };
-
-const usageWindowKinds = [
-  "rolling",
-  "daily",
-  "weekly",
-  "monthly",
-  "credits",
-  "other",
-] as const;
 
 /** Schema for Codex provider configuration. */
 export const codexProviderConfigSchema = Schema.Struct({
@@ -103,14 +109,7 @@ const configSchema = Schema.Struct({
     Schema.Finite.check(Schema.isGreaterThanOrEqualTo(1000)),
     10_000
   ),
-  show: defaultKey(Schema.Boolean, true),
   showErrors: defaultKey(Schema.Boolean, true),
-  showFooter: defaultKey(Schema.Boolean, true),
-  showSidebar: defaultKey(Schema.Boolean, true),
-  sidebarWindow: defaultKey(
-    Schema.Literals(["all", ...usageWindowKinds]),
-    "all"
-  ),
 });
 
 const decodeConfig = Schema.decodeUnknownResult(configSchema, {

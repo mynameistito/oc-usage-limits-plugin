@@ -16,8 +16,7 @@ import type {
   ProviderConfigMap,
   ProviderState,
   ProviderUsage,
-  FooterWindow,
-  SidebarWindow,
+  ProviderDisplaySettings,
 } from "@/types.ts";
 
 /** Runtime dependencies used by the usage-limits TUI lifecycle. */
@@ -64,13 +63,8 @@ export const createUsageLimitsTui =
   (api) => {
     const [states, setStates] = createSignal<ProviderState[]>([]);
     const [showErrors, setShowErrors] = createSignal(true);
-    const [showSidebar, setShowSidebar] = createSignal(true);
-    const [showFooter, setShowFooter] = createSignal(true);
-    const [show, setShow] = createSignal(true);
-    const [sidebarWindow, setSidebarWindow] =
-      createSignal<SidebarWindow>("all");
-    const [footerWindows, setFooterWindows] = createSignal<
-      Readonly<Partial<Record<ProviderID, FooterWindow>>>
+    const [display, setDisplay] = createSignal<
+      Readonly<Partial<Record<ProviderID, ProviderDisplaySettings>>>
     >({});
     const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);
     api.slots.register({
@@ -80,23 +74,23 @@ export const createUsageLimitsTui =
           const providerID = currentProviderID(
             api.state.session.messages(props.session_id)
           );
-          return show() && showFooter() ? (
+          return (
             <BottomUsage
               theme={ctx.theme.current}
-              window={usageForProvider(states(), providerID, footerWindows())}
+              window={usageForProvider(states(), providerID, display())}
             />
-          ) : null;
+          );
         },
         sidebar_content(ctx) {
-          return show() && showSidebar() ? (
+          return (
             <UsageLimitsPanel
-              sidebarWindow={sidebarWindow()}
+              display={display()}
               showErrors={showErrors()}
               states={states()}
               theme={ctx.theme.current}
               lastRefreshAt={lastRefreshAt()}
             />
-          ) : null;
+          );
         },
       },
     });
@@ -109,11 +103,7 @@ export const createUsageLimitsTui =
       publish: (snapshot) =>
         Effect.sync(() => {
           setShowErrors(snapshot.showErrors);
-          setShow(snapshot.show);
-          setShowSidebar(snapshot.showSidebar);
-          setShowFooter(snapshot.showFooter);
-          setSidebarWindow(snapshot.sidebarWindow);
-          setFooterWindows(snapshot.footerWindows);
+          setDisplay(snapshot.display);
           setStates([...snapshot.states]);
           setLastRefreshAt(snapshot.lastRefreshAt);
         }),

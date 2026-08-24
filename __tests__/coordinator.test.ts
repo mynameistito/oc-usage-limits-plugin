@@ -20,11 +20,7 @@ const config: ResolvedUsageLimitsConfig = {
   },
   refreshIntervalSeconds: 15,
   requestTimeoutMs: 1000,
-  show: true,
   showErrors: true,
-  showFooter: true,
-  showSidebar: true,
-  sidebarWindow: "all",
 };
 
 const usage = (id: ProviderID): ProviderUsage => ({
