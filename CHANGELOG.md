@@ -1,5 +1,11 @@
 # oc-usage-limits-plugin
 
+## 1.6.1
+
+### Patch Changes
+
+- 21cdb77: Fix provider bar display settings so they hide only the usage bars while preserving provider details and percentages.
+
 ## 1.6.0
 
 ### Minor Changes
