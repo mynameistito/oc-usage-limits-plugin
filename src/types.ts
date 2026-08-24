@@ -146,6 +146,8 @@ export interface ResolvedUsageLimitsConfig {
   readonly providers: Readonly<Partial<ProviderConfigMap>>;
   readonly refreshIntervalSeconds: number;
   readonly requestTimeoutMs: number;
+  readonly showSidebar: boolean;
+  readonly showFooter: boolean;
   readonly showErrors: boolean;
 }
 

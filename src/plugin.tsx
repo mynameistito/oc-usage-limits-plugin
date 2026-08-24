@@ -61,23 +61,26 @@ export const createUsageLimitsPlugin =
   (dependencies: UsageLimitsTuiDependencies) =>
   (context: Context): (() => void) => {
     const [states, setStates] = createSignal<ProviderState[]>([]);
+    const [showSidebar, setShowSidebar] = createSignal(true);
+    const [showFooter, setShowFooter] = createSignal(true);
     const [showErrors, setShowErrors] = createSignal(true);
     const [lastRefreshAt, setLastRefreshAt] = createSignal<Date | null>(null);
     const disposeSidebar = context.ui.slot({
       append: "sidebar.content",
-      render: () => (
-        <UsageLimitsPanel
-          showErrors={showErrors()}
-          states={states()}
-          theme={context.theme}
-          lastRefreshAt={lastRefreshAt()}
-        />
-      ),
+      render: () =>
+        showSidebar() ? (
+          <UsageLimitsPanel
+            showErrors={showErrors()}
+            states={states()}
+            theme={context.theme}
+            lastRefreshAt={lastRefreshAt()}
+          />
+        ) : null,
     });
     const disposeFooter = context.ui.slot({
       append: "prompt.footer.status",
       render: (slot) => {
-        if (!slot.sessionID || slot.mode === "shell") {
+        if (!showFooter() || !slot.sessionID || slot.mode === "shell") {
           return null;
         }
         const providerID = currentProviderID(
@@ -99,6 +102,8 @@ export const createUsageLimitsPlugin =
       now: Effect.sync(dependencies.now),
       publish: (snapshot) =>
         Effect.sync(() => {
+          setShowSidebar(snapshot.showSidebar);
+          setShowFooter(snapshot.showFooter);
           setShowErrors(snapshot.showErrors);
           setStates([...snapshot.states]);
           setLastRefreshAt(snapshot.lastRefreshAt);

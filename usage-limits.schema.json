@@ -9,6 +9,8 @@
     "enabled": { "type": "boolean" },
     "refreshIntervalSeconds": { "type": "number", "minimum": 15 },
     "requestTimeoutMs": { "type": "number", "minimum": 1000 },
+    "showSidebar": { "type": "boolean", "default": true },
+    "showFooter": { "type": "boolean", "default": true },
     "showErrors": { "type": "boolean" },
     "providers": {
       "type": "object",

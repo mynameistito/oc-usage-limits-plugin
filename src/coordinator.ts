@@ -16,6 +16,8 @@ import type {
 
 export interface CoordinatorSnapshot {
   readonly states: readonly ProviderState[];
+  readonly showSidebar: boolean;
+  readonly showFooter: boolean;
   readonly showErrors: boolean;
   readonly lastRefreshAt: Date | null;
 }
@@ -74,6 +76,8 @@ export const usageCoordinator = (
       yield* dependencies.publish({
         lastRefreshAt: null,
         showErrors: config.showErrors,
+        showFooter: config.showFooter,
+        showSidebar: config.showSidebar,
         states: providers.map(([id, provider]) => loadingState(id, provider)),
       });
 
@@ -124,6 +128,8 @@ export const usageCoordinator = (
         yield* dependencies.publish({
           lastRefreshAt: now,
           showErrors: config.showErrors,
+          showFooter: config.showFooter,
+          showSidebar: config.showSidebar,
           states: terminalStates.map((state) =>
             state.status === "ready"
               ? {
@@ -139,6 +145,8 @@ export const usageCoordinator = (
         yield* dependencies.publish({
           lastRefreshAt: null,
           showErrors: config.showErrors,
+          showFooter: config.showFooter,
+          showSidebar: config.showSidebar,
           states: [],
         });
       }

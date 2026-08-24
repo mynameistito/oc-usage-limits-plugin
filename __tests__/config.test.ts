@@ -30,6 +30,8 @@ describe("configuration parsing", () => {
       refreshIntervalSeconds: 15,
       requestTimeoutMs: 1000,
       showErrors: false,
+      showFooter: true,
+      showSidebar: false,
     });
 
     expect(Result.isSuccess(result)).toBe(true);
@@ -40,6 +42,8 @@ describe("configuration parsing", () => {
         refreshIntervalSeconds: 15,
         requestTimeoutMs: 1000,
         showErrors: false,
+        showFooter: true,
+        showSidebar: false,
       });
     }
   });

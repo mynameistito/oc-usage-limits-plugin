@@ -59,6 +59,8 @@ const config = (
   refreshIntervalSeconds: 20,
   requestTimeoutMs: 5000,
   showErrors: true,
+  showFooter: true,
+  showSidebar: true,
   ...overrides,
 });
 
@@ -241,6 +243,18 @@ describe("usage-limits TUI lifecycle", () => {
     expect(await renderSlot(registered, "prompt.footer.status")).not.toContain(
       "%"
     );
+  });
+
+  test.each([
+    [{ showSidebar: false }, "sidebar.content", "Usage Limits"],
+    [{ showFooter: false }, "prompt.footer.status", "42%"],
+  ])("hides the configured %s display", async (overrides, slot, text) => {
+    const harness = createHarness(config(overrides));
+    const registered = await initialize(harness);
+
+    expect(
+      await renderSlot(registered, slot as keyof CharacterizedSlots)
+    ).not.toContain(text);
   });
 
   test("does not render footer usage for shell mode or missing sessions", async () => {

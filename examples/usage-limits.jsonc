@@ -3,6 +3,8 @@
   "enabled": true,
   "refreshIntervalSeconds": 60,
   "requestTimeoutMs": 10000,
+  "showSidebar": true,
+  "showFooter": true,
   "showErrors": true,
   "providers": {
     "codex": {
