@@ -35,6 +35,8 @@ OpenCode v2 uses the preview package from npm's `next` dist-tag. Install it glob
 opencode plugin oc-usage-limits-plugin@next -g
 ```
 
+The OpenCode v2 implementation is maintained in [`opencode-plugins/packages/opencode-usage-limits`](https://github.com/mynameistito/opencode-plugins/tree/main/packages/opencode-usage-limits).
+
 The v2 package is built and released from the `opencode-v2` branch. It is preview/beta software until validation against the v2 host is complete. Do not use `@next` with standard OpenCode, and do not use the stable package with OpenCode v2.
 
 To configure it manually instead, add the plugin to `~/.config/opencode/tui.json`:
