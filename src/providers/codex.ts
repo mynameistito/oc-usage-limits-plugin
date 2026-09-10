@@ -20,6 +20,7 @@ import type {
   UsageWindow,
 } from "@/types.ts";
 import {
+  nextRenewalInstant,
   parseUsagePercentage,
   percentageQuota,
   resetInstantOrNull,
@@ -241,11 +242,13 @@ const fetchCodexUsageEffect = (
     const validResetCredits =
       Number.isFinite(resetCredits) && resetCredits >= 0;
 
+    const now = yield* clock.now;
     return {
-      capturedAt: yield* clock.now,
+      capturedAt: now,
       id: "codex",
       label: config?.label ?? "Codex",
       metadata: { resetCredits: validResetCredits ? resetCredits : null },
+      renewsAt: nextRenewalInstant(config, now),
       tierName:
         String(payload.plan_type) === "undefined"
           ? undefined

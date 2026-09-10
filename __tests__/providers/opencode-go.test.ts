@@ -71,3 +71,59 @@ describe("OpenCode GO provider", () => {
     ).rejects.toThrow("invalid OpenCode GO usage");
   });
 });
+
+describe("OpenCode GO renewals", () => {
+  test("parses ISO reset instants and exposes the monthly cycle as renewal", async () => {
+    installFetchMock(
+      Response.json({
+        usage: {
+          monthly: { percent: 98, resetsAt: "2026-09-14T19:28:39.246Z" },
+          rolling: { percent: 5, resetsAt: "2026-09-10T23:05:54.246Z" },
+          weekly: { percent: 43, resetsAt: "2026-09-14T00:00:00.246Z" },
+        },
+      })
+    );
+
+    const usage = await fetchOpenCodeGoUsage(
+      undefined,
+      { "opencode-go": { key: "go-token" } },
+      1000
+    );
+
+    expect(usage.windows[0]?.resetsAt?.toISOString()).toBe(
+      "2026-09-10T23:05:54.246Z"
+    );
+    expect(usage.renewsAt?.toISOString()).toBe("2026-09-14T19:28:39.246Z");
+  });
+
+  test("prefers configured renewal over the monthly cycle", async () => {
+    installFetchMock(
+      Response.json({
+        usage: {
+          monthly: { percent: 1, resetsAt: "2026-09-14T19:28:39.246Z" },
+        },
+      })
+    );
+
+    const usage = await fetchOpenCodeGoUsage(
+      { renewsOnDay: 20 },
+      { "opencode-go": { key: "go-token" } },
+      1000
+    );
+
+    expect(usage.renewsAt?.toISOString()).not.toBe("2026-09-14T19:28:39.246Z");
+    expect(usage.renewsAt?.getDate()).toBe(20);
+  });
+
+  test("leaves renewal unset when the monthly window is absent", async () => {
+    installFetchMock(Response.json({ usage: { rolling: { percent: 5 } } }));
+
+    const usage = await fetchOpenCodeGoUsage(
+      undefined,
+      { "opencode-go": { key: "go-token" } },
+      1000
+    );
+
+    expect(usage.renewsAt ?? null).toBeNull();
+  });
+});

@@ -5,21 +5,45 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "$schema": { "type": "string" },
-    "enabled": { "type": "boolean" },
-    "refreshIntervalSeconds": { "type": "number", "minimum": 15 },
-    "requestTimeoutMs": { "type": "number", "minimum": 1000 },
-    "showErrors": { "type": "boolean" },
+    "$schema": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "refreshIntervalSeconds": {
+      "type": "number",
+      "minimum": 15
+    },
+    "requestTimeoutMs": {
+      "type": "number",
+      "minimum": 1000
+    },
+    "showErrors": {
+      "type": "boolean"
+    },
     "providers": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "codex": { "$ref": "#/$defs/provider" },
-        "minimax": { "$ref": "#/$defs/provider" },
-        "opencode-go": { "$ref": "#/$defs/provider" },
-        "qwen": { "$ref": "#/$defs/provider" },
-        "synthetic": { "$ref": "#/$defs/provider" },
-        "zai": { "$ref": "#/$defs/provider" }
+        "codex": {
+          "$ref": "#/$defs/provider"
+        },
+        "minimax": {
+          "$ref": "#/$defs/provider"
+        },
+        "opencode-go": {
+          "$ref": "#/$defs/provider"
+        },
+        "qwen": {
+          "$ref": "#/$defs/provider"
+        },
+        "synthetic": {
+          "$ref": "#/$defs/provider"
+        },
+        "zai": {
+          "$ref": "#/$defs/provider"
+        }
       }
     }
   },
@@ -28,9 +52,15 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "boolean" },
-        "showSidebarBar": { "type": "boolean" },
-        "showFooterBar": { "type": "boolean" },
+        "enabled": {
+          "type": "boolean"
+        },
+        "showSidebarBar": {
+          "type": "boolean"
+        },
+        "showFooterBar": {
+          "type": "boolean"
+        },
         "sidebarWindow": {
           "enum": [
             "all",
@@ -53,7 +83,19 @@
             "other"
           ]
         },
-        "label": { "type": "string" },
+        "label": {
+          "type": "string"
+        },
+        "renewsAt": {
+          "type": "string",
+          "description": "Absolute next subscription renewal instant (ISO date). Hidden once it has passed. Example: 2026-10-05."
+        },
+        "renewsOnDay": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31,
+          "description": "Recurring day of the month on which the subscription renews. The plugin shows the next occurrence with remaining days."
+        },
         "authPath": {
           "type": "string",
           "description": "Optional override path to a provider auth file. Omit to use auto-discovery from OpenCode auth and provider defaults."
@@ -62,8 +104,12 @@
           "type": "string",
           "description": "Optional literal API key or {env:NAME} fallback when auth files do not contain a key."
         },
-        "authorizationScheme": { "enum": ["raw", "bearer"] },
-        "baseUrl": { "type": "string" }
+        "authorizationScheme": {
+          "enum": ["raw", "bearer"]
+        },
+        "baseUrl": {
+          "type": "string"
+        }
       }
     }
   }

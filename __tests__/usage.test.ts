@@ -4,6 +4,7 @@ import { Result } from "effect";
 
 import {
   countQuota,
+  nextRenewalInstant,
   parseUsageCount,
   parseUsagePercentage,
   parseUsageResetInstant,
@@ -59,5 +60,83 @@ describe("usage domain invariants", () => {
       Result.isFailure(parseUsageResetInstant(new Date("invalid date")))
     ).toBe(true);
     expect(Result.isFailure(parseUsageResetInstant("2026-08-14"))).toBe(true);
+  });
+});
+
+const at = (iso: string): Date => new Date(iso);
+
+describe("nextRenewalInstant", () => {
+  test("returns the configured absolute renewal instant when in the future", () => {
+    const now = at("2026-09-10T12:00:00.000Z");
+    expect(
+      nextRenewalInstant(
+        { renewsAt: "2026-10-05T09:00:00.000Z" },
+        now
+      )?.toISOString()
+    ).toBe("2026-10-05T09:00:00.000Z");
+  });
+
+  test("returns null for past, invalid, or missing renewals", () => {
+    const now = at("2026-09-10T12:00:00.000Z");
+    expect(
+      nextRenewalInstant({ renewsAt: "2026-09-01T00:00:00.000Z" }, now)
+    ).toBeNull();
+    expect(nextRenewalInstant({ renewsAt: "not-a-date" }, now)).toBeNull();
+    expect(nextRenewalInstant({}, now)).toBeNull();
+    expect(nextRenewalInstant(undefined, now)).toBeNull();
+  });
+
+  test("computes the next occurrence of the renewal day this month", () => {
+    const now = at("2026-09-10T12:00:00.000Z");
+    const renewal = nextRenewalInstant({ renewsOnDay: 14 }, now);
+    expect(renewal).not.toBeNull();
+    expect(renewal?.getFullYear()).toBe(2026);
+    expect(renewal?.getMonth()).toBe(8);
+    expect(renewal?.getDate()).toBe(14);
+    expect(renewal?.getHours()).toBe(0);
+    expect(renewal?.getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  test("rolls to next month when the renewal day already passed", () => {
+    const renewal = nextRenewalInstant(
+      { renewsOnDay: 5 },
+      at("2026-09-10T12:00:00.000Z")
+    );
+    expect(renewal?.getMonth()).toBe(9);
+    expect(renewal?.getDate()).toBe(5);
+  });
+
+  test("clamps to the last day of short months", () => {
+    const renewal = nextRenewalInstant(
+      { renewsOnDay: 31 },
+      at("2027-02-01T12:00:00.000Z")
+    );
+    expect(renewal?.getMonth()).toBe(1);
+    expect(renewal?.getDate()).toBe(28);
+  });
+
+  test("rolls to next month when today is the renewal day after midnight", () => {
+    const renewal = nextRenewalInstant(
+      { renewsOnDay: 10 },
+      at("2026-09-10T12:00:00.000Z")
+    );
+    expect(renewal?.getMonth()).toBe(9);
+    expect(renewal?.getDate()).toBe(10);
+  });
+
+  test("prefers the absolute instant over the recurring day", () => {
+    const renewal = nextRenewalInstant(
+      { renewsAt: "2026-09-20T00:00:00.000Z", renewsOnDay: 21 },
+      at("2026-09-10T12:00:00.000Z")
+    );
+    expect(renewal?.toISOString()).toBe("2026-09-20T00:00:00.000Z");
+  });
+
+  test("falls back to the recurring day when the absolute instant passed", () => {
+    const renewal = nextRenewalInstant(
+      { renewsAt: "2026-09-01T00:00:00.000Z", renewsOnDay: 20 },
+      at("2026-09-10T12:00:00.000Z")
+    );
+    expect(renewal?.getDate()).toBe(20);
   });
 });

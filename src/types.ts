@@ -54,6 +54,8 @@ export interface ProviderUsage<ID extends ProviderID = ProviderID> {
   readonly capturedAt: Date;
   /** Quota windows exposed by the provider. */
   readonly windows: readonly UsageWindow[];
+  /** Next subscription renewal instant, when the provider or config reports one. */
+  readonly renewsAt?: ResetInstant | null;
   /** Provider-specific values useful for display or diagnostics. */
   readonly metadata?: Readonly<
     Record<string, string | number | boolean | null>
@@ -98,6 +100,10 @@ interface CommonProviderConfig {
   readonly showFooterBar?: boolean;
   readonly sidebarWindow?: SidebarWindow;
   readonly footerWindow?: FooterWindow;
+  /** Absolute next renewal instant (ISO date) shown under the provider metrics. */
+  readonly renewsAt?: string;
+  /** Recurring renewal day of month (1-31); the plugin resolves the next date. */
+  readonly renewsOnDay?: number;
 }
 
 /** Codex provider configuration. */

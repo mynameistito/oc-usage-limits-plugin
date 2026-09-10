@@ -21,6 +21,7 @@ import type {
 import type { UsageWindowKind } from "@/usage.ts";
 import {
   countQuota,
+  nextRenewalInstant,
   parseUsageCount,
   parseUsagePercentage,
   percentageQuota,
@@ -402,10 +403,12 @@ const fetchZaiCodingPlanUsageEffect = (
         ? inferZaiTier(promptTotal)
         : level.charAt(0).toUpperCase() + level.slice(1);
 
+    const now = yield* clock.now;
     return {
-      capturedAt: yield* clock.now,
+      capturedAt: now,
       id: "zai",
       label: config?.label ?? "ZAI",
+      renewsAt: nextRenewalInstant(config, now),
       tierName,
       windows,
     };

@@ -111,6 +111,65 @@ export const countQuota = (
 /** Quota form used when a provider cannot report meaningful usage. */
 export const unknownQuota: UsageQuota = { _tag: "Unknown" };
 
+/** Renewal configuration accepted from every provider config block. */
+export interface RenewalConfig {
+  /** Absolute renewal instant (ISO date). Hidden once it has passed. */
+  readonly renewsAt?: string;
+  /** Recurring day of the month (1-31) on which the subscription renews. */
+  readonly renewsOnDay?: number;
+}
+
+/**
+ * Resolves the next subscription renewal instant from provider configuration.
+ *
+ * An absolute `renewsAt` wins while it is still in the future. Otherwise a
+ * recurring `renewsOnDay` resolves to the next occurrence of that day of month
+ * at local midnight, clamped to the target month's length. Missing or stale
+ * configuration yields `null` so the UI can hide the renewal line.
+ *
+ * @param config - Renewal configuration from the provider config block.
+ * @param now - Current instant used to resolve the next occurrence.
+ * @returns The branded renewal instant, or `null` when it cannot be determined.
+ */
+export const nextRenewalInstant = (
+  config: RenewalConfig | undefined,
+  now: Date
+): ResetInstant | null => {
+  const absolute = resetInstantOrNull(
+    config?.renewsAt ? new Date(config.renewsAt) : null
+  );
+  if (absolute && absolute.getTime() > now.getTime()) {
+    return absolute;
+  }
+
+  const day = config?.renewsOnDay;
+  if (day === undefined || !Number.isInteger(day) || day < 1 || day > 31) {
+    return null;
+  }
+
+  const candidateFor = (base: Date): Date =>
+    new Date(
+      base.getFullYear(),
+      base.getMonth(),
+      Math.min(
+        day,
+        new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate()
+      ),
+      0,
+      0,
+      0,
+      0
+    );
+
+  let candidate = candidateFor(now);
+  if (candidate.getTime() <= now.getTime()) {
+    candidate = candidateFor(
+      new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    );
+  }
+  return resetInstantOrNull(candidate);
+};
+
 /** Returns the display percentage for a quota, or `null` when unknown. */
 export const quotaUsedPercent = (quota: UsageQuota): Percentage | null =>
   quota._tag === "Unknown" ? null : quota.usedPercent;

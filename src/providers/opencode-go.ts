@@ -18,11 +18,12 @@ import type {
   UsageWindow,
 } from "@/types.ts";
 import {
+  nextRenewalInstant,
   parseUsagePercentage,
   percentageQuota,
   resetInstantOrNull,
 } from "@/usage.ts";
-import { isRecord } from "@/utils.ts";
+import { isNonEmptyString, isRecord } from "@/utils.ts";
 import type { JsonValue } from "@/utils.ts";
 import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
@@ -88,11 +89,14 @@ const usageWindow = (
   if (Result.isFailure(percent)) {
     return null;
   }
+  const resetsAt = isNonEmptyString(value.resetsAt)
+    ? new Date(value.resetsAt)
+    : undefined;
   return {
     kind,
     label,
     quota: percentageQuota(percent.success),
-    resetsAt: resetInstantOrNull(value.resetsAt),
+    resetsAt: resetInstantOrNull(resetsAt),
   };
 };
 
@@ -154,11 +158,16 @@ const fetchOpenCodeGoUsageEffect = (
         providerID: OPENCODE_GO_PROVIDER_ID,
       });
     }
+    const now = yield* clock.now;
+    const monthlyResetsAt = windows.find(
+      (window) => window.kind === "monthly"
+    )?.resetsAt;
 
     return {
-      capturedAt: yield* clock.now,
+      capturedAt: now,
       id: OPENCODE_GO_PROVIDER_ID,
       label: config?.label ?? "OpenCode GO",
+      renewsAt: nextRenewalInstant(config, now) ?? monthlyResetsAt ?? null,
       windows,
     };
   });

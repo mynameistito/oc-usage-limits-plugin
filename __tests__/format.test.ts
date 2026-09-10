@@ -4,10 +4,12 @@ import { Result } from "effect";
 
 import {
   bottomWindowMainText,
+  formatDate,
   formatTimestamp,
   formatTokenCount,
   limitLabelForWindow,
   percentBar,
+  renewalText,
   tokenCountText,
   windowMainText,
   windowResetText,
@@ -127,5 +129,31 @@ describe("format helpers", () => {
       windowResetTime(usageWindow({ resetsAt: new Date(2026, 5, 23, 23, 59) }))
     ).toBe(" 23:59");
     expect(windowResetTime(usageWindow({ resetsAt: null }))).toBe("");
+  });
+});
+
+describe("formatDate", () => {
+  test("formats the abbreviated month and day", () => {
+    expect(formatDate(new Date(2026, 8, 14))).toBe("Sep 14");
+    expect(formatDate(new Date(2026, 9, 5))).toBe("Oct 5");
+  });
+});
+
+describe("renewalText", () => {
+  test("builds the renewal line with date and countdown", () => {
+    const now = new Date(2026, 8, 10, 12, 0, 0);
+    expect(renewalText(new Date(2026, 8, 14, 10, 30), now)).toBe(
+      "Renews Sep 14 · 3d 22h"
+    );
+    expect(renewalText(new Date(2026, 9, 5, 0, 0), now)).toBe(
+      "Renews Oct 5 · 24d 12h"
+    );
+  });
+
+  test("shows now when the renewal instant has arrived", () => {
+    const now = new Date(2026, 8, 14, 10, 30);
+    expect(renewalText(new Date(2026, 8, 14, 10, 0), now)).toBe(
+      "Renews Sep 14 · now"
+    );
   });
 });

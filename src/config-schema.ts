@@ -37,6 +37,10 @@ const commonProviderFields = {
     "auto"
   ),
   label: Schema.optionalKey(Schema.String),
+  renewsAt: Schema.optionalKey(Schema.String),
+  renewsOnDay: Schema.optionalKey(
+    Schema.Finite.check(Schema.isBetween({ maximum: 31, minimum: 1 }))
+  ),
   showFooterBar: defaultKey(Schema.Boolean, true),
   showSidebarBar: defaultKey(Schema.Boolean, true),
   sidebarWindow: defaultKey(

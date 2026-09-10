@@ -380,3 +380,56 @@ describe("CompactStatusLine", () => {
     expect(text).not.toContain("Codex");
   });
 });
+
+describe("UsageLimitsPanel renewals", () => {
+  test("renders the renewal line below provider windows", async () => {
+    const text = await renderPanelText(
+      [
+        {
+          data: usage({ renewsAt: new Date(2026, 8, 14, 10, 30) }),
+          id: "codex",
+          label: "Codex",
+          stale: false,
+          status: "ready",
+        },
+      ],
+      true
+    );
+
+    expect(text).toContain("Renews Sep 14 ·");
+  });
+
+  test("omits the renewal line when renewal is unknown", async () => {
+    const text = await renderPanelText(
+      [
+        {
+          data: usage(),
+          id: "codex",
+          label: "Codex",
+          stale: false,
+          status: "ready",
+        },
+      ],
+      true
+    );
+
+    expect(text).not.toContain("Renews");
+  });
+
+  test("renders the renewal line from cached data on error state", async () => {
+    const text = await renderPanelText(
+      [
+        {
+          id: "codex",
+          label: "Codex",
+          message: "provider unavailable",
+          previous: usage({ renewsAt: new Date(2026, 8, 14) }),
+          status: "error",
+        },
+      ],
+      true
+    );
+
+    expect(text).toContain("Renews Sep 14 ·");
+  });
+});

@@ -136,6 +136,19 @@ Disabled providers are hidden:
 
 `enabled` is the plugin master switch, while each provider's `enabled` field controls fetching. Provider `showSidebarBar` and `showFooterBar` independently control that provider's displays without stopping refreshes. `sidebarWindow` filters that provider's sidebar windows (`all`, `rolling`, `daily`, `weekly`, `monthly`, `credits`, or `other`), and `footerWindow` selects its footer window (`auto` or one of those kinds). Both display flags default to `true`; `sidebarWindow` defaults to `all` and `footerWindow` to `auto`.
 
+### Subscription renewals
+
+Each provider can show a `Renews <date> · <time left>` line under its usage metrics. Only OpenCode GO reports this automatically (from its monthly cycle reset). Other providers can declare their billing date in config:
+
+```jsonc
+"providers": {
+  "codex": { "enabled": true, "renewsOnDay": 15 },       // renews on the 15th monthly
+  "zai": { "enabled": true, "renewsAt": "2026-10-01" },  // one-shot absolute date
+}
+```
+
+`renewsOnDay` (1-31) recurs every month and clamps to short months; `renewsAt` hides once the date passes. When both are set, `renewsAt` wins while it is still in the future.
+
 ## Providers
 
 | Provider ID | Service | Env var | Auth header | Default base URL |

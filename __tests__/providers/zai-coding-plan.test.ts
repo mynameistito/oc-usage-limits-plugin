@@ -356,3 +356,55 @@ describe("ZAI provider", () => {
     expect(usage.windows[0]?.quota._tag).toBe("Percentage");
   });
 });
+
+describe("ZAI renewals", () => {
+  test("resolves configured renewal instants", async () => {
+    installFetchMock(
+      Response.json({
+        data: {
+          level: "lite",
+          limits: [
+            {
+              number: 5,
+              percentage: 4,
+              type: "CREDIT_LIMIT",
+              unit: 3,
+              usage: 2000,
+            },
+          ],
+        },
+      })
+    );
+
+    const usage = await fetchZaiCodingPlanUsage(
+      { apiKey: "key", renewsAt: "2026-10-01T00:00:00.000Z" },
+      {},
+      1000
+    );
+
+    expect(usage.renewsAt?.toISOString()).toBe("2026-10-01T00:00:00.000Z");
+  });
+
+  test("leaves renewal unset when config omits it", async () => {
+    installFetchMock(
+      Response.json({
+        data: {
+          level: "lite",
+          limits: [
+            {
+              number: 5,
+              percentage: 4,
+              type: "CREDIT_LIMIT",
+              unit: 3,
+              usage: 2000,
+            },
+          ],
+        },
+      })
+    );
+
+    const usage = await fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000);
+
+    expect(usage.renewsAt ?? null).toBeNull();
+  });
+});

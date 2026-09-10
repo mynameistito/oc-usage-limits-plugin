@@ -8,6 +8,7 @@ import {
   formatPercent,
   formatTimestamp,
   percentBar,
+  renewalText,
   windowResetText,
   windowResetTime,
 } from "@/format.ts";
@@ -15,6 +16,7 @@ import type {
   ProviderDisplaySettings,
   ProviderID,
   ProviderState,
+  ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
 import { quotaUsedPercent, usageWindowMatchesKind } from "@/usage.ts";
@@ -99,6 +101,25 @@ export const shouldRenderProviderState = (
   return showErrors && state.errorKind !== "missing_credentials";
 };
 
+/**
+ * Returns the usage payload to render for a provider state.
+ *
+ * Ready states expose the live snapshot and error states expose the previous
+ * successful snapshot so cached windows keep rendering while stale.
+ *
+ * @param state - The provider state to read from.
+ * @returns The usage payload, or `undefined` when the state has none.
+ */
+const usageForState = (state: ProviderState): ProviderUsage | undefined => {
+  if (state.status === "ready") {
+    return state.data;
+  }
+  if (state.status === "error") {
+    return state.previous;
+  }
+  return undefined;
+};
+
 const filterSidebarWindows = (
   id: ProviderID,
   windows: readonly UsageWindow[],
@@ -142,12 +163,7 @@ export const UsageLimitsPanel = (props: {
         </text>
         <For each={visibleStates()}>
           {(state) => {
-            let tierName: string | undefined;
-            if (state.status === "ready") {
-              ({ tierName } = state.data);
-            } else if (state.status === "error" && state.previous) {
-              ({ tierName } = state.previous);
-            }
+            const usage = usageForState(state);
             const isStale = state.status === "ready" && state.stale;
             const isCached =
               state.status === "error" && state.previous !== undefined;
@@ -156,10 +172,10 @@ export const UsageLimitsPanel = (props: {
               <box flexDirection="column">
                 <text fg={props.theme.text}>
                   {state.label}
-                  {tierName ? (
+                  {usage?.tierName ? (
                     <span style={{ fg: props.theme.textMuted }}>
                       {" ["}
-                      {tierName}
+                      {usage.tierName}
                       {"]"}
                     </span>
                   ) : null}
@@ -172,32 +188,28 @@ export const UsageLimitsPanel = (props: {
                 </text>
                 {state.status === "loading" ? (
                   <text fg={props.theme.textMuted}> loading...</text>
-                ) : null}
-                {state.status === "ready" ? (
+                ) : (
                   <UsageWindowRows
                     showBar={
                       props.display?.[state.id]?.showSidebarBar !== false
                     }
                     theme={props.theme}
-                    windows={filterSidebarWindows(
-                      state.id,
-                      state.data.windows,
-                      props.display
-                    )}
-                  />
-                ) : null}
-                {state.status === "error" && state.previous ? (
-                  <UsageWindowRows
-                    showBar={
-                      props.display?.[state.id]?.showSidebarBar !== false
+                    windows={
+                      usage
+                        ? filterSidebarWindows(
+                            state.id,
+                            usage.windows,
+                            props.display
+                          )
+                        : []
                     }
-                    theme={props.theme}
-                    windows={filterSidebarWindows(
-                      state.id,
-                      state.previous.windows,
-                      props.display
-                    )}
                   />
+                )}
+                {usage?.renewsAt ? (
+                  <text fg={props.theme.textMuted}>
+                    {"  "}
+                    {renewalText(usage.renewsAt)}
+                  </text>
                 ) : null}
                 {state.status === "error" && props.showErrors ? (
                   <text fg={props.theme.error}> {state.message}</text>

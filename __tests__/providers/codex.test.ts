@@ -290,3 +290,51 @@ describe("Codex provider", () => {
     });
   });
 });
+
+describe("Codex renewals", () => {
+  test("resolves configured renewal instants", async () => {
+    installFetchMock(
+      Response.json({
+        plan_type: "plus",
+        rate_limit: {
+          primary_window: {
+            limit_window_seconds: 18_000,
+            reset_after_seconds: 3600,
+            used_percent: 10,
+          },
+        },
+      })
+    );
+
+    const usage = await fetchCodexUsage(
+      { apiKey: "configured-token", renewsOnDay: 15 },
+      { openai: { access: "access-token", accountId: "account-id" } },
+      1000
+    );
+
+    expect(usage.renewsAt?.getDate()).toBe(15);
+  });
+
+  test("leaves renewal unset when config omits it", async () => {
+    installFetchMock(
+      Response.json({
+        plan_type: "plus",
+        rate_limit: {
+          primary_window: {
+            limit_window_seconds: 18_000,
+            reset_after_seconds: 3600,
+            used_percent: 10,
+          },
+        },
+      })
+    );
+
+    const usage = await fetchCodexUsage(
+      { apiKey: "configured-token" },
+      { openai: { access: "access-token", accountId: "account-id" } },
+      1000
+    );
+
+    expect(usage.renewsAt ?? null).toBeNull();
+  });
+});

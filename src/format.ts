@@ -147,6 +147,42 @@ export const formatTimestamp = (date: Date): string => {
 export const windowResetTime = (window: UsageWindow): string =>
   window.resetsAt === null ? "" : ` ${formatTimestamp(window.resetsAt)}`;
 
+const MONTH_ABBREVIATIONS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+/**
+ * Formats a date as an abbreviated month and day.
+ *
+ * @param date - The date to format.
+ * @returns A stable date string such as `Sep 14` or `Oct 5`.
+ */
+export const formatDate = (date: Date): string =>
+  `${MONTH_ABBREVIATIONS[date.getMonth()]} ${date.getDate()}`;
+
+/**
+ * Builds the subscription renewal line rendered under a provider's metrics.
+ *
+ * @param renewsAt - The next renewal instant reported by the provider or config.
+ * @param now - Current instant used for the remaining-time countdown.
+ * @returns A line such as `Renews Oct 5 · 24d 12h`.
+ */
+export const renewalText = (renewsAt: Date, now: Date = new Date()): string =>
+  `Renews ${formatDate(renewsAt)} · ${duration(
+    Math.ceil((renewsAt.getTime() - now.getTime()) / 1000)
+  )}`;
+
 /**
  * Builds a count-based suffix string when the window has both current and total.
  *
