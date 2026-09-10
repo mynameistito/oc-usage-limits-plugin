@@ -5,6 +5,7 @@ import {
   MissingProviderCredentialsError,
   ProviderResponseDecodeError,
 } from "@/errors.ts";
+import { limitLabelForWindow } from "@/format.ts";
 import type { ProviderDefinition } from "@/providers/definition.ts";
 import { ProviderClock } from "@/providers/runtime/clock.ts";
 import { ProviderEnvironment } from "@/providers/runtime/environment.ts";
@@ -17,6 +18,7 @@ import type {
   ProviderUsage,
   UsageWindow,
 } from "@/types.ts";
+import type { UsageWindowKind } from "@/usage.ts";
 import {
   countQuota,
   parseUsageCount,
@@ -25,13 +27,64 @@ import {
   resetInstantOrNull,
   unknownQuota,
 } from "@/usage.ts";
-import { isRecord } from "@/utils.ts";
+import { isNonEmptyString, isRecord } from "@/utils.ts";
 import type { JsonValue } from "@/utils.ts";
 
 /** ZAI Coding Plan quota endpoint used to fetch usage limits. */
 const ZAI_QUOTA_URL = "https://api.z.ai/api/monitor/usage/quota/limit";
 const DECODE_RESPONSE = "decode-response";
 type CredentialInput = JsonValue | Redacted.Redacted<string> | undefined;
+
+/**
+ * Window unit codes observed in ZAI CREDIT_LIMIT entries.
+ *
+ * `unit: 3` is hours (e.g. `number: 5` -> the 5h rolling window) and `unit: 6`
+ * is weeks (e.g. `number: 1` -> the weekly window). Unknown units degrade to a
+ * generic credits window instead of failing the whole payload.
+ */
+interface ZaiCreditUnit {
+  readonly kind: UsageWindowKind;
+  readonly unitSeconds: number;
+}
+
+const ZAI_CREDIT_UNITS = new Map<number, ZaiCreditUnit>([
+  [3, { kind: "rolling", unitSeconds: 3600 }],
+  [6, { kind: "weekly", unitSeconds: 7 * 24 * 3600 }],
+]);
+
+/** Window kind and display label metadata for one usage window. */
+interface ZaiWindowMeta {
+  readonly kind: UsageWindowKind;
+  readonly label: string;
+}
+
+/** Derives the used percentage for a CREDIT_LIMIT entry from counts. */
+const creditUsedPercent = (
+  current: number | undefined,
+  total: number | undefined,
+  reported: number | null
+): number | null => {
+  if (reported !== null) {
+    return reported;
+  }
+  if (current === undefined || total === undefined || total <= 0) {
+    return null;
+  }
+  return (current / total) * 100;
+};
+
+/** Window metadata for a CREDIT_LIMIT entry; unknown units degrade to credits. */
+const creditWindowMeta = (limit: ZaiLimit): ZaiWindowMeta => {
+  const unit = ZAI_CREDIT_UNITS.get(Number(limit.unit));
+  const count = Number(limit.number);
+  if (!unit || !Number.isFinite(count) || count <= 0) {
+    return { kind: "credits", label: "credits" };
+  }
+  return {
+    kind: unit.kind,
+    label: limitLabelForWindow(unit.unitSeconds * count, "credits"),
+  };
+};
 
 type ZaiLimit = Readonly<Record<string, JsonValue>>;
 
@@ -165,8 +218,9 @@ const readZaiAuthPathKey = (
 /**
  * Converts one raw ZAI limit entry into a normalized usage window.
  *
- * Token limits become the primary `5h` quota window. Time limits are not shown
- * but still expose the total prompt quota used to infer the user's ZAI tier.
+ * Credit limits become count-based windows (5h rolling and weekly). Token
+ * limits become the primary `5h` quota window. Time limits are not shown but
+ * still expose the total prompt quota used to infer the user's ZAI tier.
  *
  * @param limit - Raw limit object from the ZAI quota API.
  * @returns The normalized window plus any prompt total discovered on the entry.
@@ -182,6 +236,24 @@ const zaiWindowFromLimit = (limit: ZaiLimit): ZaiLimitResult => {
   const usageTotal = Number.isFinite(Number(limit.usage))
     ? Number(limit.usage)
     : undefined;
+
+  if (limit.type === "CREDIT_LIMIT") {
+    const rawCurrentValue = Number.isFinite(Number(limit.currentValue))
+      ? Number(limit.currentValue)
+      : undefined;
+    return {
+      promptTotal: null,
+      window: {
+        ...creditWindowMeta(limit),
+        quota: zaiQuota(
+          rawCurrentValue,
+          usageTotal,
+          creditUsedPercent(rawCurrentValue, usageTotal, usedPercent)
+        ),
+        resetsAt,
+      },
+    };
+  }
 
   if (limit.type === "TOKENS_LIMIT") {
     const rawCurrentValue = Number.isFinite(Number(limit.currentValue))
@@ -217,7 +289,7 @@ const zaiWindowFromLimit = (limit: ZaiLimit): ZaiLimitResult => {
 const parseZaiLimits = (limits: readonly unknown[]): ZaiLimitsResult => {
   const windows: UsageWindow[] = [];
   let promptTotal: number | null = null;
-  let sawTokenLimit = false;
+  let sawQuotaLimit = false;
 
   for (const limit of limits) {
     if (!isRecord(limit)) {
@@ -225,8 +297,8 @@ const parseZaiLimits = (limits: readonly unknown[]): ZaiLimitsResult => {
     }
 
     const usage = zaiWindowFromLimit(limit);
-    if (limit.type === "TOKENS_LIMIT") {
-      sawTokenLimit = true;
+    if (limit.type === "TOKENS_LIMIT" || limit.type === "CREDIT_LIMIT") {
+      sawQuotaLimit = true;
     }
     if (usage.window) {
       windows.push(usage.window);
@@ -237,7 +309,7 @@ const parseZaiLimits = (limits: readonly unknown[]): ZaiLimitsResult => {
   }
 
   if (
-    sawTokenLimit &&
+    sawQuotaLimit &&
     windows.every((window) => window.quota._tag === "Unknown")
   ) {
     throw new Error("invalid ZAI usage");
@@ -322,12 +394,19 @@ const fetchZaiCodingPlanUsageEffect = (
         providerID: "zai",
       });
     }
+    const level = isNonEmptyString(payload.data.level)
+      ? payload.data.level.trim()
+      : undefined;
+    const tierName =
+      level === undefined
+        ? inferZaiTier(promptTotal)
+        : level.charAt(0).toUpperCase() + level.slice(1);
 
     return {
       capturedAt: yield* clock.now,
       id: "zai",
       label: config?.label ?? "ZAI",
-      tierName: inferZaiTier(promptTotal),
+      tierName,
       windows,
     };
   });

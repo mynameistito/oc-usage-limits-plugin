@@ -34,6 +34,11 @@ export type JsonValue =
 export const isRecord = <T>(value: T): value is T & UnknownRecord =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+/** Checks that a value is a string with at least one non-whitespace character. */
+export const isNonEmptyString = (
+  value: JsonValue | undefined
+): value is string => typeof value === "string" && value.trim() !== "";
+
 const stripTrailingCommas = (input: string): string => {
   let output = "";
   let inString = false;

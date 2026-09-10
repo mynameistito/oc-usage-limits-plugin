@@ -205,6 +205,123 @@ describe("ZAI provider", () => {
     ).rejects.toThrow("invalid ZAI usage");
   });
 
+  test("parses CREDIT_LIMIT payloads returned by the live ZAI quota API", async () => {
+    const rollingReset = Date.now() + 5 * 60 * 60 * 1000;
+    const weeklyReset = Date.now() + 4 * 24 * 60 * 60 * 1000;
+    installFetchMock(
+      Response.json({
+        code: 200,
+        data: {
+          level: "lite",
+          limits: [
+            {
+              currentValue: 87,
+              nextResetTime: rollingReset,
+              number: 5,
+              percentage: 4,
+              remaining: 1912,
+              type: "CREDIT_LIMIT",
+              unit: 3,
+              usage: 2000,
+            },
+            {
+              currentValue: 87,
+              nextResetTime: weeklyReset,
+              number: 1,
+              percentage: 1,
+              remaining: 9912,
+              type: "CREDIT_LIMIT",
+              unit: 6,
+              usage: 10_000,
+            },
+          ],
+        },
+        msg: "Operation successful",
+        success: true,
+      })
+    );
+
+    const usage = await fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000);
+
+    expect(usage.tierName).toBe("Lite");
+    expect(usage.windows).toHaveLength(2);
+    expect(usage.windows[0]).toMatchObject({
+      kind: "rolling",
+      label: "5h",
+      quota: {
+        _tag: "Count",
+        current: 87,
+        total: 2000,
+        usedPercent: 4,
+      },
+    });
+    expect(usage.windows[0]?.resetsAt?.getTime()).toBe(rollingReset);
+    expect(usage.windows[1]).toMatchObject({
+      kind: "weekly",
+      label: "weekly",
+      quota: {
+        _tag: "Count",
+        current: 87,
+        total: 10_000,
+        usedPercent: 1,
+      },
+    });
+    expect(usage.windows[1]?.resetsAt?.getTime()).toBe(weeklyReset);
+  });
+
+  test("derives CREDIT_LIMIT percentage from counts when percentage is absent", async () => {
+    installFetchMock(
+      Response.json({
+        data: {
+          limits: [
+            {
+              currentValue: 100,
+              number: 5,
+              remaining: 1900,
+              type: "CREDIT_LIMIT",
+              unit: 3,
+              usage: 2000,
+            },
+          ],
+        },
+      })
+    );
+
+    const usage = await fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000);
+
+    expect(usage.windows[0]).toMatchObject({
+      label: "5h",
+      quota: {
+        _tag: "Count",
+        current: 100,
+        total: 2000,
+        usedPercent: 5,
+      },
+    });
+  });
+
+  test("falls back to legacy tier inference when level is absent", async () => {
+    installFetchMock(
+      Response.json({
+        data: {
+          limits: [
+            {
+              number: 5,
+              percentage: 4,
+              type: "CREDIT_LIMIT",
+              unit: 3,
+              usage: 2000,
+            },
+            { percentage: 1, type: "TIME_LIMIT", usage: 1500 },
+          ],
+        },
+      })
+    );
+
+    const usage = await fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000);
+    expect(usage.tierName).toBe("Max");
+  });
+
   test.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
     "rejects invalid required token percentage %s",
     async (percentage) => {
