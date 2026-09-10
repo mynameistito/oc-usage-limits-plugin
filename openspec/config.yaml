@@ -1,0 +1,79 @@
+schema: spec-driven
+
+context: |
+  Project: oc-usage-limits-plugin — OpenCode TUI plugin (TypeScript, ESM).
+  Purpose: surface Codex, ZAI, Synthetic, MiniMax, Qwen, and OpenCode GO usage limits in the sidebar and prompt footer.
+  Stack: TypeScript 6 + Bun (runtime, test, scripts); SolidJS + @opentui/solid TUI; Effect 4 (beta) effects/DI/layers; Effect Schema config validation; tsdown bundler; ultracite (oxlint + oxfmt) lint/format; Changesets for release.
+  Architecture: provider adapter registry (src/providers/*) behind a central PROVIDER_MANIFEST; Effect runtime services (clock/command/environment/filesystem/http) composed in ProviderRuntimeLive; a coordinator Effect loop polls enabled providers and publishes snapshots; Solid components bind to OpenCode TUI slots.
+  Style: functional, small single-purpose functions, readonly types, no default exports unless framework-required, avoid any, explicit .ts/.tsx import extensions, @/* path alias.
+
+strict_tdd: true
+
+projects:
+  - path: .
+    stack: typescript
+    package_manager: bun
+    test_command: bun test
+    test_framework: bun test
+    coverage_command: null
+    typecheck_command: bun run typecheck
+    lint_command: bun run check
+    format_command: bun run fix
+    build_command: bun run build
+
+testing:
+  strict_tdd: true
+  detected: 2026-09-10
+  projects:
+    - path: .
+      stack: typescript
+      test_command: bun test
+      test_framework: bun test
+      test_layers:
+        unit: true
+        integration: false
+        e2e: false
+      coverage:
+        available: false
+        command: null
+        note: "bun test --coverage exists in the runner, but no coverage script or threshold is configured."
+      quality:
+        linter:
+          available: true
+          command: bun run check
+        formatter:
+          available: true
+          command: bun run fix
+        type_checker:
+          available: true
+          command: bun run typecheck
+  baseline:
+    test: "bun test -> 203 pass / 0 fail / 428 expect() calls across 18 files"
+    typecheck: "bun run typecheck -> clean (tsc --noEmit, no diagnostics)"
+
+rules:
+  proposal:
+    - Include a rollback plan for user-facing or config-schema changes.
+    - Add a Changeset for any user-facing change (bun run changeset-add).
+  specs:
+    - Use Given/When/Then for scenarios.
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
+    - Cover provider adapters, coordinator refresh behavior, and UI slot rendering.
+  design:
+    - Document Effect layer/DI boundaries and typed error unions.
+    - Record architecture decisions with rationale.
+  tasks:
+    - Group by phase, use hierarchical numbering.
+    - Keep each task completable in one session and the change reviewable within a 400-changed-line budget.
+  apply:
+    guidelines:
+      - Follow existing provider adapter and Effect patterns.
+      - Add or update tests under __tests__/ mirroring src; keep meaningful behavior unmocked.
+    tdd: true
+    test_command: "bun test"
+  verify:
+    test_command: "bun test"
+    build_command: "bun run build"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas.
