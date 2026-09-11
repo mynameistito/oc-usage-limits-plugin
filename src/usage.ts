@@ -123,8 +123,10 @@ export interface RenewalConfig {
  * Resolves the next subscription renewal instant from provider configuration.
  *
  * An absolute `renewsAt` wins while it is still in the future. Otherwise a
- * recurring `renewsOnDay` resolves to the next occurrence of that day of month
- * at local midnight, clamped to the target month's length. Missing or stale
+ * recurring `renewsOnDay` resolves to the next occurrence of that day of month,
+ * clamped to the target month's length. When a past `renewsAt` accompanies the
+ * recurring day, its local time-of-day is carried over so the countdown keeps
+ * the subscription's exact renewal moment without further maintenance. Missing
  * configuration yields `null` so the UI can hide the renewal line.
  *
  * @param config - Renewal configuration from the provider config block.
@@ -165,6 +167,17 @@ export const nextRenewalInstant = (
   if (candidate.getTime() <= now.getTime()) {
     candidate = candidateFor(
       new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    );
+  }
+  if (absolute) {
+    candidate = new Date(
+      candidate.getFullYear(),
+      candidate.getMonth(),
+      candidate.getDate(),
+      absolute.getHours(),
+      absolute.getMinutes(),
+      absolute.getSeconds(),
+      absolute.getMilliseconds()
     );
   }
   return resetInstantOrNull(candidate);

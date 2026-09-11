@@ -147,7 +147,7 @@ Each provider can show a `Renews <date> · <time left>` line under its usage met
 }
 ```
 
-`renewsOnDay` (1-31) recurs every month and clamps to short months; `renewsAt` hides once the date passes. When both are set, `renewsAt` wins while it is still in the future.
+`renewsOnDay` (1-31) recurs every month and clamps to short months. `renewsAt` wins while it is still in the future; once it passes, `renewsOnDay` takes over carrying `renewsAt`'s time of day, so setting both yields an exact, maintenance-free countdown.
 
 ## Providers
 

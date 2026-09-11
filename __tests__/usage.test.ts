@@ -140,3 +140,27 @@ describe("nextRenewalInstant", () => {
     expect(renewal?.getDate()).toBe(20);
   });
 });
+
+describe("nextRenewalInstant time carryover", () => {
+  test("carries the absolute instant time-of-day into the recurring fallback", () => {
+    const renewal = nextRenewalInstant(
+      { renewsAt: "2026-08-17T23:06:56", renewsOnDay: 17 },
+      at("2026-09-10T12:00:00.000Z")
+    );
+    expect(renewal?.getMonth()).toBe(8);
+    expect(renewal?.getDate()).toBe(17);
+    expect(renewal?.getHours()).toBe(23);
+    expect(renewal?.getMinutes()).toBe(6);
+    expect(renewal?.getSeconds()).toBe(56);
+  });
+
+  test("keeps midnight for recurring days without an absolute instant", () => {
+    const renewal = nextRenewalInstant(
+      { renewsOnDay: 17 },
+      at("2026-09-10T12:00:00.000Z")
+    );
+    expect(renewal?.getDate()).toBe(17);
+    expect(renewal?.getHours()).toBe(0);
+    expect(renewal?.getMinutes()).toBe(0);
+  });
+});
