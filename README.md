@@ -2,8 +2,7 @@
 
 OpenCode TUI plugin that shows Codex, OpenCode GO, ZAI, Synthetic, MiniMax Token Plan, and Qwen usage limits in the sidebar and prompt footer.
 
-> [!IMPORTANT]
-> Not really active development as I am using OpenCode2 now, relevant code can be found here https://github.com/mynameistito/opencode-plugins/tree/main/packages/opencode-usage-limits
+> [!IMPORTANT] Not really active development as I am using OpenCode2 now, relevant code can be found here https://github.com/mynameistito/opencode-plugins/tree/main/packages/opencode-usage-limits
 
 ## Features
 
