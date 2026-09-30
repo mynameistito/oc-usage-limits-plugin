@@ -1,4 +1,4 @@
-import { Effect, Redacted, Result } from "effect";
+import { Effect, Redacted, Result, Schema } from "effect";
 
 import { commandCodeProviderConfigSchema } from "@/config-schema.ts";
 import {
@@ -31,14 +31,79 @@ import { resolveHttpsBaseUrl } from "@/utils/url.ts";
 
 /** Default Command Code API base URL. */
 const DEFAULT_COMMANDCODE_BASE_URL = "https://api.commandcode.ai";
+/** Account-identity endpoint that resolves the organization namespace. */
+const COMMANDCODE_WHOAMI_PATH = "/alpha/whoami";
 /** Credit-window usage endpoint (the same source the CLI's `/usage` reads). */
 const COMMANDCODE_CREDITS_PATH = "/alpha/billing/credits";
 /** Billing-period spend endpoint used to derive the monthly credit window. */
 const COMMANDCODE_USAGE_SUMMARY_PATH = "/alpha/usage/summary";
 const COMMANDCODE_PROVIDER_ID = "commandcode" as const;
 const DECODE_RESPONSE = "decode-response";
+const decodeString = Schema.decodeUnknownOption(Schema.String);
 
 type ProviderPayload = Readonly<Record<string, JsonValue>>;
+
+/**
+ * Builds an absolute Command Code endpoint URL.
+ *
+ * Query parameters with an empty or absent value are dropped rather than sent
+ * blank, because the API rejects an empty `orgId=` with HTTP 400.
+ *
+ * @param baseUrl - Validated API base URL.
+ * @param path - Endpoint path, including its leading slash.
+ * @param query - Query parameters; falsy values are omitted.
+ * @returns The absolute request URL.
+ */
+const commandCodeUrl = (
+  baseUrl: string,
+  path: string,
+  query: Readonly<Record<string, string | undefined>> = {}
+): string => {
+  const url = new URL(`${baseUrl}${path}`);
+  for (const [key, value] of Object.entries(query)) {
+    if (value) {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
+};
+
+/**
+ * Reads the account's organization scope from a `/alpha/whoami` payload.
+ *
+ * The endpoint reports the account at the root or nested under `data`, and
+ * names the organization block `org` or `organization`. Only a non-empty id is
+ * usable, because an empty `orgId` query parameter is rejected with HTTP 400.
+ *
+ * @param payload - Parsed `/alpha/whoami` response.
+ * @returns The organization id, or `undefined` for a personal account.
+ */
+const orgIdFromWhoami = (payload: JsonValue): string | undefined => {
+  if (!isRecord(payload)) {
+    return undefined;
+  }
+  const scope = isRecord(payload.data) ? payload.data : payload;
+  const org = isRecord(scope.org) ? scope.org : scope.organization;
+  if (!isRecord(org)) {
+    return undefined;
+  }
+  const { id } = org;
+  const orgId = decodeString(id);
+  return orgId._tag === "Some" && orgId.value.trim() !== ""
+    ? orgId.value
+    : undefined;
+};
+
+/**
+ * Builds the bearer-auth headers shared by every Command Code request.
+ *
+ * @param apiKey - Resolved Command Code API key.
+ * @returns Headers for an authenticated JSON request.
+ */
+const authorizedHeaders = (apiKey: Redacted.Redacted<string>) => ({
+  Accept: "application/json",
+  Authorization: `Bearer ${Redacted.value(apiKey)}`,
+});
 
 /**
  * Extracts a Command Code API key from any supported auth object shape.
@@ -244,6 +309,12 @@ const commandCodeMonthlyWindow = (
  * Credential lookup checks, in order, the configured auth path, OpenCode auth,
  * and a configured literal or environment-backed API key.
  *
+ * The account namespace is resolved once from `/alpha/whoami` and then carried
+ * as an `orgId` scope on the billing and usage requests, so organization and
+ * team accounts report the organization's credits instead of the personal
+ * default. Identity is required: without it the scope would silently be wrong
+ * for those accounts, so a failed `whoami` fails the whole fetch.
+ *
  * @param config - Optional Command Code provider configuration.
  * @param openCodeAuth - Shared OpenCode auth payload.
  * @param timeoutMs - Request timeout in milliseconds.
@@ -263,7 +334,7 @@ const fetchCommandCodeUsageEffect = (
       config?.baseUrl,
       DEFAULT_COMMANDCODE_BASE_URL
     );
-    const isOfficialHost = new URL(baseUrl).hostname === "api.commandcode.ai";
+    const isOfficialBaseUrl = baseUrl === DEFAULT_COMMANDCODE_BASE_URL;
     const configuredKey = environment.resolveCredential(config?.apiKey);
     const configuredFileKey = yield* readCommandCodeAuthPathKey(
       config?.authPath
@@ -274,7 +345,7 @@ const fetchCommandCodeUsageEffect = (
     );
     const apiKey =
       configuredFileKey ??
-      (isOfficialHost ? (authKey ?? configuredKey) : configuredKey);
+      (isOfficialBaseUrl ? (authKey ?? configuredKey) : configuredKey);
     if (!apiKey) {
       return yield* new MissingProviderCredentialsError({
         operation: "fetch-usage",
@@ -282,15 +353,21 @@ const fetchCommandCodeUsageEffect = (
       });
     }
 
-    const payload = yield* http.requestJson({
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${Redacted.value(apiKey)}`,
-      },
+    const whoami = yield* http.requestJson({
+      headers: authorizedHeaders(apiKey),
       method: "GET",
       providerID: COMMANDCODE_PROVIDER_ID,
       timeoutMs,
-      url: `${baseUrl}${COMMANDCODE_CREDITS_PATH}`,
+      url: commandCodeUrl(baseUrl, COMMANDCODE_WHOAMI_PATH, { limits: "1" }),
+    });
+    const orgId = orgIdFromWhoami(whoami);
+
+    const payload = yield* http.requestJson({
+      headers: authorizedHeaders(apiKey),
+      method: "GET",
+      providerID: COMMANDCODE_PROVIDER_ID,
+      timeoutMs,
+      url: commandCodeUrl(baseUrl, COMMANDCODE_CREDITS_PATH, { orgId }),
     });
     if (!isRecord(payload) || !isRecord(payload.windowLimits)) {
       return yield* new ProviderResponseDecodeError({
@@ -302,14 +379,13 @@ const fetchCommandCodeUsageEffect = (
 
     const summary = yield* http
       .requestJson({
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${Redacted.value(apiKey)}`,
-        },
+        headers: authorizedHeaders(apiKey),
         method: "GET",
         providerID: COMMANDCODE_PROVIDER_ID,
         timeoutMs,
-        url: `${baseUrl}${COMMANDCODE_USAGE_SUMMARY_PATH}`,
+        url: commandCodeUrl(baseUrl, COMMANDCODE_USAGE_SUMMARY_PATH, {
+          orgId,
+        }),
       })
       .pipe(Effect.catchCause(() => Effect.succeed<JsonValue | null>(null)));
 

@@ -151,7 +151,7 @@ Disabled providers are hidden:
 | `minimax` | MiniMax Token Plan | `OC_MINIMAX_TOKEN_PLAN_KEY` | Bearer | `https://www.minimax.io` |
 | `qwen` | Qwen Token Plan | `qwencloud` CLI | CLI | — |
 | `opencode-go` | OpenCode GO usage | `OPENCODE_API_KEY` | Bearer | `https://opencode.ai/zen/go/v1` |
-| `commandcode` | Command Code credit windows (5h/weekly/monthly) | `COMMANDCODE_API_KEY` | Bearer | `https://api.commandcode.ai` |
+| `commandcode` | Command Code credit windows (5h/weekly/monthly) | `COMMAND_CODE_API_KEY` | Bearer | `https://api.commandcode.ai` |
 
 Synthetic always uses `Bearer` auth and ignores `authorizationScheme`.
 
@@ -189,9 +189,11 @@ Command Code lookup order:
 
 1. Config `authPath` JSON file (`{ "key": "..." }` / `{ "apiKey": "..." }` / `{ "commandcode": { "key": "..." } }`).
 2. OpenCode auth at `~/.local/share/opencode/auth.json`, provider `commandcode`.
-3. Config `apiKey`, including `{env:COMMANDCODE_API_KEY}` references.
+3. Config `apiKey`, including `{env:COMMAND_CODE_API_KEY}` references.
 
 Step 2 applies to the official `api.commandcode.ai` base URL. With a custom `baseUrl`, only `authPath` (step 1) and `apiKey` (step 3) are used.
+
+Each refresh resolves the account namespace from `GET /alpha/whoami?limits=1` and carries a non-empty `org.id` through to the billing and usage requests as an `orgId` query parameter, so organization and team accounts report the organization's credits rather than the personal default. Personal accounts send no `orgId`, because an empty value is rejected by the API. Identity is required: when `whoami` fails, the refresh reports the failure instead of falling back to an unscoped read.
 
 ## Display
 
