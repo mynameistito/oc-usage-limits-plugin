@@ -239,6 +239,36 @@ describe("Command Code provider", () => {
     expect(seen).toEqual([WHOAMI_URL]);
   });
 
+  test("fails the refresh when a 200 whoami body reports failure", async () => {
+    const seen = installResponses([
+      Response.json({ message: "unauthenticated", success: false }),
+    ]);
+
+    await expect(
+      fetchCommandCodeUsage(
+        undefined,
+        { commandcode: { key: "cc-token" } },
+        1000
+      )
+    ).rejects.toThrow("invalid Command Code usage");
+    expect(seen).toEqual([WHOAMI_URL]);
+  });
+
+  test("reads a whoami body without a success flag as a personal account", async () => {
+    const seen = installResponses([
+      Response.json({ user: { id: "user_fixture" } }),
+      creditsBody(1, 1),
+    ]);
+
+    await fetchCommandCodeUsage(
+      undefined,
+      { commandcode: { key: "cc-token" } },
+      1000
+    );
+
+    expect(seen[1]).toBe(CREDITS_URL);
+  });
+
   test("rejects missing credentials and malformed responses", async () => {
     await expect(fetchCommandCodeUsage(undefined, {}, 1000)).rejects.toThrow(
       "missing Command Code key"

@@ -95,6 +95,28 @@ const orgIdFromWhoami = (payload: JsonValue): string | undefined => {
 };
 
 /**
+ * Detects an explicit failure signal in a `/alpha/whoami` payload.
+ *
+ * The endpoint can answer `200` with a body that reports failure through its
+ * `success` flag. That payload carries no trustworthy account scope, so it must
+ * fail the refresh instead of being read as a personal account. Only an
+ * explicit `false` fails, because the flag is optional and its absence is not a
+ * failure.
+ *
+ * @param payload - Parsed `/alpha/whoami` response.
+ * @returns `true` when the payload explicitly reports failure.
+ */
+const whoamiReportsFailure = (payload: JsonValue): boolean => {
+  if (!isRecord(payload)) {
+    return false;
+  }
+  if (payload.success === false) {
+    return true;
+  }
+  return isRecord(payload.data) && payload.data.success === false;
+};
+
+/**
  * Builds the bearer-auth headers shared by every Command Code request.
  *
  * @param apiKey - Resolved Command Code API key.
@@ -360,6 +382,13 @@ const fetchCommandCodeUsageEffect = (
       timeoutMs,
       url: commandCodeUrl(baseUrl, COMMANDCODE_WHOAMI_PATH, { limits: "1" }),
     });
+    if (whoamiReportsFailure(whoami)) {
+      return yield* new ProviderResponseDecodeError({
+        cause: "schema",
+        operation: DECODE_RESPONSE,
+        providerID: COMMANDCODE_PROVIDER_ID,
+      });
+    }
     const orgId = orgIdFromWhoami(whoami);
 
     const payload = yield* http.requestJson({
