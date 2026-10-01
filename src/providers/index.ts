@@ -1,4 +1,5 @@
 import { codexProvider } from "@/providers/codex.ts";
+import { commandCodeProvider } from "@/providers/commandcode.ts";
 import { minimaxProvider } from "@/providers/minimax.ts";
 import { openCodeGoProvider } from "@/providers/opencode-go.ts";
 import { qwenProvider } from "@/providers/qwen.ts";
@@ -9,6 +10,7 @@ import type { ProviderID } from "@/types.ts";
 /** Single ordered manifest of every supported provider definition. */
 export const PROVIDER_MANIFEST = [
   codexProvider,
+  commandCodeProvider,
   zaiProvider,
   syntheticProvider,
   minimaxProvider,
@@ -24,6 +26,7 @@ export const PROVIDER_ORDER: readonly ProviderID[] = PROVIDER_MANIFEST.map(
 /** Provider lookup derived from the same ordered manifest. */
 export const PROVIDER_REGISTRY = {
   codex: codexProvider,
+  commandcode: commandCodeProvider,
   minimax: minimaxProvider,
   "opencode-go": openCodeGoProvider,
   qwen: qwenProvider,

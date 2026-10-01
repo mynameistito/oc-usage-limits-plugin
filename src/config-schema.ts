@@ -89,8 +89,17 @@ export const openCodeGoProviderConfigSchema = Schema.Struct({
   baseUrl: Schema.optionalKey(Schema.String),
 });
 
+/** Schema for Command Code provider configuration. */
+export const commandCodeProviderConfigSchema = Schema.Struct({
+  ...commonProviderFields,
+  apiKey: Schema.optionalKey(secret),
+  authPath: Schema.optionalKey(Schema.String),
+  baseUrl: Schema.optionalKey(Schema.String),
+});
+
 const providersSchema = Schema.Struct({
   codex: Schema.optionalKey(codexProviderConfigSchema),
+  commandcode: Schema.optionalKey(commandCodeProviderConfigSchema),
   minimax: Schema.optionalKey(minimaxProviderConfigSchema),
   "opencode-go": Schema.optionalKey(openCodeGoProviderConfigSchema),
   qwen: Schema.optionalKey(qwenProviderConfigSchema),
@@ -198,6 +207,7 @@ export const parseOpenCodeAuth = (input: JsonValue): OpenCodeAuth => {
   const zaiCodingPlan = parseAuthEntry(input["zai-coding-plan"]);
   const openCodeGo = parseAuthEntry(input["opencode-go"]);
   const opencode = parseAuthEntry(input.opencode);
+  const commandCode = parseAuthEntry(input.commandcode);
 
   const result: OpenCodeAuth = {};
   if (minimax) {
@@ -226,6 +236,9 @@ export const parseOpenCodeAuth = (input: JsonValue): OpenCodeAuth => {
   }
   if (opencode) {
     result.opencode = opencode;
+  }
+  if (commandCode) {
+    result.commandcode = commandCode;
   }
   return result;
 };

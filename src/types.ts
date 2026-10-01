@@ -15,6 +15,7 @@ export interface ProviderDisplaySettings {
 /** Provider adapters supported by the usage-limits plugin. */
 export type ProviderID =
   | "codex"
+  | "commandcode"
   | "zai"
   | "synthetic"
   | "minimax"
@@ -141,9 +142,17 @@ export interface OpenCodeGoProviderConfig extends CommonProviderConfig {
   readonly baseUrl?: string;
 }
 
+/** Command Code provider configuration. */
+export interface CommandCodeProviderConfig extends CommonProviderConfig {
+  readonly apiKey?: Credential;
+  readonly authPath?: string;
+  readonly baseUrl?: string;
+}
+
 /** Provider configuration indexed by literal provider ID. */
 export interface ProviderConfigMap {
   readonly codex: CodexProviderConfig;
+  readonly commandcode: CommandCodeProviderConfig;
   readonly minimax: MiniMaxProviderConfig;
   readonly qwen: QwenProviderConfig;
   readonly synthetic: SyntheticProviderConfig;
@@ -170,6 +179,13 @@ export interface ResolvedUsageLimitsConfig {
  * auth files or explicit configuration values.
  */
 export interface OpenCodeAuth {
+  /** Command Code credentials stored under the provider's catalog ID. */
+  commandcode?: {
+    /** Command Code API key. */
+    readonly key?: Credential;
+    /** Command Code API key (alternate field name). */
+    readonly apiKey?: Credential;
+  };
   /** OpenAI/Codex credentials stored by OpenCode. */
   openai?: {
     /** Bearer access token for ChatGPT backend requests. */
