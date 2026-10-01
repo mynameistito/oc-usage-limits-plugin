@@ -91,17 +91,19 @@ describe("ZAI provider", () => {
         data: {
           limits: [
             {
-              currentValue: 25,
+              currentValue: 71,
               nextResetTime: Date.now() + 90_000,
-              percentage: 25,
+              percentage: 3,
               type: "CREDIT_LIMIT",
               unit: 3,
+              usage: 2000,
             },
             {
-              currentValue: 60,
-              percentage: 60,
+              currentValue: 71,
+              percentage: 1,
               type: "CREDIT_LIMIT",
               unit: 6,
+              usage: 10_000,
             },
             { type: "TIME_LIMIT", usage: 500 },
           ],
@@ -116,13 +118,60 @@ describe("ZAI provider", () => {
     expect(usage.windows[0]).toMatchObject({
       kind: "rolling",
       label: "5h",
-      quota: { _tag: "Count", current: 25, total: 100, usedPercent: 25 },
+      quota: { _tag: "Count", current: 71, total: 2000, usedPercent: 3 },
     });
     expect(usage.windows[1]).toMatchObject({
       kind: "weekly",
       label: "7d",
-      quota: { _tag: "Count", current: 60, total: 100, usedPercent: 60 },
+      quota: { _tag: "Count", current: 71, total: 10_000, usedPercent: 1 },
     });
+  });
+
+  test.each([[undefined], [-1]] as const)(
+    "estimates credit quota total when reported usage is %s",
+    async (usage) => {
+      installFetchMock(
+        Response.json({
+          data: {
+            limits: [
+              {
+                currentValue: 30,
+                percentage: 30,
+                type: "CREDIT_LIMIT",
+                unit: 3,
+                usage,
+              },
+            ],
+          },
+        })
+      );
+
+      const result = await fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000);
+
+      expect(result.windows[0]?.quota).toMatchObject({
+        _tag: "Count",
+        current: 30,
+        total: 100,
+        usedPercent: 30,
+      });
+    }
+  );
+
+  test("rejects an invalid 5h credit quota even when the weekly quota is valid", async () => {
+    installFetchMock(
+      Response.json({
+        data: {
+          limits: [
+            { percentage: 101, type: "CREDIT_LIMIT", unit: 3 },
+            { percentage: 50, type: "CREDIT_LIMIT", unit: 6 },
+          ],
+        },
+      })
+    );
+
+    await expect(
+      fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000)
+    ).rejects.toThrow("invalid ZAI usage");
   });
 
   describe("tier inference", () => {

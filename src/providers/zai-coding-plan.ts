@@ -91,6 +91,25 @@ const zaiQuota = (
   return percentageQuota(parsedUsed.success);
 };
 
+const zaiQuotaTotal = (
+  limit: ZaiLimit,
+  usageTotal: number | undefined,
+  currentValue: number | undefined,
+  usedPercent: number | null
+): number | undefined => {
+  if (limit.type === "CREDIT_LIMIT" && usageTotal !== undefined) {
+    const parsedTotal = parseUsageCount(usageTotal);
+    if (Result.isSuccess(parsedTotal)) {
+      return parsedTotal.success;
+    }
+  }
+
+  if (currentValue === undefined || usedPercent === null || usedPercent <= 0) {
+    return undefined;
+  }
+  return Math.round(currentValue / (usedPercent / 100));
+};
+
 /**
  * Extracts a ZAI API key from any supported auth object shape.
  *
@@ -200,10 +219,12 @@ const zaiWindowFromLimit = (limit: ZaiLimit): ZaiLimitResult => {
       : undefined;
     const currentValue =
       rawCurrentValue === undefined ? undefined : Math.round(rawCurrentValue);
-    const computedTotal =
-      rawCurrentValue === undefined || usedPercent === null || usedPercent <= 0
-        ? undefined
-        : Math.round(rawCurrentValue / (usedPercent / 100));
+    const computedTotal = zaiQuotaTotal(
+      limit,
+      usageTotal,
+      rawCurrentValue,
+      usedPercent
+    );
     return {
       promptTotal: null,
       window: {
@@ -248,7 +269,10 @@ const parseZaiLimits = (limits: readonly unknown[]): ZaiLimitsResult => {
 
   if (
     sawQuotaLimit &&
-    windows.every((window) => window.quota._tag === "Unknown")
+    (windows.every((window) => window.quota._tag === "Unknown") ||
+      windows.some(
+        (window) => window.kind === "rolling" && window.quota._tag === "Unknown"
+      ))
   ) {
     throw new Error("invalid ZAI usage");
   }
