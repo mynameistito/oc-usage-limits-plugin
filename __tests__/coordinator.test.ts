@@ -153,11 +153,10 @@ describe("usage coordinator", () => {
     const coordinatorDependencies = {
       ...harness.dependencies,
       loadConfig: Effect.sync(() => {
-        const currentConfig =
-          configs[Math.min(configIndex, configs.length - 1)];
+        const currentConfig = configs[configIndex];
         configIndex += 1;
         if (!currentConfig) {
-          throw new Error("coordinator config sequence is empty");
+          throw new Error("coordinator config sequence exhausted");
         }
         return Result.succeed(currentConfig);
       }),
