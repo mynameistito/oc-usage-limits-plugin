@@ -1,6 +1,6 @@
 # oc-usage-limits-plugin
 
-OpenCode TUI plugin that shows Codex, OpenCode GO, ZAI, Synthetic, MiniMax Token Plan, and Qwen usage limits in the sidebar and prompt footer.
+OpenCode TUI plugin that shows Codex, OpenCode GO, Command Code, ZAI, Synthetic, MiniMax Token Plan, and Qwen usage limits in the sidebar and prompt footer.
 
 <!-- prettier-ignore -->
 > [!IMPORTANT]
@@ -15,7 +15,8 @@ OpenCode TUI plugin that shows Codex, OpenCode GO, ZAI, Synthetic, MiniMax Token
 - Shows current MiniMax Token Plan rolling 5-hour and weekly windows.
 - Shows current Qwen Token Plan windows from the local `qwencloud` CLI.
 - Shows current OpenCode GO rolling, weekly, and monthly windows.
-- Adds compact prompt-footer usage when the current session uses an OpenAI, OpenCode GO, ZAI Coding Plan, Synthetic, or MiniMax Token Plan model.
+- Shows current Command Code rolling 5-hour, weekly, and monthly credit windows.
+- Adds compact prompt-footer usage when the current session uses an OpenAI, OpenCode GO, Command Code, ZAI Coding Plan, Synthetic, or MiniMax Token Plan model.
 - Providers are toggled from `~/.config/opencode/usage-limits.jsonc`.
 - Reads OpenCode-connected credentials first, then falls back to explicit config/env credentials.
 
@@ -150,6 +151,7 @@ Disabled providers are hidden:
 | `minimax` | MiniMax Token Plan | `OC_MINIMAX_TOKEN_PLAN_KEY` | Bearer | `https://www.minimax.io` |
 | `qwen` | Qwen Token Plan | `qwencloud` CLI | CLI | — |
 | `opencode-go` | OpenCode GO usage | `OPENCODE_API_KEY` | Bearer | `https://opencode.ai/zen/go/v1` |
+| `commandcode` | Command Code credit windows (5h/weekly/monthly) | `COMMAND_CODE_API_KEY` | Bearer | `https://api.commandcode.ai` |
 
 Synthetic always uses `Bearer` auth and ignores `authorizationScheme`.
 
@@ -182,6 +184,16 @@ MiniMax Token Plan lookup order:
 1. Config `authPath` JSON file (`{ "key": "..." }` / `{ "apiKey": "..." }` / `{ "minimax-coding-plan": { "key": "..." } }`).
 2. OpenCode auth at `~/.local/share/opencode/auth.json`, provider `minimax-coding-plan`, `minimax`, or `minimax-token-plan`.
 3. Config `apiKey`, including `{env:OC_MINIMAX_TOKEN_PLAN_KEY}` references.
+
+Command Code lookup order:
+
+1. Config `authPath` JSON file (`{ "key": "..." }` / `{ "apiKey": "..." }` / `{ "commandcode": { "key": "..." } }` / `{ "commandcode": { "apiKey": "..." } }`).
+2. OpenCode auth at `~/.local/share/opencode/auth.json`, provider `commandcode`.
+3. Config `apiKey`, including `{env:COMMAND_CODE_API_KEY}` references.
+
+Step 2 applies to the official `api.commandcode.ai` base URL. With a custom `baseUrl`, only `authPath` (step 1) and `apiKey` (step 3) are used.
+
+Each refresh resolves the account namespace from `GET /alpha/whoami?limits=1` and carries a non-empty `org.id` through to the billing and usage requests as an `orgId` query parameter, so organization and team accounts report the organization's credits rather than the personal default. Personal accounts send no `orgId`, because an empty value is rejected by the API. Identity is required: when `whoami` fails, the refresh reports the failure instead of falling back to an unscoped read.
 
 ## Display
 
@@ -216,6 +228,7 @@ Provider mapping:
 - OpenCode provider `minimax-coding-plan` -> MiniMax Token Plan usage (prompt footer); `minimax` is also accepted as an alias.
 - OpenCode provider `qwen` -> Qwen Token Plan usage.
 - OpenCode provider `opencode-go` -> OpenCode GO usage.
+- OpenCode provider `commandcode` -> Command Code usage.
 
 ## Development
 

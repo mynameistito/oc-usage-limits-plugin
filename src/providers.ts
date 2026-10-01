@@ -2,6 +2,7 @@ import { Effect } from "effect";
 
 import type { ProviderError } from "@/errors.ts";
 import { codexProvider } from "@/providers/codex.ts";
+import { commandCodeProvider } from "@/providers/commandcode.ts";
 import { PROVIDER_ORDER } from "@/providers/index.ts";
 import { minimaxProvider } from "@/providers/minimax.ts";
 import { openCodeGoProvider } from "@/providers/opencode-go.ts";
@@ -49,6 +50,14 @@ export const fetchProviderEffect = <ID extends ProviderID>(
       // SAFETY: The generic ID binds config to the matching ProviderConfigMap entry.
       return minimaxProvider.fetch(
         config as ProviderConfigMap["minimax"] | undefined,
+        openCodeAuth,
+        timeoutMs
+      ) as Effect.Effect<ProviderUsage<ID>, ProviderError, ProviderRuntime>;
+    }
+    case "commandcode": {
+      // SAFETY: The switch narrows ID and config to the Command Code provider.
+      return commandCodeProvider.fetch(
+        config,
         openCodeAuth,
         timeoutMs
       ) as Effect.Effect<ProviderUsage<ID>, ProviderError, ProviderRuntime>;

@@ -41,6 +41,7 @@ describe("provider manifest", () => {
 
   test("maps OpenCode session providers to plugin providers", () => {
     expect(pluginProviderForOpenCode("openai")).toBe("codex");
+    expect(pluginProviderForOpenCode("commandcode")).toBe("commandcode");
     expect(pluginProviderForOpenCode("zai-coding-plan")).toBe("zai");
     expect(pluginProviderForOpenCode("minimax-coding-plan")).toBe("minimax");
     expect(pluginProviderForOpenCode("minimax")).toBe("minimax");

@@ -2,6 +2,7 @@ import { Schema } from "effect";
 
 export const ProviderIDSchema = Schema.Literals([
   "codex",
+  "commandcode",
   "zai",
   "synthetic",
   "minimax",
@@ -11,6 +12,7 @@ export const ProviderIDSchema = Schema.Literals([
 
 export const credentialMessages = {
   codex: "missing Codex auth",
+  commandcode: "missing Command Code key",
   minimax: "missing MiniMax key",
   "opencode-go": "missing OpenCode GO key",
   qwen: "missing Qwen credentials",

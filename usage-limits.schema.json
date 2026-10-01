@@ -15,6 +15,7 @@
       "additionalProperties": false,
       "properties": {
         "codex": { "$ref": "#/$defs/provider" },
+        "commandcode": { "$ref": "#/$defs/provider" },
         "minimax": { "$ref": "#/$defs/provider" },
         "opencode-go": { "$ref": "#/$defs/provider" },
         "qwen": { "$ref": "#/$defs/provider" },

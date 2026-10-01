@@ -13,6 +13,7 @@ export class ProviderResponseDecodeError extends Schema.TaggedErrorClass<Provide
   override get message(): string {
     const labels = {
       codex: "Codex",
+      commandcode: "Command Code",
       minimax: "MiniMax",
       "opencode-go": "OpenCode GO",
       qwen: "Qwen",
