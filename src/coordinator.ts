@@ -74,6 +74,8 @@ export const usageCoordinator = (
 ): Effect.Effect<void> =>
   Effect.gen(function* coordinatorLoop() {
     const lastSuccess = new Map<ProviderID, ProviderUsage>();
+    const lastStates = new Map<ProviderID, ProviderState>();
+    let lastRefreshAt: Date | null = null;
     let intervalMs: number;
 
     while (true) {
@@ -88,9 +90,11 @@ export const usageCoordinator = (
         display: Object.fromEntries(
           providers.map(([id, provider]) => [id, displaySettings(provider)])
         ),
-        lastRefreshAt: null,
+        lastRefreshAt,
         showErrors: config.showErrors,
-        states: providers.map(([id, provider]) => loadingState(id, provider)),
+        states: providers.map(
+          ([id, provider]) => lastStates.get(id) ?? loadingState(id, provider)
+        ),
       });
 
       if (providers.length > 0) {
@@ -139,25 +143,31 @@ export const usageCoordinator = (
           { concurrency: "unbounded" }
         );
         const now = yield* dependencies.now;
+        lastRefreshAt = now;
         const staleAfterMs = intervalMs * 2;
+        const states = terminalStates.map((state) =>
+          state.status === "ready"
+            ? {
+                ...state,
+                stale:
+                  now.getTime() - state.data.capturedAt.getTime() >
+                  staleAfterMs,
+              }
+            : state
+        );
+        for (const state of states) {
+          lastStates.set(state.id, state);
+        }
         yield* dependencies.publish({
           display: Object.fromEntries(
             providers.map(([id, provider]) => [id, displaySettings(provider)])
           ),
           lastRefreshAt: now,
           showErrors: config.showErrors,
-          states: terminalStates.map((state) =>
-            state.status === "ready"
-              ? {
-                  ...state,
-                  stale:
-                    now.getTime() - state.data.capturedAt.getTime() >
-                    staleAfterMs,
-                }
-              : state
-          ),
+          states,
         });
       } else {
+        lastRefreshAt = null;
         yield* dependencies.publish({
           display: {},
           lastRefreshAt: null,

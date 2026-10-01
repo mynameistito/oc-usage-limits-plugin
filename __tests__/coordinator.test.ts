@@ -33,7 +33,7 @@ const usage = (id: ProviderID): ProviderUsage => ({
 const dependencies = (
   fetchProvider: (id: ProviderID) => Effect.Effect<ProviderUsage, ProviderError>
 ) => {
-  const snapshots: string[][] = [];
+  const snapshots: CoordinatorSnapshot[] = [];
   const sleeps: Deferred.Deferred<boolean>[] = [];
   return {
     dependencies: {
@@ -46,7 +46,7 @@ const dependencies = (
       now: Effect.succeed(new Date("2026-08-14T12:01:00.000Z")),
       publish: (snapshot: CoordinatorSnapshot) =>
         Effect.sync(() => {
-          snapshots.push(snapshot.states.map((state) => state.status));
+          snapshots.push(snapshot);
         }),
       sleep: () =>
         Effect.gen(function* sleep() {
@@ -76,7 +76,10 @@ describe("usage coordinator", () => {
     );
 
     await Bun.sleep(0);
-    expect(harness.snapshots[0]).toEqual(["loading", "loading"]);
+    expect(harness.snapshots[0]?.states.map((state) => state.status)).toEqual([
+      "loading",
+      "loading",
+    ]);
     expect(gates.size).toBe(2);
 
     const codexGate = gates.get("codex");
@@ -92,7 +95,47 @@ describe("usage coordinator", () => {
     }
     await Effect.runPromise(Deferred.succeed(zaiGate, true));
     await Bun.sleep(0);
-    expect(harness.snapshots[1]).toEqual(["ready", "ready"]);
+    expect(harness.snapshots[1]?.states.map((state) => state.status)).toEqual([
+      "ready",
+      "ready",
+    ]);
+    await Effect.runPromise(Fiber.interrupt(fiber));
+  });
+
+  test("keeps the previous snapshot visible while refreshing", async () => {
+    const secondFetch = await Effect.runPromise(Deferred.make<boolean>());
+    let fetchCount = 0;
+    const harness = dependencies(() => {
+      fetchCount += 1;
+      return fetchCount <= 2
+        ? Effect.succeed(usage("codex"))
+        : Deferred.await(secondFetch).pipe(Effect.as(usage("codex")));
+    });
+    const fiber = Effect.runFork(
+      Effect.scoped(usageCoordinator(harness.dependencies))
+    );
+
+    await Bun.sleep(0);
+    await Bun.sleep(0);
+    expect(harness.snapshots[1]?.lastRefreshAt).toEqual(
+      new Date("2026-08-14T12:01:00.000Z")
+    );
+
+    const [firstSleep] = harness.sleeps;
+    if (!firstSleep) {
+      throw new Error("first refresh sleep was not created");
+    }
+    await Effect.runPromise(Deferred.succeed(firstSleep, true));
+    await Bun.sleep(0);
+
+    expect(harness.snapshots[2]?.states.map((state) => state.status)).toEqual([
+      "ready",
+      "ready",
+    ]);
+    expect(harness.snapshots[2]?.lastRefreshAt).toEqual(
+      new Date("2026-08-14T12:01:00.000Z")
+    );
+
     await Effect.runPromise(Fiber.interrupt(fiber));
   });
 
@@ -106,7 +149,11 @@ describe("usage coordinator", () => {
     );
 
     await Bun.sleep(0);
-    expect(harness.snapshots).toEqual([["loading", "loading"]]);
+    expect(
+      harness.snapshots.map((snapshot) =>
+        snapshot.states.map((state) => state.status)
+      )
+    ).toEqual([["loading", "loading"]]);
     await Effect.runPromise(Fiber.interrupt(fiber));
     await Effect.runPromise(Deferred.succeed(gate, true));
     await Bun.sleep(0);
