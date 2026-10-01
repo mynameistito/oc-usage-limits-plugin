@@ -139,6 +139,59 @@ describe("usage coordinator", () => {
     await Effect.runPromise(Fiber.interrupt(fiber));
   });
 
+  test("clears cached provider state when a provider is disabled", async () => {
+    const disabledCodexConfig: ResolvedUsageLimitsConfig = {
+      ...config,
+      providers: {
+        ...config.providers,
+        codex: { enabled: false },
+      },
+    };
+    const configs = [config, disabledCodexConfig, config];
+    let configIndex = 0;
+    const harness = dependencies((id) => Effect.succeed(usage(id)));
+    const coordinatorDependencies = {
+      ...harness.dependencies,
+      loadConfig: Effect.sync(() => {
+        const currentConfig =
+          configs[Math.min(configIndex, configs.length - 1)];
+        configIndex += 1;
+        if (!currentConfig) {
+          throw new Error("coordinator config sequence is empty");
+        }
+        return Result.succeed(currentConfig);
+      }),
+    };
+    const fiber = Effect.runFork(
+      Effect.scoped(usageCoordinator(coordinatorDependencies))
+    );
+
+    await Bun.sleep(0);
+    await Bun.sleep(0);
+    const [firstSleep] = harness.sleeps;
+    if (!firstSleep) {
+      throw new Error("first refresh sleep was not created");
+    }
+    await Effect.runPromise(Deferred.succeed(firstSleep, true));
+    await Bun.sleep(0);
+    await Bun.sleep(0);
+
+    const [secondSleep] = harness.sleeps.slice(1);
+    if (!secondSleep) {
+      throw new Error("second refresh sleep was not created");
+    }
+    await Effect.runPromise(Deferred.succeed(secondSleep, true));
+    await Bun.sleep(0);
+
+    expect(
+      harness.snapshots[4]?.states.map((state) => [state.id, state.status])
+    ).toEqual([
+      ["codex", "loading"],
+      ["zai", "ready"],
+    ]);
+    await Effect.runPromise(Fiber.interrupt(fiber));
+  });
+
   test("interrupts active provider work without publishing after disposal", async () => {
     const gate = await Effect.runPromise(Deferred.make<boolean>());
     const harness = dependencies(() =>

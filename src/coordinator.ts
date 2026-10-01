@@ -86,6 +86,13 @@ export const usageCoordinator = (
 
       intervalMs = intervalMilliseconds(config.refreshIntervalSeconds);
       const providers = config.enabled ? getProviderConfigs(config) : [];
+      const providerIDs = new Set(providers.map(([id]) => id));
+      for (const id of lastStates.keys()) {
+        if (!providerIDs.has(id)) {
+          lastStates.delete(id);
+          lastSuccess.delete(id);
+        }
+      }
       yield* dependencies.publish({
         display: Object.fromEntries(
           providers.map(([id, provider]) => [id, displaySettings(provider)])
