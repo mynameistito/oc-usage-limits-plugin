@@ -85,6 +85,46 @@ describe("ZAI provider", () => {
     });
   });
 
+  test("parses credit limits as 5h and weekly quota windows", async () => {
+    installFetchMock(
+      Response.json({
+        data: {
+          limits: [
+            {
+              currentValue: 25,
+              nextResetTime: Date.now() + 90_000,
+              percentage: 25,
+              type: "CREDIT_LIMIT",
+              unit: 3,
+            },
+            {
+              currentValue: 60,
+              percentage: 60,
+              type: "CREDIT_LIMIT",
+              unit: 6,
+            },
+            { type: "TIME_LIMIT", usage: 500 },
+          ],
+        },
+      })
+    );
+
+    const usage = await fetchZaiCodingPlanUsage({ apiKey: "key" }, {}, 1000);
+
+    expect(usage).toMatchObject({ tierName: "Pro" });
+    expect(usage.windows).toHaveLength(2);
+    expect(usage.windows[0]).toMatchObject({
+      kind: "rolling",
+      label: "5h",
+      quota: { _tag: "Count", current: 25, total: 100, usedPercent: 25 },
+    });
+    expect(usage.windows[1]).toMatchObject({
+      kind: "weekly",
+      label: "7d",
+      quota: { _tag: "Count", current: 60, total: 100, usedPercent: 60 },
+    });
+  });
+
   describe("tier inference", () => {
     test.each([
       [1400, "Max"],

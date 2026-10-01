@@ -165,8 +165,8 @@ const readZaiAuthPathKey = (
 /**
  * Converts one raw ZAI limit entry into a normalized usage window.
  *
- * Token limits become the primary `5h` quota window. Time limits are not shown
- * but still expose the total prompt quota used to infer the user's ZAI tier.
+ * Token and credit limits become quota windows. Time limits are not shown but
+ * still expose the total prompt quota used to infer the user's ZAI tier.
  *
  * @param limit - Raw limit object from the ZAI quota API.
  * @returns The normalized window plus any prompt total discovered on the entry.
@@ -183,7 +183,18 @@ const zaiWindowFromLimit = (limit: ZaiLimit): ZaiLimitResult => {
     ? Number(limit.usage)
     : undefined;
 
-  if (limit.type === "TOKENS_LIMIT") {
+  if (limit.type === "TOKENS_LIMIT" || limit.type === "CREDIT_LIMIT") {
+    const unit = Number(limit.unit);
+    let window: Pick<UsageWindow, "kind" | "label"> | null = null;
+    if (limit.type === "TOKENS_LIMIT" || unit === 3) {
+      window = { kind: "rolling", label: "5h" };
+    } else if (unit === 6) {
+      window = { kind: "weekly", label: "7d" };
+    }
+    if (!window) {
+      return { promptTotal: null, window: null };
+    }
+
     const rawCurrentValue = Number.isFinite(Number(limit.currentValue))
       ? Number(limit.currentValue)
       : undefined;
@@ -196,8 +207,7 @@ const zaiWindowFromLimit = (limit: ZaiLimit): ZaiLimitResult => {
     return {
       promptTotal: null,
       window: {
-        kind: "rolling",
-        label: "5h",
+        ...window,
         quota: zaiQuota(currentValue, computedTotal, usedPercent),
         resetsAt,
       },
@@ -217,7 +227,7 @@ const zaiWindowFromLimit = (limit: ZaiLimit): ZaiLimitResult => {
 const parseZaiLimits = (limits: readonly unknown[]): ZaiLimitsResult => {
   const windows: UsageWindow[] = [];
   let promptTotal: number | null = null;
-  let sawTokenLimit = false;
+  let sawQuotaLimit = false;
 
   for (const limit of limits) {
     if (!isRecord(limit)) {
@@ -225,8 +235,8 @@ const parseZaiLimits = (limits: readonly unknown[]): ZaiLimitsResult => {
     }
 
     const usage = zaiWindowFromLimit(limit);
-    if (limit.type === "TOKENS_LIMIT") {
-      sawTokenLimit = true;
+    if (limit.type === "TOKENS_LIMIT" || limit.type === "CREDIT_LIMIT") {
+      sawQuotaLimit = true;
     }
     if (usage.window) {
       windows.push(usage.window);
@@ -237,7 +247,7 @@ const parseZaiLimits = (limits: readonly unknown[]): ZaiLimitsResult => {
   }
 
   if (
-    sawTokenLimit &&
+    sawQuotaLimit &&
     windows.every((window) => window.quota._tag === "Unknown")
   ) {
     throw new Error("invalid ZAI usage");
