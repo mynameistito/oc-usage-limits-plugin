@@ -226,6 +226,19 @@ describe("Command Code provider", () => {
     expect(seen[1]).toBe(CREDITS_URL);
   });
 
+  test("fails the refresh when whoami fails instead of reading unscoped", async () => {
+    const seen = installResponses([new Response(null, { status: 500 })]);
+
+    await expect(
+      fetchCommandCodeUsage(
+        undefined,
+        { commandcode: { key: "cc-token" } },
+        1000
+      )
+    ).rejects.toThrow();
+    expect(seen).toEqual([WHOAMI_URL]);
+  });
+
   test("rejects missing credentials and malformed responses", async () => {
     await expect(fetchCommandCodeUsage(undefined, {}, 1000)).rejects.toThrow(
       "missing Command Code key"
