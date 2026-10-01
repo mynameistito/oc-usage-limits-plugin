@@ -8,22 +8,45 @@ const WHOAMI_URL = "https://api.commandcode.ai/alpha/whoami?limits=1";
 const CREDITS_URL = "https://api.commandcode.ai/alpha/billing/credits";
 const SUMMARY_URL = "https://api.commandcode.ai/alpha/usage/summary";
 
+interface SeenRequest {
+  authorization: string | null;
+  method: string | undefined;
+  url: string;
+}
+
+let unexpectedRequests: string[] = [];
+
 // SAFETY: The mock implements the subset of fetch used by these tests.
 const asFetch = <T>(value: T): typeof fetch => value as typeof fetch;
 
 const installResponses = (
   responses: readonly Response[]
-): readonly string[] => {
-  const seen: string[] = [];
+): readonly SeenRequest[] => {
+  const seen: SeenRequest[] = [];
   let index = 0;
-  globalThis.fetch = asFetch((input: string | URL | Request) => {
-    seen.push(String(input));
-    const response = responses[index] ?? new Response(null, { status: 502 });
-    index += 1;
-    return Promise.resolve(response);
-  });
+  unexpectedRequests = [];
+  globalThis.fetch = asFetch(
+    (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      seen.push({
+        authorization: new Headers(init?.headers).get("authorization"),
+        method: init?.method,
+        url,
+      });
+      const response = responses[index];
+      index += 1;
+      if (!response) {
+        unexpectedRequests.push(url);
+        throw new Error(`Unexpected Command Code request: ${url}`);
+      }
+      return Promise.resolve(response);
+    }
+  );
   return seen;
 };
+
+const seenUrls = (seen: readonly SeenRequest[]): string[] =>
+  seen.map((request) => request.url);
 
 /** A personal-account `/alpha/whoami` response, when `orgId` is omitted. */
 const whoamiBody = (orgId?: string): Response =>
@@ -95,6 +118,8 @@ const overCapBody = (): Response =>
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  expect(unexpectedRequests).toEqual([]);
+  unexpectedRequests = [];
 });
 
 describe("Command Code provider", () => {
@@ -111,7 +136,11 @@ describe("Command Code provider", () => {
       1000
     );
 
-    expect(seen).toEqual([WHOAMI_URL, CREDITS_URL, SUMMARY_URL]);
+    expect(seenUrls(seen)).toEqual([WHOAMI_URL, CREDITS_URL, SUMMARY_URL]);
+    expect(seen[0]).toMatchObject({
+      authorization: "Bearer cc-token",
+      method: "GET",
+    });
     expect(usage).toMatchObject({
       id: "commandcode",
       label: "Command Code",
@@ -138,7 +167,7 @@ describe("Command Code provider", () => {
       1000
     );
 
-    expect(seen).toEqual([
+    expect(seenUrls(seen)).toEqual([
       WHOAMI_URL,
       `${CREDITS_URL}?orgId=org_fixture`,
       `${SUMMARY_URL}?orgId=org_fixture`,
@@ -158,8 +187,11 @@ describe("Command Code provider", () => {
       1000
     );
 
-    expect(seen[1]).toBe(`${CREDITS_URL}?orgId=org_nested`);
-    expect(seen[2]).toBe(`${SUMMARY_URL}?orgId=org_nested`);
+    expect(seenUrls(seen)).toEqual([
+      WHOAMI_URL,
+      `${CREDITS_URL}?orgId=org_nested`,
+      `${SUMMARY_URL}?orgId=org_nested`,
+    ]);
   });
 
   test("omits the org scope for a personal account", async () => {
@@ -175,11 +207,27 @@ describe("Command Code provider", () => {
       1000
     );
 
-    expect(seen).toEqual([WHOAMI_URL, CREDITS_URL, SUMMARY_URL]);
+    expect(seenUrls(seen)).toEqual([WHOAMI_URL, CREDITS_URL, SUMMARY_URL]);
+  });
+
+  test("omits an empty organization id instead of sending orgId=", async () => {
+    const seen = installResponses([
+      whoamiBody(""),
+      creditsBody(7, 7),
+      Response.json({ totalCredits: 5 }),
+    ]);
+
+    await fetchCommandCodeUsage(
+      undefined,
+      { commandcode: { key: "cc-token" } },
+      1000
+    );
+
+    expect(seenUrls(seen)).toEqual([WHOAMI_URL, CREDITS_URL, SUMMARY_URL]);
   });
 
   test("clamps an exhausted bucket to 100% instead of dropping it", async () => {
-    installResponses([
+    const seen = installResponses([
       whoamiBody(),
       overCapBody(),
       Response.json({ totalCredits: 5 }),
@@ -195,10 +243,11 @@ describe("Command Code provider", () => {
       kind: "rolling",
       quota: { usedPercent: 100 },
     });
+    expect(seenUrls(seen)).toEqual([WHOAMI_URL, CREDITS_URL, SUMMARY_URL]);
   });
 
   test("keeps an unknown monthly quota when the summary request fails", async () => {
-    installResponses([
+    const seen = installResponses([
       whoamiBody(),
       creditsBody(1, 1),
       new Response(null, { status: 500 }),
@@ -215,15 +264,19 @@ describe("Command Code provider", () => {
       { kind: "weekly" },
       { kind: "monthly", quota: { _tag: "Unknown" } },
     ]);
+    expect(seenUrls(seen)).toEqual([WHOAMI_URL, CREDITS_URL, SUMMARY_URL]);
   });
 
   test("supports a literal API key without OpenCode auth", async () => {
-    const seen = installResponses([whoamiBody(), creditsBody(1, 1)]);
+    const seen = installResponses([
+      whoamiBody(),
+      creditsBody(1, 1),
+      Response.json({ totalCredits: 5 }),
+    ]);
 
     await fetchCommandCodeUsage({ apiKey: "literal-token" }, {}, 1000);
 
-    expect(seen[0]).toBe(WHOAMI_URL);
-    expect(seen[1]).toBe(CREDITS_URL);
+    expect(seenUrls(seen)).toEqual([WHOAMI_URL, CREDITS_URL, SUMMARY_URL]);
   });
 
   test("fails the refresh when whoami fails instead of reading unscoped", async () => {
@@ -236,7 +289,7 @@ describe("Command Code provider", () => {
         1000
       )
     ).rejects.toThrow();
-    expect(seen).toEqual([WHOAMI_URL]);
+    expect(seenUrls(seen)).toEqual([WHOAMI_URL]);
   });
 
   test("fails the refresh when a 200 whoami body reports failure", async () => {
@@ -251,13 +304,14 @@ describe("Command Code provider", () => {
         1000
       )
     ).rejects.toThrow("invalid Command Code usage");
-    expect(seen).toEqual([WHOAMI_URL]);
+    expect(seenUrls(seen)).toEqual([WHOAMI_URL]);
   });
 
   test("reads a whoami body without a success flag as a personal account", async () => {
     const seen = installResponses([
       Response.json({ user: { id: "user_fixture" } }),
       creditsBody(1, 1),
+      Response.json({ totalCredits: 5 }),
     ]);
 
     await fetchCommandCodeUsage(
@@ -266,7 +320,7 @@ describe("Command Code provider", () => {
       1000
     );
 
-    expect(seen[1]).toBe(CREDITS_URL);
+    expect(seenUrls(seen)).toEqual([WHOAMI_URL, CREDITS_URL, SUMMARY_URL]);
   });
 
   test("rejects missing credentials and malformed responses", async () => {
@@ -274,14 +328,18 @@ describe("Command Code provider", () => {
       "missing Command Code key"
     );
 
-    installResponses([whoamiBody(), Response.json({ credits: {} })]);
+    const seen = installResponses([
+      whoamiBody(),
+      Response.json({ credits: {} }),
+    ]);
     await expect(
       fetchCommandCodeUsage(undefined, { commandcode: { key: "key" } }, 1000)
     ).rejects.toThrow("invalid Command Code usage");
+    expect(seenUrls(seen)).toEqual([WHOAMI_URL, CREDITS_URL]);
   });
 
   test("withholds OpenCode auth from a custom port on the official host", async () => {
-    const seen = installResponses([whoamiBody(), creditsBody(1, 1)]);
+    const seen = installResponses([]);
 
     await expect(
       fetchCommandCodeUsage(
@@ -290,6 +348,29 @@ describe("Command Code provider", () => {
         1000
       )
     ).rejects.toThrow("missing Command Code key");
-    expect(seen).toEqual([]);
+    expect(seenUrls(seen)).toEqual([]);
+  });
+
+  test("joins endpoint paths before base URL query and fragment components", async () => {
+    const seen = installResponses([
+      whoamiBody(),
+      creditsBody(1, 1),
+      Response.json({ totalCredits: 5 }),
+    ]);
+
+    await fetchCommandCodeUsage(
+      {
+        apiKey: "custom-token",
+        baseUrl: "https://cc.example.test/proxy?tenant=workspace#section",
+      },
+      {},
+      1000
+    );
+
+    expect(seenUrls(seen)).toEqual([
+      "https://cc.example.test/proxy/alpha/whoami?tenant=workspace&limits=1",
+      "https://cc.example.test/proxy/alpha/billing/credits?tenant=workspace",
+      "https://cc.example.test/proxy/alpha/usage/summary?tenant=workspace",
+    ]);
   });
 });

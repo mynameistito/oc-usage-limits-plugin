@@ -59,7 +59,9 @@ const commandCodeUrl = (
   path: string,
   query: Readonly<Record<string, string | undefined>> = {}
 ): string => {
-  const url = new URL(`${baseUrl}${path}`);
+  const url = new URL(baseUrl);
+  url.pathname = `${url.pathname.replace(/\/+$/u, "")}${path}`;
+  url.hash = "";
   for (const [key, value] of Object.entries(query)) {
     if (value) {
       url.searchParams.set(key, value);
@@ -416,7 +418,12 @@ const fetchCommandCodeUsageEffect = (
           orgId,
         }),
       })
-      .pipe(Effect.catchCause(() => Effect.succeed<JsonValue | null>(null)));
+      .pipe(
+        Effect.catchIf(
+          () => true,
+          () => Effect.succeed<JsonValue | null>(null)
+        )
+      );
 
     // SAFETY: windowLimits was validated as a record by the guard above.
     const limits = payload.windowLimits as ProviderPayload;

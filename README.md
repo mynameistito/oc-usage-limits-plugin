@@ -187,7 +187,7 @@ MiniMax Token Plan lookup order:
 
 Command Code lookup order:
 
-1. Config `authPath` JSON file (`{ "key": "..." }` / `{ "apiKey": "..." }` / `{ "commandcode": { "key": "..." } }`).
+1. Config `authPath` JSON file (`{ "key": "..." }` / `{ "apiKey": "..." }` / `{ "commandcode": { "key": "..." } }` / `{ "commandcode": { "apiKey": "..." } }`).
 2. OpenCode auth at `~/.local/share/opencode/auth.json`, provider `commandcode`.
 3. Config `apiKey`, including `{env:COMMAND_CODE_API_KEY}` references.
 
