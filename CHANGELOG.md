@@ -1,5 +1,16 @@
 # oc-usage-limits-plugin
 
+## 1.7.0
+
+### Minor Changes
+
+- d81492a: Add a `commandcode` provider that shows rolling 5-hour, weekly, and monthly credit windows from Command Code auth.
+
+### Patch Changes
+
+- 06b3415: Support Z.AI credit-based coding plan limits
+- 2880235: Keep the previous usage snapshot visible while provider data refreshes.
+
 ## 1.6.1
 
 ### Patch Changes
